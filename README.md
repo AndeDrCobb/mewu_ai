@@ -86,6 +86,8 @@ Original: [HKEAA 2025 HKDSE Mathematics Compulsory Part sample script](https://w
 
 ## Get started
 
+> **Mac users:** MewuAI does not currently support macOS. Explore our partner project [**kangarooking/Ta**](https://github.com/kangarooking/Ta), an AI screenshot tool for macOS with OCR, translation, scrolling capture, and annotations.
+
 1. **Install and open.** Download the installer above, or extract the portable ZIP and run MewuAI.exe. Requires Windows 10 2004 or later, x64. No separate .NET installation is needed.
 2. **Capture a region.** Press <kbd>Shift</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd>, drag to select an area, and use the toolbar to copy, save, annotate, extract text, or record.
 3. **Connect AI.** Set up and save a connection in **Settings → AI**. Use the capture toolbar's reference button to add a region to your question. You can also upload attachments or ask a text-only question.
