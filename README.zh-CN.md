@@ -18,7 +18,7 @@
 框选屏幕上的内容，让 AI 帮你翻译、讲解或标出重点。回答和标注直接显示在画面上，也可以连同截图一起保存。
 
 <p align="center">
-  <a href="./docs/images/mewuai-cover.png"><img src="./docs/images/mewuai-cover.png" width="100%" alt="喵呜AI 概念封面：在 Windows 桌面上截图、提问和原位标注" /></a>
+  <a href="./docs/images/mewuai-cover-compact.png"><img src="./docs/images/mewuai-cover-compact.png" width="100%" alt="喵呜AI 概念封面：在 Windows 桌面上截图、提问和原位标注" /></a>
   <br /><sub>AI 生成的概念封面，实际界面见下方功能演示。</sub>
 </p>
 
