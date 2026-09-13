@@ -73,6 +73,18 @@ Screenshots, manual annotations, pinned images, text recognition, and recording 
 <a href="./docs/media/MewuAI-video-annotations.gif"><img src="./docs/media/MewuAI-video-annotations.gif" width="100%" alt="Jumping to a video scene from an answer and playing it with tracking annotations" /></a>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top">
+<h3>Annotate data</h3>
+<p>Ask AI to identify and mark objects in an image, such as visible vehicles in a traffic scene.</p>
+<a href="./docs/images/data-annotations.png"><img src="./docs/images/data-annotations.png" width="100%" alt="AI circles visible vehicles in a traffic image and explains the limits of recognition" /></a>
+</td>
+<td width="50%" valign="top">
+<h3>Recognize tables</h3>
+<p>Turn a table screenshot into a structured answer, then use Copy table to paste it into Excel.</p>
+<a href="./docs/images/table-recognition.png"><img src="./docs/images/table-recognition.png" width="100%" alt="A table screenshot recognized as rows and columns with a Copy table button" /></a>
+</td>
+</tr>
 </table>
 
 <details>

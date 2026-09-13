@@ -73,6 +73,18 @@
 <a href="./docs/media/MewuAI-video-annotations.gif"><img src="./docs/media/MewuAI-video-annotations.gif" width="100%" alt="点击回答定位视频片段，播放时标注跟随目标移动" /></a>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top">
+<h3>数据标注</h3>
+<p>让 AI 识别并圈出图片中的目标，例如交通画面里可辨认的车辆。</p>
+<a href="./docs/images/data-annotations.png"><img src="./docs/images/data-annotations.png" width="100%" alt="AI 圈出交通画面中可辨认的车辆，并说明识别范围" /></a>
+</td>
+<td width="50%" valign="top">
+<h3>表格识别</h3>
+<p>把截图中的表格识别成行列清晰的回答，点击“复制表格”即可粘贴到 Excel。</p>
+<a href="./docs/images/table-recognition.png"><img src="./docs/images/table-recognition.png" width="100%" alt="表格截图识别为结构化行列，回答上方提供复制表格按钮" /></a>
+</td>
+</tr>
 </table>
 
 <details>

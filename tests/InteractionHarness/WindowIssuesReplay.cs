@@ -63,18 +63,30 @@ internal static class WindowIssuesReplay
                 {
                     host.Settings.TeachingMode=teaching;
                     var prefix=teaching?"teaching":"protected";
+                    var firstOverlay=new CaptureOverlayWindow(host){Title="Mewu QA · First pin",ShowInTaskbar=true};windows.Add(firstOverlay);
+                    Program.MarkReplayWindow(firstOverlay,"置顶验收 · 当前贴图立即在上 · 完成后自动关闭");
+                    firstOverlay.Show();firstOverlay.Activate();await Idle();
+                    var firstPin=PinSelection(app,firstOverlay);windows.Add(firstPin);await Idle();
+                    Check(prefix+"-first-pin-above-current-overlay",Above(firstPin,firstOverlay));
+                    Check(prefix+"-first-pin-receives-input",HitsCenter(firstPin));
+                    firstPin.Activate();await Idle();firstOverlay.Activate();await Idle();
+                    Check(prefix+"-first-pin-survives-overlay-reactivation",Above(firstPin,firstOverlay)&&HitsCenter(firstPin));
+                    firstOverlay.Close();await Idle();
+                    Check(prefix+"-first-pin-survives-capture-close",firstPin.IsVisible&&firstPin.Topmost);
+                    firstPin.Close();await Idle();
                     var pin=new PinnedImageWindow(SolidImage(),new ScreenRect(area.Left+120,area.Top+140,400,260),teaching);
                     windows.Add(pin);pin.Show();await Idle();
                     var second=new PinnedImageWindow(SolidImage(),new ScreenRect(area.Left+340,area.Top+270,350,220),teaching);
                     windows.Add(second);second.Show();await Idle();
                     for(var round=0;round<2;round++)
                     {
-                        var overlay=new CaptureOverlayWindow(host){Title="Mewu QA · Screenshot over pinned images",ShowInTaskbar=true};windows.Add(overlay);
-                        Program.MarkReplayWindow(overlay,"Issue #4 验收 · 贴图不能挡住截图操作 · 完成后自动关闭");
+                        var overlay=new CaptureOverlayWindow(host){Title="Mewu QA · Screenshot below pinned images",ShowInTaskbar=true};windows.Add(overlay);
+                        Program.MarkReplayWindow(overlay,"置顶验收 · 再次截图在已有贴图下方 · 完成后自动关闭");
                         overlay.Show();overlay.Activate();await Idle();
                         var label=$"{prefix}-{round}";
-                        Check(label+"-overlay-above-both-pins",Above(overlay,pin)&&Above(overlay,second));
-                        Check(label+"-pin-area-input-goes-to-overlay",WindowFromPoint(new NativePoint{X=area.Left+200,Y=area.Top+210})==Handle(overlay));
+                        Check(label+"-later-overlay-below-both-pins",Above(pin,overlay)&&Above(second,overlay));
+                        Check(label+"-pin-area-input-goes-to-pin",WindowFromPoint(new NativePoint{X=area.Left+200,Y=area.Top+210})==Handle(pin));
+                        Check(label+"-existing-pin-order-retained",Above(second,pin));
                         Check(label+"-overlay-protection",Affinity(overlay)==(teaching?0:NativeMethods.WdaExcludeFromCapture));
                         Check(label+"-pins-retain-topmost",pin.Topmost&&second.Topmost&&pin.IsVisible&&second.IsVisible);
                         Check(label+"-pin-protection",Affinity(pin)==(teaching?0:NativeMethods.WdaExcludeFromCapture));
@@ -84,23 +96,15 @@ internal static class WindowIssuesReplay
                         Check(label+"-pin-pixels-preserved-in-frozen-desktop",sample[2]>sample[1]&&sample[1]>sample[0]);
                         Array.Clear(sample);
                         second.Activate();await Idle();overlay.Activate();await Idle();
-                        Check(label+"-reactivation-keeps-overlay-above-pins",Above(overlay,pin)&&Above(overlay,second));
+                        Check(label+"-reactivation-keeps-overlay-below-pins",Above(pin,overlay)&&Above(second,overlay));
                         // Exercise the actual pin command in this same overlay,
                         // including its desktop refresh and focus restoration.
-                        var selection=typeof(CaptureOverlayWindow).GetMethod("CreateSelection",Private)!.Invoke(overlay,[false])!;
-                        var boundsProperty=selection.GetType().GetField("Bounds")!;
-                        boundsProperty.SetValue(selection,new Rect(80,80,180,120));
-                        var selections=(System.Collections.IList)typeof(CaptureOverlayWindow).GetField("_selections",Private)!.GetValue(overlay)!;
-                        selections.Add(selection);
-                        typeof(CaptureOverlayWindow).GetField("_activeIndex",Private)!.SetValue(overlay,selections.Count-1);
-                        typeof(CaptureOverlayWindow).GetMethod("UpdateSelection",Private)!.Invoke(overlay,[selection]);
-                        typeof(CaptureOverlayWindow).GetMethod("Pin",Private)!.Invoke(overlay,[overlay,new RoutedEventArgs()]);
+                        var created=PinSelection(app,overlay);
                         await Idle();
-                        var created=app.Windows.OfType<PinnedImageWindow>().Single(w=>w!=pin&&w!=second);
                         windows.Add(created);
-                        Check(label+"-new-pin-does-not-cover-overlay",Above(overlay,created));
+                        Check(label+"-new-pin-above-current-overlay",Above(created,overlay));
+                        Check(label+"-new-pin-receives-input",HitsCenter(created));
                         Check(label+"-new-pin-preserved",created.IsVisible&&created.Topmost);
-                        if(teaching&&round==0)await Task.Delay(20000);
                         overlay.Close();await Idle();
                         Check(label+"-closing-overlay-preserves-pins",pin.IsVisible&&second.IsVisible&&created.IsVisible&&pin.Topmost&&second.Topmost);
                         created.Close();
@@ -125,6 +129,23 @@ internal static class WindowIssuesReplay
     }
 
     private static IntPtr Handle(Window window)=>new WindowInteropHelper(window).Handle;
+    private static bool HitsCenter(Window window)
+    {
+        if(!NativeMethods.GetWindowRect(Handle(window),out var bounds))return false;
+        return WindowFromPoint(new NativePoint{X=(bounds.Left+bounds.Right)/2,Y=(bounds.Top+bounds.Bottom)/2})==Handle(window);
+    }
+    private static PinnedImageWindow PinSelection(Application app,CaptureOverlayWindow overlay)
+    {
+        var previous=app.Windows.OfType<PinnedImageWindow>().ToHashSet();
+        var selection=typeof(CaptureOverlayWindow).GetMethod("CreateSelection",Private)!.Invoke(overlay,[false])!;
+        selection.GetType().GetField("Bounds")!.SetValue(selection,new Rect(80,80,180,120));
+        var selections=(System.Collections.IList)typeof(CaptureOverlayWindow).GetField("_selections",Private)!.GetValue(overlay)!;
+        selections.Add(selection);
+        typeof(CaptureOverlayWindow).GetField("_activeIndex",Private)!.SetValue(overlay,selections.Count-1);
+        typeof(CaptureOverlayWindow).GetMethod("UpdateSelection",Private)!.Invoke(overlay,[selection]);
+        typeof(CaptureOverlayWindow).GetMethod("Pin",Private)!.Invoke(overlay,[overlay,new RoutedEventArgs()]);
+        return app.Windows.OfType<PinnedImageWindow>().Single(window=>!previous.Contains(window));
+    }
     private static uint Affinity(Window window)=>GetWindowDisplayAffinity(Handle(window),out var value)?value:uint.MaxValue;
     private static bool Above(Window front,Window back)
     {

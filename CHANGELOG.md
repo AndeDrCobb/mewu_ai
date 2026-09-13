@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修复刚置顶的贴图被当前截图层遮挡；贴图保持在上方，之后开启的截图层位于已有贴图下方。 / Keep newly pinned images above the current capture overlay and later capture overlays below existing pins.
+- 双语 README 增加数据标注和表格识别实图，扩展为八宫格。 / Expand the bilingual gallery to eight examples with data annotation and table recognition screenshots.
 - 修复截图问答中模型前言和未转义引号导致整段 JSON 显示的问题；保留可恢复的正文、分段及通过校验的批注。 / Fix raw JSON appearing in screenshot answers when a model adds a preamble or unescaped quotes; retain recoverable text, paragraphs and validated annotations.
 
 ## 0.4.4 — 原位翻译与窗口交互 / In-place translation and window interaction

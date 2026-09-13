@@ -385,7 +385,7 @@ public partial class CaptureOverlayWindow : Window
                 PositionPromptBar();
             }));
             _overlayReady=true;
-            KeepOverlayAbovePinnedWindows();
+            KeepOverlayBelowPinnedWindows();
             if(_conversationAiAvailable&&CaptureOverlayPolicy.ShouldStartAutomaticListening(_host.Settings.EnableVoiceInput,_host.Settings.AutomaticallyStartListening,_autoVoiceStarted,_closed)){_autoVoiceStarted=true;await ToggleVoiceAsync();}
         };
         DpiChanged+=(_,_)=>ApplyOverlayDpiLayout(area);
@@ -797,7 +797,7 @@ public partial class CaptureOverlayWindow : Window
             try{window.Show();}catch{window.Close();throw;}
             ReferencePicker.IsOpen=false;
             RefreshDesktopFrameIncludingPinnedWindows();
-            KeepOverlayAbovePinnedWindows();
+            KeepOverlayBelowPinnedWindows();
             PromptStatus.Text=$"{file.Label} 已置顶，可继续框选截图";
             SetPromptBarHidden(false);
             e.Effects=DragDropEffects.Copy;
@@ -1256,17 +1256,16 @@ public partial class CaptureOverlayWindow : Window
         _inactiveEscapeTimer.Stop();
         if(_closed||!_overlayReady)return;
         if(!IsKeyboardFocusWithin&&!_drawingModalOpen&&_systemFileDialogDepth==0)Root.Focus();
-        if(_longCaptureMode){KeepOverlayAbovePinnedWindows();return;}
+        if(_longCaptureMode){KeepOverlayBelowPinnedWindows();return;}
         // A modal file picker temporarily activates/deactivates its owner.
         // Capturing the desktop during that transition freezes the picker into
         // the screenshot. Keep the original clean frame until the modal has
         // completely unwound on the dispatcher.
-        if(_systemFileDialogDepth>0){KeepOverlayAbovePinnedWindows();return;}
-        // Refresh the frozen pin content before raising the interactive
-        // capture surface. Live pins must not intercept selection gestures
-        // or obscure the toolbar, annotations and conversation controls.
+        if(_systemFileDialogDepth>0){KeepOverlayBelowPinnedWindows();return;}
+        // Existing pins stay available above a later screenshot session.
+        // Reactivating the overlay must not bury them again.
         RefreshDesktopFrameIncludingPinnedWindows();
-        KeepOverlayAbovePinnedWindows();
+        KeepOverlayBelowPinnedWindows();
     }
 
     private static IEnumerable<Window> GetPinnedWindows()
@@ -1287,15 +1286,26 @@ public partial class CaptureOverlayWindow : Window
         Root.Focus();
     }
 
-    private void KeepOverlayAbovePinnedWindows()
+    private void KeepOverlayBelowPinnedWindows()
     {
-        if(_closed||!IsVisible||!GetPinnedWindows().Any(window=>window.IsVisible&&window.Topmost))return;
+        if(_closed||!IsVisible)return;
         var handle=new WindowInteropHelper(this).Handle;
         if(handle==IntPtr.Zero)return;
-        // Move only this overlay in Z order. Pins retain their visibility,
-        // topmost preference and relative order, and are usable when it closes.
+        var pins=GetPinnedWindows().Where(window=>window.IsVisible&&window.Topmost)
+            .Select(window=>new WindowInteropHelper(window).Handle).Where(hwnd=>hwnd!=IntPtr.Zero).ToHashSet();
+        if(pins.Count==0)return;
+        // Find the lowest live pin in actual native Z order, not creation order.
+        // Only lower the capture surface; retain every pin's ordering and state.
+        var lowestPin=IntPtr.Zero;
+        var current=NativeMethods.GetWindow(handle,0); // GW_HWNDFIRST
+        for(var count=0;count<2048&&current!=IntPtr.Zero;count++)
+        {
+            if(pins.Remove(current)){lowestPin=current;if(pins.Count==0)break;}
+            current=NativeMethods.GetWindow(current,2); // GW_HWNDNEXT
+        }
+        if(lowestPin==IntPtr.Zero)return;
         const uint NoMove=0x0001,NoSize=0x0002,NoActivate=0x0010;
-        NativeMethods.SetWindowPos(handle,new IntPtr(-1),0,0,0,0,NoMove|NoSize|NoActivate);
+        NativeMethods.SetWindowPos(handle,lowestPin,0,0,0,0,NoMove|NoSize|NoActivate);
     }
 
 
@@ -2558,11 +2568,11 @@ public partial class CaptureOverlayWindow : Window
                 var window=new PinnedVideoWindow(video,region,IsTeachingMode);try{window.Show();}catch{window.Close();throw;}
             }
             else new PinnedImageWindow(RenderSelectionImage(item,true,true,true),region,IsTeachingMode).Show();
-            // Preserve the pin in the frozen frame while the overlay remains
-            // the active surface for continued selection and annotation.
+            // The newly created pin must be visible and interactive immediately.
+            // Returning keyboard focus must not raise the overlay over it.
             RefreshDesktopFrameIncludingPinnedWindows();
             RestoreOverlayKeyboardFocusAfterPin();
-            KeepOverlayAbovePinnedWindows();
+            KeepOverlayBelowPinnedWindows();
             PromptStatus.Text=item.VideoPath is null?(HasAnyAnnotations(item)?"已在原位贴出带标注图片":"已在原位贴图"):(HasAnyAnnotations(item)?"已在原位贴出带标注视频":"已在原位贴视频");SetPromptBarHidden(false);
         }
         catch(OperationCanceledException){if(!_closed&&operation is not null&&ReferenceEquals(_overlayRequest,operation))PromptStatus.Text="已取消生成贴图";}

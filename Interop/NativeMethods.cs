@@ -21,6 +21,7 @@ internal static class NativeMethods
     [DllImport("user32.dll",SetLastError=true)] private static extern bool SetWindowDisplayAffinity(IntPtr hWnd,uint affinity);
     [DllImport("user32.dll",SetLastError=true)] private static extern bool GetWindowDisplayAffinity(IntPtr hWnd,out uint affinity);
     [DllImport("user32.dll",SetLastError=true)] internal static extern bool SetWindowPos(IntPtr hWnd,IntPtr insertAfter,int x,int y,int width,int height,uint flags);
+    [DllImport("user32.dll")] internal static extern IntPtr GetWindow(IntPtr hWnd,uint command);
     [DllImport("user32.dll")] internal static extern uint GetDpiForWindow(IntPtr hWnd);
     [DllImport("user32.dll",SetLastError=true)] internal static extern int SetWindowRgn(IntPtr hWnd,IntPtr hRgn,bool redraw);
     [DllImport("user32.dll",SetLastError=true)] private static extern int GetWindowRgn(IntPtr hWnd,IntPtr hRgn);
