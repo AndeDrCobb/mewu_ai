@@ -18,7 +18,8 @@
 Select something on your screen and ask AI to translate it, explain it, or highlight the important parts. Answers and annotations appear alongside the content, and you can save them with your screenshot.
 
 <p align="center">
-  <a href="./docs/images/web-annotations.jpg"><img src="./docs/images/web-annotations.jpg" width="100%" alt="AI circles buttons in a webpage screenshot and adds explanations beside them" /></a>
+  <a href="./docs/images/mewuai-cover.png"><img src="./docs/images/mewuai-cover.png" width="100%" alt="MewuAI concept cover: capture, ask and annotate on a Windows desktop" /></a>
+  <br /><sub>AI-generated concept cover. Actual interface examples are shown below.</sub>
 </p>
 
 ## Features
