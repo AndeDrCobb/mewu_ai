@@ -2,6 +2,10 @@
 
 每个正式版本对应自己的源码标签、安装包和双语发行说明。后续功能写入新版本；旧版本说明保留当时发布内容。/ Each release has its own source tag, packages, and bilingual notes. Later changes belong to later releases.
 
+## 未发布 / Unreleased
+
+- 修复截图问答中模型前言和未转义引号导致整段 JSON 显示的问题；保留可恢复的正文、分段及通过校验的批注。 / Fix raw JSON appearing in screenshot answers when a model adds a preamble or unescaped quotes; retain recoverable text, paragraphs and validated annotations.
+
 ## 0.4.4 — 原位翻译与窗口交互 / In-place translation and window interaction
 
 - 翻译批次并行处理，改善原文与译文的定位及复制、贴图、导出一致性。 / Process translation batches concurrently and improve placement across the overlay, copies, pinned images and exports.

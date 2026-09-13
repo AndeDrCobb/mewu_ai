@@ -20,6 +20,9 @@ public static class StructuredResponseParser
         var allReasoning = string.Join(Environment.NewLine + Environment.NewLine, new[] { reasoning.Trim() }.Concat(extracted).Where(x => x.Length > 0));
         value = ThinkBlock.Replace(value, string.Empty).Trim();
 
+        if (expectStructuredResponse && TryGetPrefixedVisualPayload(value, out var visualPayload))
+            value = visualPayload;
+
         if (!TryGetStructuredPayload(value, out var json))
             return expectStructuredResponse&&LooksLikeBrokenStructuredPayload(value)
                 ?new(string.Empty,[],allReasoning)
@@ -43,10 +46,75 @@ public static class StructuredResponseParser
         }
         catch (JsonException)
         {
+            if (expectStructuredResponse && TryRecoverQuotedAnswer(json, allReasoning, out var recovered))
+                return recovered;
             return TryExtractAnswerFromTruncatedStructuredResponse(json, out var answer) || (expectStructuredResponse && TryExtractLooseRootAnswer(json, out answer))
                 ? new(answer, [], allReasoning)
                 : expectStructuredResponse?new(string.Empty,[],allReasoning):new(value, [], allReasoning);
         }
+    }
+
+    // Only a visual-response request may discard a preamble. A root protocol
+    // property, read by the JSON reader, distinguishes it from prose examples.
+    private static bool TryGetPrefixedVisualPayload(string value, out string payload)
+    {
+        payload = string.Empty;
+        var trimmed = value.TrimStart();
+        if (trimmed.StartsWith('{') || trimmed.StartsWith('[') || trimmed.StartsWith("```", StringComparison.Ordinal)) return false;
+        var limit = Math.Min(value.Length, 8192);
+        for (var index = 0; index < limit; index++)
+        {
+            if (value[index] != '{' || (index > 0 && !string.IsNullOrWhiteSpace(value[(value.LastIndexOf('\n', index) + 1)..index])))
+                continue;
+            var header = Encoding.UTF8.GetBytes(value.AsSpan(index, Math.Min(value.Length - index, 1024)).ToString());
+            var reader = new Utf8JsonReader(header, isFinalBlock: false, state: default);
+            try
+            {
+                if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject ||
+                    !reader.Read() || reader.TokenType != JsonTokenType.PropertyName || !reader.ValueTextEquals("annotationProtocol") ||
+                    !reader.Read() || reader.TokenType != JsonTokenType.String)
+                    continue;
+                payload = value[index..].TrimEnd();
+                if (payload.EndsWith("```", StringComparison.Ordinal)) payload = payload[..^3].TrimEnd();
+                return true;
+            }
+            catch (JsonException) { }
+        }
+        return false;
+    }
+
+    // Repair only the answer string. The unchanged envelope and every executable
+    // annotation still pass the normal JSON parser and annotation validation.
+    private static bool TryRecoverQuotedAnswer(string value, string reasoning, out AiResult result)
+    {
+        result = new(string.Empty, [], reasoning);
+        if (value.Length > 1024 * 1024 || !value.TrimEnd().EndsWith('}') ||
+            !TryFindRootAnswerValue(value.AsSpan(), out var start)) return false;
+        var attempts = 0;
+        for (var index = start; index < value.Length; index++)
+        {
+            if (value[index] == '\\') { index++; continue; }
+            if (value[index] != '"') continue;
+            var next = SkipWhitespace(value, index + 1);
+            if (next >= value.Length || value[next] is not (',' or '}')) continue;
+            if (++attempts > 32) return false;
+            var normalized = string.Concat(value.AsSpan(0, start), value.AsSpan(index));
+            try
+            {
+                using var document = JsonDocument.Parse(normalized);
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("answer", out var emptyAnswer) ||
+                    emptyAnswer.ValueKind != JsonValueKind.String || emptyAnswer.GetString() != string.Empty ||
+                    root.EnumerateObject().Count(property => property.NameEquals("answer")) != 1 ||
+                    !root.TryGetProperty("annotations", out _) ||
+                    !TryDecodeJsonStringLoosely(value.AsSpan(start, index - start), out var answer) ||
+                    string.IsNullOrWhiteSpace(answer)) continue;
+                result = new(answer, ParseAnnotations(root), reasoning, ParseAnnotationUpdateMode(root));
+                return true;
+            }
+            catch (JsonException) { }
+        }
+        return false;
     }
 
     // Providers occasionally emit invalid JSON escapes (for example \@) in an
@@ -55,14 +123,10 @@ public static class StructuredResponseParser
     private static bool TryExtractLooseRootAnswer(string json, out string answer)
     {
         answer=string.Empty;
-        var marker=json.IndexOf("\"answer\"",StringComparison.OrdinalIgnoreCase);
-        if(marker<0)return false;
-        var colon=json.IndexOf(':',marker+8);if(colon<0)return false;
-        var start=json.IndexOf('"',colon+1);if(start<0)return false;
-        var tail=json.IndexOf("\",\"annotations\"",start+1,StringComparison.OrdinalIgnoreCase);
-        if(tail<0)tail=json.IndexOf("\", \"annotations\"",start+1,StringComparison.OrdinalIgnoreCase);
-        if(tail<0)return false;
-        var raw=json[(start+1)..tail];var sb=new StringBuilder(raw.Length);
+        if(!TryFindRootAnswerValue(json.AsSpan(),out var start)||
+           !TryFindAnswerEndBeforeMetadata(json.AsSpan(),start,out var tail)||
+           !IsValidJsonPrefixWithEmptyAnswer(json,start,tail))return false;
+        var raw=json[start..tail];var sb=new StringBuilder(raw.Length);
         for(var i=0;i<raw.Length;i++)
         {
             if(raw[i]=='\\'&&i+1<raw.Length){var next=raw[++i];sb.Append(next switch{'n'=>'\n','r'=>'\r','t'=>'\t','"'=>'"','\\'=>'\\','/'=>'/',_=>next});}
@@ -302,8 +366,10 @@ public static class StructuredResponseParser
     public static string GetStreamingAnswerPreview(string value)
     {
         if(string.IsNullOrEmpty(value))return string.Empty;
+        if(TryGetPrefixedVisualPayload(value,out var visualPayload))value=visualPayload;
         var payload=GetPartialStructuredPayload(value);
         if(payload.Length==0||!TryFindRootAnswerValue(payload.AsSpan(),out var answerStart))return string.Empty;
+        if(TryRecoverQuotedAnswer(payload,string.Empty,out var recovered))return RemoveStreamingThinkContent(recovered.Answer);
         var answerEnd=FindJsonStringEnd(payload.AsSpan(),answerStart);
         var encoded=answerEnd>=0
             ?payload.AsSpan(answerStart,answerEnd-answerStart)
@@ -382,7 +448,7 @@ public static class StructuredResponseParser
         answer = string.Empty;
         if (!TryFindRootAnswerValue(json.AsSpan(), out var answerStart))
             return false;
-        if (!TryFindAnswerEndBeforeAnnotations(json.AsSpan(), answerStart, out var answerEnd))
+        if (!TryFindAnswerEndBeforeMetadata(json.AsSpan(), answerStart, out var answerEnd))
             return false;
         if (!IsValidJsonPrefixWithEmptyAnswer(json, answerStart, answerEnd))
             return false;
@@ -446,7 +512,7 @@ public static class StructuredResponseParser
         return false;
     }
 
-    private static bool TryFindAnswerEndBeforeAnnotations(ReadOnlySpan<char> json, int answerStart, out int answerEnd)
+    private static bool TryFindAnswerEndBeforeMetadata(ReadOnlySpan<char> json, int answerStart, out int answerEnd)
     {
         answerEnd = -1;
         for (var index = answerStart; index < json.Length; index++)
@@ -469,7 +535,8 @@ public static class StructuredResponseParser
                 continue;
 
             var propertyEnd = FindJsonStringEnd(json, propertyStart + 1);
-            if (propertyEnd < 0 || !TryDecodeJsonStringLoosely(json[(propertyStart + 1)..propertyEnd], out var propertyName) || propertyName != "annotations")
+            if (propertyEnd < 0 || !TryDecodeJsonStringLoosely(json[(propertyStart + 1)..propertyEnd], out var propertyName) ||
+                propertyName is not ("annotations" or "annotationMode" or "annotationProtocol"))
                 continue;
 
             var colon = SkipWhitespace(json, propertyEnd + 1);
@@ -477,7 +544,8 @@ public static class StructuredResponseParser
                 continue;
 
             var annotationStart = SkipWhitespace(json, colon + 1);
-            if (!LooksLikeAnnotationValuePrefix(json, annotationStart))
+            if (propertyName == "annotations" ? !LooksLikeAnnotationValuePrefix(json, annotationStart) :
+                annotationStart < json.Length && json[annotationStart] != '"')
                 continue;
 
             answerEnd = index;
