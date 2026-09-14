@@ -111,7 +111,7 @@ Original: [HKEAA 2025 HKDSE Mathematics Compulsory Part sample script](https://w
 
 | Connection | What you need |
 | --- | --- |
-| API | Your provider's API key and a model. Supports OpenAI-compatible services, MiniMax, and Volcengine, with multiple saved endpoints. |
+| API | Your provider's API key and a model. Search built-in China/global service templates, load their model catalogs, and save multiple independent connections. [Supported services and setup](docs/api-providers.md). |
 | Hermes | A configured Hermes installation on your PC. Choose a profile and model in settings. |
 | ChatGPT Work / Codex | A signed-in ChatGPT Work / Codex installation on your PC. Choose a model and reasoning level in settings. |
 | WorkBuddy | Install and sign in to WorkBuddy desktop, then connect and choose a model in settings. |

@@ -39,9 +39,7 @@ public sealed class AiProviderFactory
             var key=credentials.Read(stored.CredentialId);
             ProviderAuthenticationPolicy.EnsureUsableCredentials(provider,key);
             key=!string.IsNullOrWhiteSpace(key)?key:string.Empty;
-            if(string.Equals(provider.Type,"MiniMax",StringComparison.OrdinalIgnoreCase))return new MiniMaxProvider(provider,key);
-            if(string.Equals(provider.Type,"OpenAICompatible",StringComparison.OrdinalIgnoreCase))return new OpenAiCompatibleProvider(provider,key);
-            throw new NotSupportedException($"不支持的 Provider 类型：{provider.Type}");
+            return CreateConfigured(provider,key);
         }
         catch(Exception ex)when(ex is InvalidOperationException or ArgumentException or NotSupportedException or IOException or UnauthorizedAccessException)
         {
@@ -52,4 +50,15 @@ public sealed class AiProviderFactory
     }
     public IAiProvider? Create(AppSettings settings,out string? error)
         =>Create(settings,settings.DefaultProviderId,out error);
+
+    internal static IAiProvider CreateConfigured(AiProviderSettings settings,string key)
+    {
+        if(!string.Equals(settings.Type,"MiniMax",StringComparison.OrdinalIgnoreCase)&&
+           !string.Equals(settings.Type,"OpenAICompatible",StringComparison.OrdinalIgnoreCase))
+            throw new NotSupportedException($"不支持的 Provider 类型：{settings.Type}");
+        // Official MiniMax connections entered as a custom compatible service
+        // need the same video timebase handling as the named MiniMax template.
+        return settings.Type.Equals("MiniMax",StringComparison.OrdinalIgnoreCase)||ProviderModelPolicy.IsMiniMaxM3(settings)
+            ?new MiniMaxProvider(settings,key):new OpenAiCompatibleProvider(settings,key);
+    }
 }

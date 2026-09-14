@@ -201,14 +201,25 @@ public sealed class ApiConnectionsViewTests
 
             Click(add);
             Layout(view, 320);
-            var choices = Assert.Single(Descendants<WrapPanel>(view));
-            Assert.Equal(ProviderPresetPolicy.All.Length, choices.Children.Count);
-            foreach (var choice in choices.Children.Cast<Button>())
+            var choices = Descendants<Button>(view).Where(button => button.Tag is ProviderPreset).ToArray();
+            Assert.Equal(ProviderPresetPolicy.All.Length, choices.Length);
+            Assert.True(Assert.Single(Descendants<ScrollViewer>(view),scroll => scroll.MaxHeight == 210).ActualHeight <= 210);
+            foreach (var choice in choices)
             {
                 AssertFitsHorizontally(view, choice);
                 Assert.True(choice.ActualHeight >= 38);
             }
-            Click(choices.Children.Cast<Button>().First());
+            var search = Descendants<TextBox>(view).Single(box => AutomationProperties.GetName(box) == T("搜索服务商", "Search services"));
+            search.Text = "Qwen";
+            Layout(view,320);
+            Assert.Equal(new[]{"DashScope","DashScopeGlobal"},Descendants<Button>(view).Where(button=>button.Tag is ProviderPreset).Select(button=>((ProviderPreset)button.Tag).Id));
+            Assert.Empty(created);
+            search.Text = "nonexistent-provider";
+            Layout(view,320);
+            Assert.DoesNotContain(Descendants<Button>(view),button=>button.Tag is ProviderPreset);
+            search.Text = "";
+            Layout(view,320);
+            Click(Descendants<Button>(view).First(button=>button.Tag is ProviderPreset));
             Assert.Same(ProviderPresetPolicy.All[0], Assert.Single(created));
         });
     }

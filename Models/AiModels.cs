@@ -9,7 +9,14 @@ public sealed record AiAttachment(
     string? FilePath=null,
     TimeSpan? Duration=null,
     bool ProviderOwnsData=true);
-public sealed record AiMessage(string Role,string Text);
+public sealed record AiMessage(string Role,string Text)
+{
+    // Exact provider continuation is session-only. Text remains the display/copy representation.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ProviderContent { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? ReasoningContent { get; init; }
+}
 public sealed record AiStreamDelta(string Content,string ReasoningContent,bool ReasoningIsCumulative=false);
 public enum AiAgentEventKind { Status,ToolStarted,ToolProgress,ToolCompleted }
 public sealed record AiAgentEvent(AiAgentEventKind Kind,string Title,string Detail="",bool IsError=false);
@@ -52,6 +59,8 @@ public sealed record AiProviderCapabilities(bool SupportsImage,bool SupportsVide
 public enum AiAnnotationUpdateMode{Preserve,Append,Replace}
 public sealed record AiResult(string Answer,IReadOnlyList<AiAnnotation> Annotations,string Reasoning="",AiAnnotationUpdateMode AnnotationUpdateMode=AiAnnotationUpdateMode.Replace)
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public AiMessage? ContinuationMessage { get; init; }
     // Only the local Hermes adapter can authorize exact generated image files.
     // Keep bytes out of Markdown, model context and persisted conversation text.
     public IReadOnlyList<string> LocalReplyImageSources { get; init; }=[];

@@ -26,7 +26,8 @@ internal static class ConversationContextPolicy
         {
             var user=history[index];var assistant=history[index+1];
             if(!HasRole(user,"user")||!HasRole(assistant,"assistant"))continue;
-            pairs.Add((new AiMessage(user!.Role,TruncateMiddle(user.Text,MaxMessageCharacters)),new AiMessage(assistant!.Role,TruncateMiddle(assistant.Text,MaxMessageCharacters))));
+            pairs.Add((new AiMessage(user!.Role,TruncateMiddle(user.Text,MaxMessageCharacters)),
+                assistant! with { Text=TruncateMiddle(assistant.Text,MaxMessageCharacters) }));
             index++;
         }
 
@@ -35,9 +36,9 @@ internal static class ConversationContextPolicy
         var selected=new List<(AiMessage User,AiMessage Assistant)>();
         for(var index=pairs.Count-1;index>=0&&selected.Count*2+2<=availableMessages;index--)
         {
-            var pair=pairs[index];var pairCharacters=pair.User.Text.Length+pair.Assistant.Text.Length;
+            var pair=pairs[index];var pairCharacters=GetProviderCharacterCount(pair.User)+GetProviderCharacterCount(pair.Assistant);
             if(usedCharacters+pairCharacters>MaxHistoryCharacters)continue;
-            selected.Add(pair);usedCharacters+=pairCharacters;
+            selected.Add(pair);usedCharacters+=(int)pairCharacters;
         }
         selected.Reverse();
 
@@ -58,7 +59,9 @@ internal static class ConversationContextPolicy
             if(message is null)throw new InvalidOperationException("对话历史包含空项");
             if(message.Role is null)throw new InvalidOperationException("对话历史角色不能为空");
             if(message.Text is null)throw new InvalidOperationException("对话历史正文不能为空");
-            characters+=message.Text.Length;
+            if(!HasRole(message,"assistant")&&(message.ProviderContent is not null||message.ReasoningContent is not null))
+                throw new InvalidOperationException("仅 assistant 历史可携带 Provider 续接内容");
+            characters+=GetProviderCharacterCount(message);
             if(characters>MaxHistoryCharacters)
                 throw new InvalidOperationException($"发送给 Provider 的历史正文不能超过 {MaxHistoryCharacters:N0} 个 UTF-16 字符");
         }
@@ -75,6 +78,9 @@ internal static class ConversationContextPolicy
     {
         var bounded=CreateBoundedHistory(history);history.Clear();history.AddRange(bounded);
     }
+
+    internal static long GetProviderCharacterCount(AiMessage message) =>
+        (long)(message.ProviderContent??message.Text??string.Empty).Length+(message.ReasoningContent?.Length??0);
 
     private static string TruncateMiddle(string? value,int limit)
     {

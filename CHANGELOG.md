@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 按 2026 年 9 月官方接口更新国内外 API 接入模板，添加服务商分组与搜索；完善模型目录格式、分页及对话模型筛选，适配新推理模型参数、图文能力和类型化流式回复。已有连接、密钥及默认选择保持原样。 / Update China and global API presets against September 2026 documentation, with grouped service search, model catalog pagination and chat filtering, current reasoning-model parameters, vision capabilities and typed streaming responses. Existing connections, keys and defaults are preserved.
+
 - 颜色选择改为可直接点选、拖动的全彩色板：外圈选色相，中间调整饱和度与明暗，保留同步的 RGB 和 HEX 精确输入。 / Replace RGB sliders with a full-color palette: choose a hue on the ring and saturation and brightness on the center plane, with synchronized RGB and HEX inputs.
 
 - 整理手工标注工具分组并补充可调整两端点的直线。按 Shift 绘制或调整时，直线和箭头锁定水平、垂直或 45°，矩形保持正方形，椭圆保持正圆。序号圆底更紧凑，删除后优先复用空缺编号；选中对象可改色，文字字体、字号和荧光底色可修改并撤销重做。空白文本草稿离开后自动清理，马赛克拖动时直接预览真实像素化效果。 / Group manual annotation tools and add lines with editable endpoints. Hold Shift while drawing or resizing to constrain lines and arrows to horizontal, vertical or 45°, rectangles to squares, and ellipses to circles. Number markers are more compact and reuse deleted numbers. Selected objects support color changes; text fonts, sizes and highlights support undo and redo. Empty text drafts are removed when abandoned, and mosaic drags preview real pixelation.

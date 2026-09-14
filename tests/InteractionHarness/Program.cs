@@ -24,6 +24,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Contains("--verify-public-model-catalog")){PublicModelCatalogReplay.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Contains("--pass-through-target")){PointerPassThroughReplay.RunTarget();return;}
         if(args.Contains("--snapshot-background")){ApplicationSnapshotReplay.RunBackground();return;}
         if(args.Contains("--snapshot-graphics-background")){ApplicationSnapshotReplay.RunBackground(graphicsOnly:true);return;}
@@ -31,12 +32,13 @@ internal static class Program
         if(args.Contains("--capture-input-foreground")){CaptureInputReplay.RunForegroundHelper();return;}
         var verifyCaptureTools=args.Contains("--verify-capture-tools");
         var verifyColorPalette=args.Contains("--verify-color-palette");
+        var verifyProviderTemplates=args.Contains("--verify-provider-templates");
         var verifyTeaching=args.Contains("--verify-teaching");
         var teaching=args.Contains("--teaching")||verifyTeaching;
 #if !DEBUG
-        if(!teaching&&!verifyCaptureTools&&!verifyColorPalette)throw new InvalidOperationException("Release replay requires an explicit capture replay mode or --verify-color-palette.");
+        if(!teaching&&!verifyCaptureTools&&!verifyColorPalette&&!verifyProviderTemplates)throw new InvalidOperationException("Release replay requires an explicit capture replay, palette or provider-template mode.");
 #else
-        Environment.SetEnvironmentVariable("MEWU_QA_CAPTURE_WINDOWS",teaching||verifyCaptureTools||verifyColorPalette?null:"1");
+        Environment.SetEnvironmentVariable("MEWU_QA_CAPTURE_WINDOWS",teaching||verifyCaptureTools||verifyColorPalette||verifyProviderTemplates?null:"1");
 #endif
         var english=args.Contains("--english");
         typeof(AppHost).Assembly.GetType("mewu_ai_Assistant.Services.LocalizationService")!
@@ -45,6 +47,7 @@ internal static class Program
         var app=new Application { ShutdownMode=ShutdownMode.OnMainWindowClose };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source=new Uri("/MewuAI;component/Themes/LightTheme.xaml",UriKind.Relative) });
         if(verifyColorPalette){ColorPaletteReplay.Run(app);app.Run();return;}
+        if(verifyProviderTemplates){ProviderTemplatesReplay.Run(app,english);app.Run();return;}
         var host=new AppHost(app);
         if(args.Contains("--verify-pinned-zoom")){PinnedZoomReplay.Run(app);return;}
         if(args.Contains("--verify-window-issues"))

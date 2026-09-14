@@ -350,6 +350,11 @@ public sealed class AppHost : IDisposable
     internal void RememberConversationHistory(ConversationHistoryEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
+        // A continuation which cannot fit one complete turn is never retained as a partial protocol message.
+        if(entry.ContinuationMessage is { } continuation&&
+            ((long)entry.Prompt.Length+ConversationContextPolicy.GetProviderCharacterCount(continuation)>ConversationContextPolicy.MaxHistoryCharacters||
+             !string.Equals(continuation.Role,"assistant",StringComparison.OrdinalIgnoreCase)))
+            entry=entry with {ContinuationMessage=null};
         lock(_sessionHistoryGate)
         {
             _sessionConversationHistory.Add(entry);

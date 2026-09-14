@@ -111,7 +111,7 @@
 
 | 接入方式 | 如何使用 |
 | --- | --- |
-| API | 填写服务商的 API Key 并选择模型。支持 OpenAI 兼容服务、MiniMax 和火山引擎，可保存多个接入点。 |
+| API | 填写服务商的 API Key 并选择模型。可搜索国内外服务商模板、实时加载模型目录，独立保存多个连接。[支持的服务商与接入说明](docs/api-providers.md)。 |
 | Hermes | 连接电脑上已经配置好的 Hermes，选择人格和模型。 |
 | ChatGPT Work / Codex | 使用电脑上已登录的 ChatGPT Work / Codex，在设置中选择模型和思考程度。 |
 | WorkBuddy | 安装并登录 WorkBuddy 桌面版后，在设置中连接并选择模型。 |

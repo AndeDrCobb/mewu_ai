@@ -72,6 +72,30 @@ public sealed class ProviderModelCatalogTests
         Assert.Equal(["glm-5-3-flash"], models);
     }
 
+    [Theory]
+    [InlineData("https://api.openai.com/v1", false)]
+    [InlineData("https://openrouter.ai/api/v1", true)]
+    public async Task ResponsesOnlyModelsAreFilteredOnlyOnTheOfficialOpenAiEndpoint(string endpoint,bool proxy)
+    {
+        using var client=new HttpClient(new Handler(_=>Json("{\"data\":[{\"id\":\"gpt-6-astra\"},{\"id\":\"gpt-5.5-pro\"},{\"id\":\"gpt-5.3-codex\"},{\"id\":\"omni-moderation-latest\"}]}")));
+        var models=await new ProviderModelCatalogService(client).GetModelsAsync(endpoint,"test",new Dictionary<string,string>(),TestContext.Current.CancellationToken);
+        Assert.Contains("gpt-6-astra",models);
+        Assert.Equal(proxy,models.Contains("gpt-5.5-pro"));
+        Assert.Equal(proxy,models.Contains("gpt-5.3-codex"));
+        Assert.DoesNotContain("omni-moderation-latest",models);
+    }
+
+    [Theory]
+    [InlineData("https://api.minimaxi.com/v1")]
+    [InlineData("https://api.minimax.cn/v1")]
+    [InlineData("https://api.minimax.io/v1")]
+    public void CustomMiniMaxConnectionUsesTheSameVideoAwareProviderAsItsTemplate(string endpoint)
+    {
+        var provider=AiProviderFactory.CreateConfigured(new AiProviderSettings{Type="OpenAICompatible",BaseUrl=endpoint,Model="MiniMax-M3"},"fixture-key");
+        Assert.IsType<mewu_ai_Assistant.AI.MiniMaxProvider>(provider);
+        Assert.True(provider.Capabilities.SupportsVideo);
+    }
+
     [Fact]
     public void PresetsUseProviderNamesAndKeepCredentialsIsolated()
     {
@@ -93,14 +117,27 @@ public sealed class ProviderModelCatalogTests
 
     private static HttpResponseMessage Json(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     [Fact]
-    public void ExactlyFourProvidersOnlyOpenAiCompatibleRequiresUrl()
+    public void MainstreamProviderTemplatesUseOfficialEndpointsAndKeepCustomEditing()
     {
-        Assert.Equal(4,ProviderPresetPolicy.All.Length);
-        Assert.Equal(new[]{"MiniMax (CN)","MiniMax","火山引擎","OpenAI 通用"},ProviderPresetPolicy.All.Select(p=>p.Name));
+        foreach(var id in new[]{"MiniMax","MiniMaxGlobal","Volcengine","DashScope","DeepSeek","Moonshot","Zhipu","Tencent","Baidu","SiliconFlow","OpenAI","Anthropic","Google","xAI","OpenRouter","Groq","Mistral","Together","Custom"})
+            Assert.Single(ProviderPresetPolicy.All,p=>p.Id==id);
+        Assert.Equal(ProviderPresetPolicy.All.Length,ProviderPresetPolicy.All.Select(p=>p.Id).Distinct().Count());
         Assert.Equal("Custom",Assert.Single(ProviderPresetPolicy.All,p=>p.RequiresBaseUrl).Id);
         Assert.All(ProviderPresetPolicy.All.Where(p=>!p.RequiresBaseUrl),p=>Assert.True(Uri.IsWellFormedUriString(p.BaseUrl,UriKind.Absolute)));
-        Assert.Equal("Custom",ProviderPresetPolicy.Detect(new AiProviderSettings{Type="OpenAICompatible",BaseUrl="https://api.openai.com/v1"}).Id);
+        Assert.Equal("OpenAI",ProviderPresetPolicy.Detect(new AiProviderSettings{Type="OpenAICompatible",BaseUrl="https://api.openai.com/v1/"}).Id);
         Assert.Equal("Custom",ProviderPresetPolicy.Detect(new AiProviderSettings{Type="OpenAICompatible",BaseUrl="https://example.test/v1"}).Id);
+        Assert.All(ProviderPresetPolicy.All.Where(p=>p.Type!="MiniMax"),p=>Assert.Empty(p.DefaultModel));
+    }
+
+    [Fact]
+    public void LegacyMiniMaxAddressIsRecognizedWithoutChangingTheSavedConnection()
+    {
+        var existing=new AiProviderSettings{Type="MiniMax",BaseUrl="https://api.minimaxi.com/v1",Model="MiniMax-M3",Name="School API",CredentialId="existing-credential"};
+        Assert.Equal("MiniMax",ProviderPresetPolicy.Detect(existing).Id);
+        Assert.Equal("https://api.minimaxi.com/v1",existing.BaseUrl);
+        Assert.Equal("School API",existing.Name);
+        Assert.Equal("existing-credential",existing.CredentialId);
+        Assert.Equal("Custom",ProviderPresetPolicy.Detect(new AiProviderSettings{Type="MiniMax",BaseUrl="https://api.minimax.cn.attacker.test/v1"}).Id);
     }
 
     [Fact]

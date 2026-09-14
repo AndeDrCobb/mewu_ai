@@ -48,6 +48,7 @@ public sealed partial class SettingsWindow
         _modelStatus.Foreground = SecondaryBrush;
         _modelStatus.Margin = new Thickness(0, -7, 0, 12);
         _modelStatus.FontSize = 11;
+        _modelStatus.TextWrapping = TextWrapping.Wrap;
         panel.Children.Add(_modelStatus);
 
         _testApiConnection.Content = LocalizationService.T("测试连接", "Test connection");

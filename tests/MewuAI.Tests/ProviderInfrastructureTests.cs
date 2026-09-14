@@ -490,16 +490,22 @@ public sealed class ProviderInfrastructureTests
         Assert.Contains("16",error.Message,StringComparison.Ordinal);Assert.False(transportCalled);
     }
 
-    [Fact]
-    public async Task GenericProviderRejectsAggregateBase64BodyBeforeReadingSparseFiles()
+    [Theory]
+    [InlineData("https://example.invalid/v1","gpt-6-astra",64)]
+    [InlineData("https://api.anthropic.com/v1","claude-opus-5",32)]
+    [InlineData("https://api.deepseek.com/v1","deepseek-flash",48)]
+    public async Task GenericProviderRejectsAggregateBase64BodyBeforeReadingSparseFiles(string endpoint,string model,int limitMegabytes)
     {
         var root=TestDirectory();
         try
         {
-            var image=Path.Combine(root,"image.png");await using(var stream=new FileStream(image,FileMode.CreateNew,FileAccess.Write,FileShare.None))stream.SetLength(13L*1024*1024);
-            var request=new AiRequest{Attachments=Enumerable.Range(0,4).Select(_=>new AiAttachment(AiAttachmentType.Image,"image/png",FilePath:image)).ToList()};
-            var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>new OpenAiCompatibleProvider(new AiProviderSettings{Type="OpenAICompatible",BaseUrl="https://example.invalid/v1",Model="model"},"unused").SendAsync(request,TestContext.Current.CancellationToken));
-            Assert.Contains("64 MB",error.Message,StringComparison.Ordinal);Assert.Contains("Base64",error.Message,StringComparison.Ordinal);
+            var image=Path.Combine(root,"image.png");await using var stream=new FileStream(image,FileMode.CreateNew,FileAccess.Write,FileShare.None);stream.SetLength(7L*1024*1024);
+            var request=new AiRequest{Attachments=Enumerable.Range(0,8).Select(_=>new AiAttachment(AiAttachmentType.Image,"image/png",FilePath:image)).ToList()};
+            var provider=new OpenAiCompatibleProvider(new AiProviderSettings{Type="OpenAICompatible",BaseUrl=endpoint,Model=model},"unused",
+                (_,_,_)=>throw new InvalidOperationException("Oversized requests must never reach the network."),_=>TimeSpan.FromSeconds(10));
+            var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>provider.SendAsync(request,TestContext.Current.CancellationToken));
+            Assert.Contains($"{limitMegabytes} MB 聚合限制",error.Message,StringComparison.Ordinal);Assert.Contains("Base64",error.Message,StringComparison.Ordinal);
+            Assert.DoesNotContain("47 MB",error.Message,StringComparison.Ordinal);
         }
         finally{Directory.Delete(root,true);}
     }
@@ -542,7 +548,7 @@ public sealed class ProviderInfrastructureTests
             var provider=new OpenAiCompatibleProvider(new AiProviderSettings{Type="OpenAICompatible",BaseUrl="https://ark.cn-beijing.volces.com/api/plan/v3",Model="doubao-seed-2-0-pro-260215"},"unused");
             Assert.Equal(10L*1024*1024,provider.Capabilities.MaxImageSize);Assert.Equal(50L*1024*1024,provider.Capabilities.MaxVideoSize);
             var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>provider.SendAsync(new AiRequest{Attachments=[new(AiAttachmentType.Video,"video/mp4",FilePath:video)]},TestContext.Current.CancellationToken));
-            Assert.Contains("64 MB",error.Message,StringComparison.Ordinal);Assert.Contains("47 MB",error.Message,StringComparison.Ordinal);
+            Assert.Contains("64 MB",error.Message,StringComparison.Ordinal);Assert.Contains("压缩附件",error.Message,StringComparison.Ordinal);
         }
         finally{Directory.Delete(root,true);}
     }

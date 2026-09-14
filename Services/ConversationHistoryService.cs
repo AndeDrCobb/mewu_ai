@@ -14,7 +14,11 @@ public sealed record ConversationHistoryEntry(
     string Provider,
     string Model,
     string Prompt,
-    string Answer);
+    string Answer)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public AiMessage? ContinuationMessage { get; init; }
+}
 
 public sealed class ConversationHistoryService
 {

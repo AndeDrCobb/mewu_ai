@@ -574,36 +574,12 @@ public partial class CaptureOverlayWindow : Window
 
     private void MergeHistoryEntries(IEnumerable<ConversationHistoryEntry> entries)
     {
-        var existingPairs=_history
-            .SkipWhile(message=>string.Equals(message.Role,"system",StringComparison.OrdinalIgnoreCase))
-            .Chunk(2)
-            .Where(pair=>pair.Length==2&&string.Equals(pair[0].Role,"user",StringComparison.OrdinalIgnoreCase)&&string.Equals(pair[1].Role,"assistant",StringComparison.OrdinalIgnoreCase))
-            .Select(pair=>(Prompt:pair[0].Text,Answer:pair[1].Text))
-            .ToList();
-        var existingKeys=existingPairs.Select(pair=>CreateHistoryPairKey(pair.Prompt,pair.Answer)).ToHashSet(StringComparer.Ordinal);
-        var incomingKeys=new HashSet<string>(StringComparer.Ordinal);
-        var merged=new List<AiMessage>();
-        foreach(var entry in entries)
-        {
-            if(string.IsNullOrWhiteSpace(entry.Prompt)||string.IsNullOrWhiteSpace(entry.Answer))continue;
-            var key=CreateHistoryPairKey(entry.Prompt,entry.Answer);
-            if(existingKeys.Contains(key)||!incomingKeys.Add(key))continue;
-            merged.Add(new AiMessage("user",entry.Prompt));
-            merged.Add(new AiMessage("assistant",entry.Answer));
-        }
-        foreach(var pair in existingPairs)
-        {
-            var key=CreateHistoryPairKey(pair.Prompt,pair.Answer);
-            if(incomingKeys.Contains(key))continue;
-            merged.Add(new AiMessage("user",pair.Prompt));
-            merged.Add(new AiMessage("assistant",pair.Answer));
-        }
-        var system=_history.FirstOrDefault(message=>string.Equals(message.Role,"system",StringComparison.OrdinalIgnoreCase))??new AiMessage("system",VisualAnnotationProtocol.SystemInstruction);
-        _history.Clear();_history.Add(system);_history.AddRange(merged);
+        var merged=ConversationHistoryPairing.MergeEntries(entries,_history);
+        _history.Clear();_history.AddRange(merged);
+        if(_history.Count==0||!string.Equals(_history[0].Role,"system",StringComparison.OrdinalIgnoreCase))
+            _history.Insert(0,new AiMessage("system",VisualAnnotationProtocol.SystemInstruction));
         ConversationContextPolicy.TrimInPlace(_history);
     }
-
-    private static string CreateHistoryPairKey(string prompt,string answer)=>prompt+"\u001f"+answer;
 
     private bool _historyOpenedOnce;
     private void ToggleHistory(object sender,RoutedEventArgs e)
@@ -2240,7 +2216,9 @@ public partial class CaptureOverlayWindow : Window
                 catch(Exception ex){new PrivacyLogger().Error("ScreenAiAnnotationRepair",ex);new PrivacyLogger().Info("ScreenAiAnnotationPhase",$"核验失败；保留初稿有效批注 {renderedAnnotationCount}");requestStage="render";}
             }
             new PrivacyLogger().Info("ScreenAiResult",$"附件 {totalCount}，视频 {targets.Count(item=>item.VideoPath is not null)+uploadedReferences.Count(file=>file.Type==AiAttachmentType.Video)}，最终模型批注 {result.Annotations.Count}，补标返回 {repairReturnedAnnotationCount}，有效批注 {renderedAnnotationCount}");
-            var (historyProvider,historyModel)=GetHistoryScope(selectedChannel.Id);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();if(_host.Settings.SaveConversationHistory)await new ConversationHistoryService().TryAppendAsync(historyProvider,historyModel,turnPrompt,result.Answer,request.Token);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();_host.RememberConversationHistory(new ConversationHistoryEntry(DateTimeOffset.UtcNow,historyProvider,historyModel,turnPrompt,result.Answer));_history.Add(new("user",turnPrompt));_history.Add(new("assistant",result.Answer));_lastSubmittedTurnRecorded=true;ConversationContextPolicy.TrimInPlace(_history);RefreshHistoryPreview();RecordOverlayOperation(before,tableRecognition?"AI 表格识别":"AI 识图");var tableCount=TableClipboardService.Parse(result.Answer).Count;PromptStatus.Text=tableRecognition?(tableCount>0?$"已识别 {tableCount} 个表格 · 点击回答上方的“复制表格”":"没有识别到完整表格，可调整选区后重试"):hasVideo?CaptureOverlayPolicy.GetVideoCompletionStatus(true,renderedAnnotationCount):CaptureOverlayPolicy.GetImageCompletionStatus(hasImage,targets.Any(item=>item.VideoPath is null),targets.Count(item=>item.VideoPath is null&&HasAiAnnotations(item)),CaptureOverlayPolicy.NeedsImageAnnotationRepair(prompt,string.Empty,0));if(usingHermes&&_host.Settings.HermesAutoReadAloud&&!tableRecognition)_=BeginOverlayReadAloudAsync(result.Answer);
+            var continuation=result.ContinuationMessage is {ProviderContent:not null} complete&&string.Equals(complete.Role,"assistant",StringComparison.OrdinalIgnoreCase)
+                ?complete with {Text=result.Answer}:null;
+            var (historyProvider,historyModel)=GetHistoryScope(selectedChannel.Id);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();if(_host.Settings.SaveConversationHistory)await new ConversationHistoryService().TryAppendAsync(historyProvider,historyModel,turnPrompt,result.Answer,request.Token);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();_host.RememberConversationHistory(new ConversationHistoryEntry(DateTimeOffset.UtcNow,historyProvider,historyModel,turnPrompt,result.Answer){ContinuationMessage=continuation});_history.Add(new("user",turnPrompt));_history.Add(continuation??new AiMessage("assistant",result.Answer));_lastSubmittedTurnRecorded=true;ConversationContextPolicy.TrimInPlace(_history);RefreshHistoryPreview();RecordOverlayOperation(before,tableRecognition?"AI 表格识别":"AI 识图");var tableCount=TableClipboardService.Parse(result.Answer).Count;PromptStatus.Text=tableRecognition?(tableCount>0?$"已识别 {tableCount} 个表格 · 点击回答上方的“复制表格”":"没有识别到完整表格，可调整选区后重试"):hasVideo?CaptureOverlayPolicy.GetVideoCompletionStatus(true,renderedAnnotationCount):CaptureOverlayPolicy.GetImageCompletionStatus(hasImage,targets.Any(item=>item.VideoPath is null),targets.Count(item=>item.VideoPath is null&&HasAiAnnotations(item)),CaptureOverlayPolicy.NeedsImageAnnotationRepair(prompt,string.Empty,0));if(usingHermes&&_host.Settings.HermesAutoReadAloud&&!tableRecognition)_=BeginOverlayReadAloudAsync(result.Answer);
         }
         catch(OperationCanceledException){new PrivacyLogger().Info("ScreenAiAnnotationPhase",primaryApplied?"核验或后续处理已取消；保留已显示的初稿":"初稿请求已取消；恢复发送前状态");if(!_closed&&ReferenceEquals(_request,request)){if(primaryApplied)PromptStatus.Text="已停止核验，保留初稿和已显示标注";else{ApplyOverlaySnapshot(before);PromptStatus.Text="已取消";}}}
         catch(Exception ex){new PrivacyLogger().Error(requestStage=="render"?"ScreenAiRender":"ScreenAiRequest",ex);if(!_closed&&ReferenceEquals(_request,request)){var message=request.IsCancellationRequested?"已取消":$"请求失败（{selectedChannel.DisplayName}）：{ex.Message}";if(request.IsCancellationRequested)ApplyOverlaySnapshot(before);else{CloseReasoning("思考过程 · 请求失败",Color.FromRgb(214,120,120));ShowAnswer();AnswerText.Markdown=message;}PromptStatus.Text=message;}}
@@ -2259,7 +2237,13 @@ public partial class CaptureOverlayWindow : Window
         {
             var parsed=StructuredResponseParser.Parse(value,result.Reasoning,expectStructuredResponse);
             if(!string.IsNullOrWhiteSpace(parsed.Answer)||value.Length==0)
-                return expectStructuredResponse?parsed:new(parsed.Answer,[],parsed.Reasoning,AiAnnotationUpdateMode.Preserve);
+                return result with
+                {
+                    Answer=parsed.Answer,
+                    Annotations=expectStructuredResponse?parsed.Annotations:[],
+                    Reasoning=parsed.Reasoning,
+                    AnnotationUpdateMode=expectStructuredResponse?parsed.AnnotationUpdateMode:AiAnnotationUpdateMode.Preserve
+                };
         }
         return result;
     }

@@ -103,16 +103,59 @@ internal sealed class ApiConnectionsView : StackPanel
     {
         var content = new StackPanel();
         content.Children.Add(Label(T("选择服务商", "Choose a service"), 13, true));
-        var choices = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
-        foreach (var preset in ProviderPresetPolicy.All)
+        var search = new TextBox { Height = 34,
+            ToolTip = T("搜索服务商、模型品牌或地址", "Search services, model families or endpoints") };
+        AutomationProperties.SetName(search, T("搜索服务商", "Search services"));
+        var searchRow = new Grid { Margin = new Thickness(0, 10, 0, 8) };
+        var placeholder = Label(T("搜索服务商…", "Search services…"), 12);
+        placeholder.IsHitTestVisible = false;
+        placeholder.Margin = new Thickness(12, 0, 0, 0);
+        placeholder.SetResourceReference(TextBlock.ForegroundProperty, "MutedText");
+        searchRow.Children.Add(search);
+        searchRow.Children.Add(placeholder);
+        content.Children.Add(searchRow);
+        var choices = new StackPanel();
+        var scroll = new ScrollViewer { Content = choices, MaxHeight = 210,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        content.Children.Add(scroll);
+        void PopulateChoices()
         {
-            var choice = Button(PresetName(preset));
-            choice.Margin = new Thickness(0, 0, 8, 8);
-            choice.Click += (_, _) => _add(preset);
-            choices.Children.Add(choice);
+            choices.Children.Clear();
+            foreach (var group in Enum.GetValues<ProviderPresetGroup>())
+            {
+                var presets = ProviderPresetPolicy.All.Where(p => p.Group == group && p.Matches(search.Text)).ToArray();
+                if (presets.Length == 0) continue;
+                var title = Label(group switch {
+                    ProviderPresetGroup.China => T("国内服务", "China services"),
+                    ProviderPresetGroup.Global => T("国际服务", "Global services"),
+                    _ => T("其他服务", "Other services") }, 11);
+                title.Margin = new Thickness(0, 2, 0, 6);
+                title.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+                choices.Children.Add(title);
+                var row = new WrapPanel();
+                foreach (var preset in presets)
+                {
+                    var choice = Button(PresetName(preset));
+                    choice.Margin = new Thickness(0, 0, 8, 8);
+                    choice.ToolTip = string.IsNullOrEmpty(preset.BaseUrl) ? T("填写你自己的兼容 API 地址", "Enter your compatible API endpoint") : preset.BaseUrl;
+                    choice.Tag = preset;
+                    choice.Click += (_, _) => _add(preset);
+                    row.Children.Add(choice);
+                }
+                choices.Children.Add(row);
+            }
+            if (choices.Children.Count == 0)
+            {
+                var empty = Label(T("没有匹配的服务商，可使用自定义兼容服务。", "No matching service. Try a custom compatible service."), 11);
+                empty.TextWrapping = TextWrapping.Wrap;
+                choices.Children.Add(empty);
+            }
+            scroll.ScrollToTop();
         }
-        content.Children.Add(choices);
+        search.TextChanged += (_, _) => { placeholder.Visibility = string.IsNullOrEmpty(search.Text) ? Visibility.Visible : Visibility.Collapsed; PopulateChoices(); };
+        PopulateChoices();
         var cancel = Button(T("取消", "Cancel"));
+        cancel.Margin = new Thickness(0, 6, 0, 0);
         cancel.HorizontalAlignment = HorizontalAlignment.Left;
         cancel.Click += (_, _) => { _adding = false; Rebuild(); };
         content.Children.Add(cancel);
@@ -352,14 +395,7 @@ internal sealed class ApiConnectionsView : StackPanel
         return label;
     }
 
-    private static string PresetName(ProviderPreset preset) => preset.Id switch
-    {
-        "MiniMax" => T("MiniMax 国内", "MiniMax China"),
-        "MiniMaxGlobal" => T("MiniMax 国际", "MiniMax Global"),
-        "Volcengine" => T("火山方舟", "Volcengine Ark"),
-        "Custom" => T("自定义兼容服务", "Custom compatible service"),
-        _ => preset.Name
-    };
+    private static string PresetName(ProviderPreset preset) => preset.LocalizedName;
 
     private static string T(string chinese, string english) => LocalizationService.T(chinese, english);
 }

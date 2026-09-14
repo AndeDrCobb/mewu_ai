@@ -917,8 +917,8 @@ public sealed partial class SettingsWindow : Window
             var currentModel = _model.Text;
             PopulateModelSuggestions(currentModel, models);
             _modelStatus.Text = models.Count == 0
-                ? LocalizationService.T("未返回可用模型，可手动输入模型 ID。", "No models returned. Enter a model ID manually.")
-                : LocalizationService.T($"已加载 {models.Count} 个模型；可下拉选择或手动输入。", $"Loaded {models.Count} models. Choose one or enter an ID.");
+                ? LocalizationService.T("未返回对话模型，可手动输入模型 ID。", "No chat models returned. Enter a model ID manually.")
+                : LocalizationService.T($"已从服务商加载 {models.Count} 个对话模型；可选择或手动输入。", $"Loaded {models.Count} chat models from the service. Choose one or enter an ID.");
         }
         catch (OperationCanceledException) { if (ReferenceEquals(_modelLoad, operation) && !_windowLifetime.IsCancellationRequested) _modelStatus.Text = LocalizationService.T("加载已取消或超时，可刷新重试或手动输入模型 ID。", "Loading canceled or timed out. Retry or enter a model ID."); }
         catch (Exception ex) when (ex is InvalidOperationException or JsonException or HttpRequestException or IOException)
@@ -975,7 +975,7 @@ public sealed partial class SettingsWindow : Window
             ValidateProvider(settings);
             ProviderAuthenticationPolicy.EnsureUsableCredentials(settings, key);
             key ??= string.Empty;
-            IAiProvider provider = settings.Type == "MiniMax" ? new MiniMaxProvider(settings, key) : new OpenAiCompatibleProvider(settings, key);
+            IAiProvider provider = AiProviderFactory.CreateConfigured(settings, key);
             var ok = await provider.TestConnectionAsync(test.Token);
             if (IsCurrent() && !test.IsCancellationRequested)
             {

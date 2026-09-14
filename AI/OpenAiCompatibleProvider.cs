@@ -32,9 +32,9 @@ public class OpenAiCompatibleProvider : IAiProvider
 
     public string Id=>_settings.Id;
     public virtual AiProviderCapabilities Capabilities { get; }
-    protected virtual bool StreamingContentIsCumulative=>false;
+    protected virtual bool StreamingContentIsCumulative=>ProviderModelPolicy.UsesCumulativeContent(_settings);
     protected virtual int MaxAttachmentCount=>AttachmentCountLimit;
-    protected virtual long MaxRequestBodySize=>RequestBodySizeLimit;
+    protected virtual long MaxRequestBodySize=>ProviderModelPolicy.MaximumRequestBytes(_settings);
     protected virtual int VideoSamplingFramesPerSecond=>2;
 
     public OpenAiCompatibleProvider(AiProviderSettings settings,string apiKey)
@@ -52,15 +52,13 @@ public class OpenAiCompatibleProvider : IAiProvider
         ArgumentNullException.ThrowIfNull(sendAsync);
         ArgumentNullException.ThrowIfNull(requestTimeout);
         ProviderHeaderPolicy.EnsureValid(settings.CustomHeaders);
-        ProviderRequestParameterPolicy.Validate(settings.RequestParameters);
+        ProviderModelPolicy.ValidateRequestParameters(settings);
         _settings=settings;
         _apiKey=apiKey??throw new ArgumentNullException(nameof(apiKey));
         _baseUri=ProviderEndpointPolicy.NormalizeBaseUri(settings.BaseUrl);
         _sendAsync=sendAsync;
         _requestTimeout=requestTimeout;
-        Capabilities=VolcengineModelPolicy.IsEndpoint(_baseUri)
-            ?VolcengineModelPolicy.GetCapabilities(settings.Model)
-            :GetGenericCapabilities(settings.Model);
+        Capabilities=ProviderModelPolicy.GetCapabilities(settings);
     }
 
     public async Task<bool> TestConnectionAsync(CancellationToken token)
@@ -148,12 +146,17 @@ public class OpenAiCompatibleProvider : IAiProvider
             while(await reader.ReadLineAsync(token).ConfigureAwait(false) is { } line)
             {
                 if(!StreamingResponseParser.TryParse(line,out var delta,out var done,out var truncated))continue;
+                // Only MiniMax's documented reasoning_details is cumulative.
+                // OpenRouter and other compatible streams send actual deltas,
+                // including repeated words that must not be deduplicated.
+                if(delta.ReasoningIsCumulative&&!StreamingContentIsCumulative)delta=delta with{ReasoningIsCumulative=false};
                 var accepted=accumulator.Accept(delta,done&&!truncated,request.StreamingProgress,request.StreamingCompletionPredicate);
                 if(truncated&&!accepted)throw new InvalidDataException("AI 回复达到输出长度限制，未收到完整内容，请缩小范围后重试");
                 if(accepted){completed=true;break;}
             }
             if(!completed)throw new InvalidDataException("AI 流式响应意外中断，请重试");
-            return accumulator.BuildResult();
+            token.ThrowIfCancellationRequested();
+            return BuildProviderResult(accumulator.RawAnswer,accumulator.RawReasoning,request.ExpectStructuredResponse);
         }
 
         var json=await ReadResponseBodyAsStringAsync(response.Content,token).ConfigureAwait(false);
@@ -161,12 +164,43 @@ public class OpenAiCompatibleProvider : IAiProvider
         if(document.RootElement.GetProperty("choices")[0].TryGetProperty("finish_reason",out var finishReason)&&finishReason.ValueKind==JsonValueKind.String&&finishReason.GetString()=="length")
             throw new InvalidDataException("AI 回复达到输出长度限制，未收到完整内容，请缩小范围后重试");
         var message=document.RootElement.GetProperty("choices")[0].GetProperty("message");
-        var answerText=ReadString(message,"content");
+        var (answerText,typedReasoning)=StreamingResponseParser.ReadContentParts(message);
         var reasoningText=ReadString(message,"reasoning_content");
         if(reasoningText.Length==0)reasoningText=ReadString(message,"thinking_content");
+        if(reasoningText.Length==0)reasoningText=ReadString(message,"reasoning");
+        if(reasoningText.Length==0)reasoningText=typedReasoning;
         if(reasoningText.Length==0)reasoningText=StreamingResponseParser.ReadReasoningDetails(message);
-        return StructuredResponseParser.Parse(answerText,reasoningText,request.ExpectStructuredResponse);
+        token.ThrowIfCancellationRequested();
+        return BuildProviderResult(answerText,reasoningText,request.ExpectStructuredResponse);
         }
+    }
+
+    private AiResult BuildProviderResult(string rawContent,string rawReasoning,bool expectStructuredResponse)
+    {
+        var result=StructuredResponseParser.Parse(rawContent,rawReasoning,expectStructuredResponse);
+        if(!ProviderModelPolicy.RequiresAssistantContinuation(_settings)||string.IsNullOrWhiteSpace(result.Answer))return result;
+        return result with{ContinuationMessage=new AiMessage("assistant",result.Answer)
+        {
+            ProviderContent=rawContent,
+            ReasoningContent=rawReasoning.Length==0?null:rawReasoning
+        }};
+    }
+
+    private IEnumerable<AiMessage> RequestHistory(IReadOnlyList<AiMessage> history)
+    {
+        if(!ProviderModelPolicy.RequiresAssistantContinuation(_settings))return history;
+        var result=new List<AiMessage>();
+        var index=0;
+        if(history.Count>0&&history[0] is {Role:{ } firstRole}&&firstRole.Equals("system",StringComparison.OrdinalIgnoreCase))
+        {result.Add(history[0]);index=1;}
+        for(;index+1<history.Count;index+=2)
+        {
+            // Old persisted replies contain presentation text only. Replaying
+            // them would invent an incomplete thinking-model conversation.
+            if(history[index+1]?.ProviderContent is null)continue;
+            result.Add(history[index]);result.Add(history[index+1]);
+        }
+        return result;
     }
 
     protected virtual void ValidateRequest(AiRequest request)
@@ -175,6 +209,9 @@ public class OpenAiCompatibleProvider : IAiProvider
         if(request.History is null)throw new InvalidOperationException("对话历史不能为空");
         if(request.Attachments is null)throw new InvalidOperationException("附件列表不能为空");
         if(request.Attachments.Count>MaxAttachmentCount)throw new InvalidOperationException($"单次请求最多支持 {MaxAttachmentCount} 个附件，请减少选区或分批发送");
+        var imageLimit=ProviderModelPolicy.MaximumImageCount(_settings);
+        if(request.Attachments.Count(item=>item?.Type==AiAttachmentType.Image)>imageLimit)
+            throw new InvalidOperationException(LocalizationService.T($"当前模型单次最多支持 {imageLimit} 张图片，请减少引用区域或分批发送。",$"This model supports at most {imageLimit} images per request. Reduce the referenced regions or send them in batches."));
         ConversationContextPolicy.EnsureValidForProvider(request.History);
         if(request.Prompt is null)throw new InvalidOperationException("当前问题不能为空");
         if(string.IsNullOrWhiteSpace(request.Prompt)&&request.Attachments.Count==0)throw new InvalidOperationException("问题和附件不能同时为空");
@@ -195,6 +232,8 @@ public class OpenAiCompatibleProvider : IAiProvider
             estimatedBodyBytes=AddSaturating(estimatedBodyBytes,EstimateBase64DataUrlBytes(size,attachment.MimeType));
             if(rawAttachmentBytes>MaxRequestBodySize||estimatedBodyBytes>MaxRequestBodySize)throw CreateRequestBodyTooLargeException(estimatedBodyBytes);
             if(attachment.Duration is { } duration&&duration<TimeSpan.Zero)throw new InvalidOperationException("视频时长不能为负数");
+            if(attachment.Type==AiAttachmentType.Video&&attachment.Duration is { } videoDuration&&videoDuration<ProviderModelPolicy.MinimumVideoDuration(_settings))
+                throw new InvalidOperationException(LocalizationService.T("当前通义千问模型要求视频至少 2 秒，请录制更长的视频或改为截图。","This Qwen model requires a video at least 2 seconds long. Record a longer video or use a screenshot."));
             if(attachment.Duration is { } limitedDuration&&Capabilities.MaxVideoDuration>TimeSpan.Zero&&limitedDuration>Capabilities.MaxVideoDuration)throw new InvalidOperationException("视频时长超过当前模型限制");
         }
         foreach(var attachment in request.Attachments)
@@ -203,23 +242,6 @@ public class OpenAiCompatibleProvider : IAiProvider
             if(attachment.Type==AiAttachmentType.Video&&!Capabilities.SupportsVideo)throw new NotSupportedException("当前模型不支持视频理解，请在设置中选择视频多模态模型");
             if(attachment.Type!=AiAttachmentType.Text&&Capabilities.AcceptedMimeTypes.Count>0&&!Capabilities.AcceptedMimeTypes.Contains(attachment.MimeType))throw new NotSupportedException($"当前模型不接受 {attachment.MimeType} 附件");
         }
-    }
-
-    private static AiProviderCapabilities GetGenericCapabilities(string model)
-    {
-        var value=model?.Trim()??string.Empty;
-        var image=value.Contains("vision",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("-vl",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("vl-",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("gpt-4o",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("gpt-4.1",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("grok-4",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("gemini",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("qwen2.5-vl",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("qwen-vl",StringComparison.OrdinalIgnoreCase)||
-                   value.Contains("claude-3",StringComparison.OrdinalIgnoreCase);
-        var accepted=image?new HashSet<string>(["image/png","image/jpeg","image/webp"],StringComparer.OrdinalIgnoreCase):new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        return new(image,false,true,image?20L*1024*1024:0,0,TimeSpan.Zero,accepted);
     }
 
     protected virtual void ValidateAttachmentSize(AiAttachment attachment,long size)
@@ -238,7 +260,7 @@ public class OpenAiCompatibleProvider : IAiProvider
     }
 
     protected virtual InvalidOperationException CreateRequestBodyTooLargeException(long bytes)=>
-        new($"附件经 Base64 展开后请求体预计为 {FormatMegabytes(bytes)} MB，超过 64 MB 聚合限制；请减少附件数量，或将单个视频压缩至约 47 MB 以下");
+        new($"请求体（含附件的 Base64 展开）预计为 {FormatMegabytes(bytes)} MB，超过当前服务的 {FormatMegabytes(MaxRequestBodySize)} MB 聚合限制；请减少附件数量或压缩附件");
 
     protected static long GetAttachmentSize(AiAttachment attachment)
     {
@@ -256,6 +278,8 @@ public class OpenAiCompatibleProvider : IAiProvider
         if(!hasCustomAuthorization&&!string.IsNullOrWhiteSpace(_apiKey))request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",_apiKey);
         foreach(var header in _settings.CustomHeaders)
             if(!request.Headers.TryAddWithoutValidation(header.Key,header.Value))throw new InvalidOperationException($"无法添加 Provider 请求头：{header.Key}");
+        if(ProviderModelPolicy.NeedsAnthropicVersion(_settings)&&!request.Headers.Contains("anthropic-version"))
+            request.Headers.TryAddWithoutValidation("anthropic-version","2023-06-01");
         return request;
     }
 
@@ -314,11 +338,15 @@ public class OpenAiCompatibleProvider : IAiProvider
         var total=JsonStructureBudget;
         total=AddSaturating(total,EstimateJsonStringBytesUpperBound(request.Prompt));
         total=AddSaturating(total,EstimateJsonStringBytesUpperBound(_settings.Model));
-        foreach(var message in request.History)
+        var continuation=ProviderModelPolicy.RequiresAssistantContinuation(_settings);
+        foreach(var message in RequestHistory(request.History))
         {
+            var providerMessage=continuation&&message is {Role:{ } role}&&role.Equals("assistant",StringComparison.OrdinalIgnoreCase);
             total=AddSaturating(total,64);
             total=AddSaturating(total,EstimateJsonStringBytesUpperBound(message?.Role));
-            total=AddSaturating(total,EstimateJsonStringBytesUpperBound(message?.Text));
+            total=AddSaturating(total,EstimateJsonStringBytesUpperBound(providerMessage?message?.ProviderContent??message?.Text:message?.Text));
+            if(providerMessage&&message?.ReasoningContent is { } reasoning)
+                total=AddSaturating(total,EstimateJsonStringBytesUpperBound(reasoning));
         }
         return total;
     }
@@ -335,36 +363,29 @@ public class OpenAiCompatibleProvider : IAiProvider
             var dataUrl=$"data:{attachment.MimeType};base64,{Convert.ToBase64String(loaded.Bytes)}";
             token.ThrowIfCancellationRequested();
             if(attachment.Type==AiAttachmentType.Image)content.Add(new{type="image_url",image_url=new{url=dataUrl}});
-            else if(attachment.Type==AiAttachmentType.Video)content.Add(new{type="video_url",video_url=new{url=dataUrl,fps=VideoSamplingFramesPerSecond}});
+            else if(attachment.Type==AiAttachmentType.Video)
+            {
+                var videoUrl=new Dictionary<string,object?>{{"url",dataUrl}};
+                if(ProviderModelPolicy.UsesVideoSamplingField(_settings))videoUrl["fps"]=VideoSamplingFramesPerSecond;
+                content.Add(new{type="video_url",video_url=videoUrl});
+            }
             else content.Add(new{type="text",text=System.Text.Encoding.UTF8.GetString(loaded.Bytes)});
         }
 
         var messages=new List<object>(request.History.Count+1);
-        foreach(var message in request.History)
+        var continuation=ProviderModelPolicy.RequiresAssistantContinuation(_settings);
+        foreach(var message in RequestHistory(request.History))
         {
             token.ThrowIfCancellationRequested();
-            messages.Add(new{role=message.Role,content=message.Text});
+            var providerMessage=continuation&&message.Role.Equals("assistant",StringComparison.OrdinalIgnoreCase);
+            var value=new Dictionary<string,object?>{{"role",message.Role},{"content",providerMessage?message.ProviderContent??message.Text:message.Text}};
+            if(providerMessage&&message.ReasoningContent is { } reasoning)
+                value["reasoning_content"]=reasoning;
+            messages.Add(value);
         }
         messages.Add(new{role="user",content});
-        var bodyValues=new Dictionary<string,object?>{{"model",_settings.Model},{"messages",messages},{"temperature",.2},{"stream",streaming}};
-        ProviderRequestParameterPolicy.Validate(_settings.RequestParameters);
-        foreach (var parameter in _settings.RequestParameters) bodyValues[parameter.Key] = parameter.Value;
-        var miniMaxM3=_settings.Type.Equals("MiniMax",StringComparison.OrdinalIgnoreCase)&&_settings.Model.Equals("MiniMax-M3",StringComparison.OrdinalIgnoreCase);
-        // MiniMax's published M3 hard output maximum is 524288. A screen
-        // request must not impose the old 8192-token ceiling on reasoning + answer.
-        // Unknown models retain their backend configuration, never an invented maximum.
-        var maxOutputTokens=request.UseModelMaximumOutputTokens&&miniMaxM3?524288:request.MaxOutputTokens;
-        if(maxOutputTokens is { } maxTokens)bodyValues[miniMaxM3?"max_completion_tokens":"max_tokens"]=maxTokens;
-        if(miniMaxM3)
-        {
-            bodyValues["reasoning_split"]=true;
-            bodyValues["thinking"]=new{type=request.DisableReasoning?"disabled":"adaptive"};
-        }
-        else if(request.DisableReasoning&&HostMatches(_baseUri.Host,"volces.com"))
-        {
-            bodyValues["thinking"]=new{type="disabled"};
-            bodyValues["reasoning_effort"]="minimal";
-        }
+        var bodyValues=new Dictionary<string,object?>{{"model",_settings.Model},{"messages",messages},{"stream",streaming}};
+        ProviderModelPolicy.ApplyRequestParameters(bodyValues,_settings,request);
         token.ThrowIfCancellationRequested();
         var body=JsonSerializer.SerializeToUtf8Bytes(bodyValues);
         try
@@ -379,7 +400,6 @@ public class OpenAiCompatibleProvider : IAiProvider
         }
     }
 
-    private static bool HostMatches(string host,string domain)=>host.Equals(domain,StringComparison.OrdinalIgnoreCase)||host.EndsWith("."+domain,StringComparison.OrdinalIgnoreCase);
     private static string FormatTimeout(TimeSpan timeout)=>timeout.TotalMinutes>=1?$"{timeout.TotalMinutes:0.#} 分钟":$"{timeout.TotalSeconds:0.#} 秒";
     private static string FormatMegabytes(long bytes)=>bytes==long.MaxValue?"超大":(bytes/(1024d*1024d)).ToString("0.##",System.Globalization.CultureInfo.InvariantCulture);
     private static void EnsureDeclaredResponseBodySize(HttpContent content)
@@ -537,6 +557,8 @@ internal sealed class StreamingResponseAccumulator
     }
 
     private string CurrentAnswer()=>_contentIsCumulative?_cumulativeAnswer:_answer.ToString();
+    internal string RawAnswer=>CurrentAnswer();
+    internal string RawReasoning=>_reasoning;
     public AiResult BuildResult()=>StructuredResponseParser.Parse(CurrentAnswer(),_reasoning,_expectStructuredResponse);
 
     private static string AppendCumulativeBlock(ref string accumulated,string incoming)
