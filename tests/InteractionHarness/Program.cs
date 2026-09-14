@@ -30,12 +30,13 @@ internal static class Program
         if(args.Contains("--snapshot-web-background")){ApplicationSnapshotReplay.RunBackground(true);return;}
         if(args.Contains("--capture-input-foreground")){CaptureInputReplay.RunForegroundHelper();return;}
         var verifyCaptureTools=args.Contains("--verify-capture-tools");
+        var verifyColorPalette=args.Contains("--verify-color-palette");
         var verifyTeaching=args.Contains("--verify-teaching");
         var teaching=args.Contains("--teaching")||verifyTeaching;
 #if !DEBUG
-        if(!teaching&&!verifyCaptureTools)throw new InvalidOperationException("Release replay requires explicit --teaching, --verify-teaching or --verify-capture-tools.");
+        if(!teaching&&!verifyCaptureTools&&!verifyColorPalette)throw new InvalidOperationException("Release replay requires an explicit capture replay mode or --verify-color-palette.");
 #else
-        Environment.SetEnvironmentVariable("MEWU_QA_CAPTURE_WINDOWS",teaching||verifyCaptureTools?null:"1");
+        Environment.SetEnvironmentVariable("MEWU_QA_CAPTURE_WINDOWS",teaching||verifyCaptureTools||verifyColorPalette?null:"1");
 #endif
         var english=args.Contains("--english");
         typeof(AppHost).Assembly.GetType("mewu_ai_Assistant.Services.LocalizationService")!
@@ -43,6 +44,7 @@ internal static class Program
             .Invoke(null,[english?"en-US":"zh-CN",null]);
         var app=new Application { ShutdownMode=ShutdownMode.OnMainWindowClose };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source=new Uri("/MewuAI;component/Themes/LightTheme.xaml",UriKind.Relative) });
+        if(verifyColorPalette){ColorPaletteReplay.Run(app);app.Run();return;}
         var host=new AppHost(app);
         if(args.Contains("--verify-pinned-zoom")){PinnedZoomReplay.Run(app);return;}
         if(args.Contains("--verify-window-issues"))

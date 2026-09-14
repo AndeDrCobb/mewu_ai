@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 颜色选择改为可直接点选、拖动的全彩色板：外圈选色相，中间调整饱和度与明暗，保留同步的 RGB 和 HEX 精确输入。 / Replace RGB sliders with a full-color palette: choose a hue on the ring and saturation and brightness on the center plane, with synchronized RGB and HEX inputs.
+
 - 整理手工标注工具分组并补充可调整两端点的直线。按 Shift 绘制或调整时，直线和箭头锁定水平、垂直或 45°，矩形保持正方形，椭圆保持正圆。序号圆底更紧凑，删除后优先复用空缺编号；选中对象可改色，文字字体、字号和荧光底色可修改并撤销重做。空白文本草稿离开后自动清理，马赛克拖动时直接预览真实像素化效果。 / Group manual annotation tools and add lines with editable endpoints. Hold Shift while drawing or resizing to constrain lines and arrows to horizontal, vertical or 45°, rectangles to squares, and ellipses to circles. Number markers are more compact and reuse deleted numbers. Selected objects support color changes; text fonts, sizes and highlights support undo and redo. Empty text drafts are removed when abandoned, and mosaic drags preview real pixelation.
 
 - 恢复紧凑的设置窗口高度，修正 API 连接默认标签和更多操作图标居中、卡片底部留白、刷新图标与菜单阴影裁切。手工标注仅在点击“完成”后自动复制，绘制、编辑和撤销重做期间保留原剪贴板；AI 标注返回后仍可自动复制。复制图不包含编辑光标、焦点框或控制点。 / Restore compact settings height and fix default-badge and menu-icon alignment, card padding, the refresh icon and clipped menu shadows. Manual annotations copy only when Finish is clicked; drawing, editing, undo and redo preserve the clipboard. Returned AI annotations still copy automatically. Copies exclude editor carets, focus borders and handles.
