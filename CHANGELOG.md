@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 整理手工标注工具分组并补充可调整两端点的直线。序号圆底更紧凑，删除后优先复用空缺编号；选中笔画、形状、文字和序号可直接改色，文字字体、字号和荧光底色可修改并撤销重做。空白文本草稿离开后自动清理，马赛克拖动时直接预览真实像素化效果，完成后继续自动复制。 / Group manual annotation tools and add lines with editable endpoints. Number markers are more compact and reuse deleted numbers. Selected strokes, shapes, text and markers support color changes; text fonts, sizes and highlights support undo and redo. Empty text drafts are removed when abandoned, and mosaic drags preview real pixelation before committing and copying the result.
+
 - 恢复紧凑的设置窗口高度，修正 API 连接默认标签和更多操作图标居中、卡片底部留白、刷新图标与菜单阴影裁切。截图标注完成后自动复制当前带标注图片，文字编辑、AI 标注及撤销重做同步更新；复制图不包含编辑光标、焦点框或控制点。 / Restore compact settings height and fix default-badge and menu-icon alignment, card padding, the refresh icon and clipped menu shadows. Completed screenshot annotations now copy automatically, including text edits, AI annotations and undo/redo, without editor carets, focus borders or handles.
 
 - API 设置改为可命名的连接列表，点击原地展开，添加时选择服务商；提供重命名、设为默认和删除操作。切换时保留模型、密钥及未完成的高级设置草稿，编辑或测试备用连接不再更改默认连接。 / API settings now show named connections with inline editors and service selection when adding. Rename, set a default, or remove connections from their menus. Switching preserves model, key and unfinished advanced-setting drafts; editing or testing a backup connection no longer changes the default.

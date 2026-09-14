@@ -295,7 +295,7 @@ public partial class CaptureOverlayWindow : Window
     private sealed record StrokeMoveDrawingAction(Stroke Stroke,StrokeDrawingState Before,StrokeDrawingState After):DrawingAction;
     private sealed record ElementMoveDrawingAction(DrawingElementSpec Before,DrawingElementSpec After):DrawingAction;
     private sealed record StrokeDrawingState(IReadOnlyList<StylusPoint> Points);
-    private enum DrawTool{Freehand,Rectangle,Ellipse,Arrow,Mosaic,Text,Number,Eraser}
+    private enum DrawTool{Freehand,Line,Rectangle,Ellipse,Arrow,Mosaic,Text,Number,Eraser}
 
     private SelectionItem? Active=>_activeIndex>=0&&_activeIndex<_selections.Count?_selections[_activeIndex]:null;
 
@@ -835,6 +835,7 @@ public partial class CaptureOverlayWindow : Window
         ReleaseTeachingLiveCapture();
         _toolbarHideTimer.Stop();
         _closed=true;
+        CancelMosaicDrawingPreview();
         CancelAnnotatedImageCopy();
         StopRightPassThrough();
         StopThinkingGlow();
@@ -2956,6 +2957,7 @@ public partial class CaptureOverlayWindow : Window
     }
     private void ExitDrawingMode()
     {
+        CancelMosaicDrawingPreview();
         if(Active is { } item)
         {
             // InkCanvas can keep capture on an internal child rather than on
@@ -2981,12 +2983,13 @@ public partial class CaptureOverlayWindow : Window
     }
     private void SetDrawTool(DrawTool tool)
     {
-        if(Active is not { } item)return;ClearDrawingObjectSelection();_drawTool=tool;item.Markup.EditingMode=tool==DrawTool.Freehand?InkCanvasEditingMode.Ink:InkCanvasEditingMode.None;Cursor=tool switch{DrawTool.Freehand=>Cursors.Pen,_=>Cursors.Cross};DrawingTextControls.Visibility=tool==DrawTool.Text?Visibility.Visible:Visibility.Collapsed;UpdateDrawingToolVisualState(tool);PositionFloatingBar(DrawingToolbar,item);_=Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(()=>{if(_drawingMode&&DrawingToolbar.Visibility==Visibility.Visible&&Active is { } active)PositionFloatingBar(DrawingToolbar,active);}));
+        CancelMosaicDrawingPreview();
+        if(Active is not { } item)return;RemoveEmptyDrawingText(item);ClearDrawingObjectSelection();_drawTool=tool;item.Markup.EditingMode=tool==DrawTool.Freehand?InkCanvasEditingMode.Ink:InkCanvasEditingMode.None;Cursor=tool switch{DrawTool.Freehand=>Cursors.Pen,_=>Cursors.Cross};DrawingTextControls.Visibility=tool==DrawTool.Text?Visibility.Visible:Visibility.Collapsed;UpdateDrawingToolVisualState(tool);PositionFloatingBar(DrawingToolbar,item);_=Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(()=>{if(_drawingMode&&DrawingToolbar.Visibility==Visibility.Visible&&Active is { } active)PositionFloatingBar(DrawingToolbar,active);}));
     }
     private void UpdateDrawingToolVisualState(DrawTool tool)
     {
-        var active=tool switch{DrawTool.Freehand when _drawHighlighter=>DrawingHighlightButton,DrawTool.Freehand=>DrawingPenButton,DrawTool.Rectangle=>DrawingRectangleButton,DrawTool.Ellipse=>DrawingEllipseButton,DrawTool.Arrow=>DrawingArrowButton,DrawTool.Mosaic=>DrawingMosaicButton,DrawTool.Text=>DrawingTextButton,DrawTool.Number=>DrawingNumberButton,DrawTool.Eraser=>DrawingEraserButton,_=>DrawingPenButton};
-        foreach(var button in new[]{DrawingPenButton,DrawingHighlightButton,DrawingRectangleButton,DrawingEllipseButton,DrawingArrowButton,DrawingMosaicButton,DrawingTextButton,DrawingNumberButton,DrawingEraserButton})button.Style=(Style)FindResource(ReferenceEquals(button,active)?"ReferenceIconButton":"ToolbarIconButton");
+        var active=tool switch{DrawTool.Freehand when _drawHighlighter=>DrawingHighlightButton,DrawTool.Freehand=>DrawingPenButton,DrawTool.Line=>DrawingLineButton,DrawTool.Rectangle=>DrawingRectangleButton,DrawTool.Ellipse=>DrawingEllipseButton,DrawTool.Arrow=>DrawingArrowButton,DrawTool.Mosaic=>DrawingMosaicButton,DrawTool.Text=>DrawingTextButton,DrawTool.Number=>DrawingNumberButton,DrawTool.Eraser=>DrawingEraserButton,_=>DrawingPenButton};
+        foreach(var button in new[]{DrawingPenButton,DrawingHighlightButton,DrawingLineButton,DrawingRectangleButton,DrawingEllipseButton,DrawingArrowButton,DrawingMosaicButton,DrawingTextButton,DrawingNumberButton,DrawingEraserButton})button.Style=(Style)FindResource(ReferenceEquals(button,active)?"ReferenceIconButton":"ToolbarIconButton");
     }
     private static DrawingAttributes RegularDrawingAttributes(Color color)=>new(){Color=color,Width=4,Height=4,IsHighlighter=false,FitToCurve=true};
     private static DrawingAttributes HighlightDrawingAttributes(Color color)=>new(){Color=color,Width=18,Height=18,IsHighlighter=true,FitToCurve=true};
@@ -2994,6 +2997,7 @@ public partial class CaptureOverlayWindow : Window
     private void DrawPen(object s,RoutedEventArgs e){if(Active is { } item){_drawHighlighter=false;ApplyCurrentDrawingAttributes(item);SetDrawTool(DrawTool.Freehand);}}
     private void SetShapeTool(DrawTool tool){if(Active is not { } item)return;_drawHighlighter=false;ApplyCurrentDrawingAttributes(item);SetDrawTool(tool);}
     private void DrawRectangleTool(object s,RoutedEventArgs e)=>SetShapeTool(DrawTool.Rectangle);
+    private void DrawLineTool(object s,RoutedEventArgs e)=>SetShapeTool(DrawTool.Line);
     private void DrawEllipseTool(object s,RoutedEventArgs e)=>SetShapeTool(DrawTool.Ellipse);
     private void DrawArrowTool(object s,RoutedEventArgs e)=>SetShapeTool(DrawTool.Arrow);
     private void DrawMosaicTool(object s,RoutedEventArgs e){SetShapeTool(DrawTool.Mosaic);PromptStatus.Text="拖动绘制矩形马赛克 · 可撤销或重做";}
@@ -3002,7 +3006,7 @@ public partial class CaptureOverlayWindow : Window
     private void SetDrawColor(Color color){_drawColor=color;if(Active is { } item){ApplyCurrentDrawingAttributes(item);UpdateFocusedDrawingTextColor(item);}}
     private void UpdateFocusedDrawingTextColor(SelectionItem item)
     {
-        if(Keyboard.FocusedElement is not TextBox box||box.Tag is not Guid id)return;var index=item.DrawingElements.FindIndex(element=>element.Id==id);if(index<0||item.DrawingElements[index] is not TextDrawingElement text)return;var updated=text with{Color=_drawColor};item.DrawingElements[index]=updated;box.Foreground=box.CaretBrush=new SolidColorBrush(_drawColor);box.Background=updated.Highlight?new SolidColorBrush(Color.FromArgb(150,255,237,105)):Brushes.Transparent;MarkDrawingChanged(item);
+        ApplySelectedDrawingColor(item);
     }
     private void DrawRed(object s,RoutedEventArgs e)=>SetDrawColor(Colors.Red);
     private void DrawBlue(object s,RoutedEventArgs e)=>SetDrawColor(Color.FromRgb(49,140,255));
@@ -3011,10 +3015,11 @@ public partial class CaptureOverlayWindow : Window
         _drawingModalOpen=true;try{if(!MewuColorDialog.TryChoose(this,_drawColor,out var selected))return;SetDrawColor(selected);PromptStatus.Text=$"当前标注颜色 RGB({_drawColor.R}, {_drawColor.G}, {_drawColor.B})";}finally{_drawingModalOpen=false;if(!_closed)Activate();}
     }
     private void DrawHighlight(object s,RoutedEventArgs e){if(Active is { } item){_drawHighlighter=true;ApplyCurrentDrawingAttributes(item);SetDrawTool(DrawTool.Freehand);}}
-    private void ToggleTextHighlight(object s,RoutedEventArgs e){_drawTextHighlight=!_drawTextHighlight;TextHighlightButton.Background=new SolidColorBrush(_drawTextHighlight?Color.FromRgb(255,236,139):Colors.Transparent);PromptStatus.Text=_drawTextHighlight?"新文字使用荧光底色":"新文字使用普通颜色";}
+    private void ToggleTextHighlight(object s,RoutedEventArgs e){_drawTextHighlight=!_drawTextHighlight;TextHighlightButton.Background=new SolidColorBrush(_drawTextHighlight?Color.FromRgb(255,236,139):Colors.Transparent);if(Active is { } item&&SelectedDrawingElement(item) is TextDrawingElement text)CommitDrawingElementProperty(item,text,text with{Highlight=_drawTextHighlight});PromptStatus.Text=_drawTextHighlight?"文字使用荧光底色":"文字使用普通颜色";}
     private void DrawEraser(object s,RoutedEventArgs e){if(Active is not null){SetDrawTool(DrawTool.Eraser);PromptStatus.Text="拖过标注即可擦除 · 支持笔迹、形状、文字、序号和马赛克";}}
     private void DrawUndo(object s,RoutedEventArgs e)
     {
+        CancelMosaicDrawingPreview();
         if(Active is not { } item)return;ClearDrawingObjectSelection();
         while(item.DrawingOrder.Count>0)
         {
@@ -3027,21 +3032,26 @@ public partial class CaptureOverlayWindow : Window
             if(action is StrokeRemovalDrawingAction removedStroke){if(item.Markup.Strokes.Contains(removedStroke.Stroke))continue;AddStrokeWithoutHistory(item,removedStroke.Stroke);item.DrawingRedo.Push(action);MarkDrawingChanged(item);return;}
             if(action is ElementRemovalDrawingAction removedElement){if(item.DrawingElements.Any(element=>element.Id==removedElement.Element.Id))continue;item.DrawingElements.Add(removedElement.Element);RebuildDrawingElements(item);item.DrawingRedo.Push(action);MarkDrawingChanged(item);return;}
             if(action is StrokeMoveDrawingAction movedStroke&&item.Markup.Strokes.Contains(movedStroke.Stroke)){ApplyStrokeState(movedStroke.Stroke,movedStroke.Before);item.DrawingRedo.Push(action);MarkDrawingChanged(item);return;}
+            if(action is StrokeStyleDrawingAction styledStroke&&item.Markup.Strokes.Contains(styledStroke.Stroke)){styledStroke.Stroke.DrawingAttributes=styledStroke.Before.Clone();item.DrawingRedo.Push(action);MarkDrawingChanged(item);return;}
             if(action is ElementMoveDrawingAction movedElement&&ReplaceDrawingElement(item,movedElement.Before)){RebuildDrawingElements(item);item.DrawingRedo.Push(action);MarkDrawingChanged(item);return;}
+            if(action is ElementStyleDrawingAction styledElement&&ApplyDrawingElementStyle(item,styledElement.Before)){RebuildDrawingElements(item);item.DrawingRedo.Push(action);MarkDrawingChanged(item);return;}
         }
     }
     private void DrawRedo(object s,RoutedEventArgs e)
     {
+        CancelMosaicDrawingPreview();
         if(Active is not { } item||!item.DrawingRedo.TryPop(out var action))return;ClearDrawingObjectSelection();
         if(action is StrokeDrawingAction strokeAction)AddStrokeWithoutHistory(item,strokeAction.Stroke);
         else if(action is ElementDrawingAction elementAction){item.DrawingElements.Add(elementAction.Element);RebuildDrawingElements(item);}
         else if(action is StrokeRemovalDrawingAction removedStroke)item.Markup.Strokes.Remove(removedStroke.Stroke);
         else if(action is ElementRemovalDrawingAction removedElement){item.DrawingElements.RemoveAll(element=>element.Id==removedElement.Element.Id);RebuildDrawingElements(item);}
         else if(action is StrokeMoveDrawingAction movedStroke){ApplyStrokeState(movedStroke.Stroke,movedStroke.After);}
+        else if(action is StrokeStyleDrawingAction styledStroke){styledStroke.Stroke.DrawingAttributes=styledStroke.After.Clone();}
         else if(action is ElementMoveDrawingAction movedElement){ReplaceDrawingElement(item,movedElement.After);RebuildDrawingElements(item);}
+        else if(action is ElementStyleDrawingAction styledElement){ApplyDrawingElementStyle(item,styledElement.After);RebuildDrawingElements(item);}
         item.DrawingOrder.Add(action);MarkDrawingChanged(item);
     }
-    private void DrawClear(object s,RoutedEventArgs e){if(Active is { } item&&(item.Markup.Strokes.Count>0||item.DrawingElements.Count>0)){ClearDrawingObjectSelection();item.Markup.Strokes.Clear();item.Markup.Children.Clear();item.DrawingElements.Clear();item.DrawingOrder.Clear();item.DrawingRedo.Clear();item.NextDrawingNumber=1;MarkDrawingChanged(item);}}
+    private void DrawClear(object s,RoutedEventArgs e){CancelMosaicDrawingPreview();if(Active is { } item&&(item.Markup.Strokes.Count>0||item.DrawingElements.Count>0)){ClearDrawingObjectSelection();item.Markup.Strokes.Clear();item.Markup.Children.Clear();item.DrawingElements.Clear();item.DrawingOrder.Clear();item.DrawingRedo.Clear();item.NextDrawingNumber=1;MarkDrawingChanged(item);}}
     private void DrawDone(object s,RoutedEventArgs e)=>ExitDrawingMode();
     private void MarkupDown(object sender,MouseButtonEventArgs e)
     {
@@ -3054,7 +3064,7 @@ public partial class CaptureOverlayWindow : Window
         if(_drawTool==DrawTool.Freehand)return;
         if(_drawTool==DrawTool.Text){if(!TryEditDrawingText(item,point,canvas))AddTextDrawingElement(item,point);e.Handled=true;return;}
         if(_drawTool==DrawTool.Number){AddNumberDrawingElement(item,point);e.Handled=true;return;}
-        _drawStart=point;canvas.CaptureMouse();e.Handled=true;
+        _drawStart=point;canvas.CaptureMouse();if(_drawTool==DrawTool.Mosaic&&canvas.IsMouseCaptured)BeginMosaicDrawingPreview(item);e.Handled=true;
     }
     private void MarkupMove(object sender,MouseEventArgs e)
     {
@@ -3063,13 +3073,14 @@ public partial class CaptureOverlayWindow : Window
         {
             var pointer=e.GetPosition(canvas);var handle=_drawingObjectHandles.FindIndex(center=>(center-pointer).Length<=10);
             canvas.UseCustomCursor=handle>=0;
-            canvas.Cursor=handle<0?(_drawTool==DrawTool.Freehand?Cursors.Pen:Cursors.Cross):_selectedDrawingStroke is { } selected&&EditableShapeStroke.IsArrow(selected)?Cursors.SizeAll:handle is 0 or 2?Cursors.SizeNWSE:Cursors.SizeNESW;
+            canvas.Cursor=handle<0?(_drawTool==DrawTool.Freehand?Cursors.Pen:Cursors.Cross):_selectedDrawingStroke is { } selected&&EditableShapeStroke.HasEditableEndpoints(selected)?Cursors.SizeAll:handle is 0 or 2?Cursors.SizeNWSE:Cursors.SizeNESW;
             return;
         }
         if(!canvas.IsMouseCaptured)return;
         if(_drawingMoveOriginalElement is not null||_drawingMoveOriginalStroke is not null){if(_drawingResizeHandle>=0)ResizeSelectedDrawingObject(item,e.GetPosition(canvas),canvas);else MoveSelectedDrawingObject(item,e.GetPosition(canvas),canvas);e.Handled=true;return;}
         if(_drawTool==DrawTool.Eraser){var point=e.GetPosition(canvas);if(_lastEraserPoint is not { } previous||(point-previous).Length>=12){EraseDrawingObjectsAt(item,point);_lastEraserPoint=point;}e.Handled=true;return;}
         if(_drawTool is DrawTool.Freehand or DrawTool.Text or DrawTool.Number)return;
+        if(_drawTool==DrawTool.Mosaic){UpdateMosaicDrawingPreview(item,e.GetPosition(canvas));e.Handled=true;return;}
         if(_drawPreview is not null)canvas.Strokes.Remove(_drawPreview);_drawPreview=CreateShapeStroke(canvas,_drawStart,e.GetPosition(canvas),_drawTool,Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));canvas.Strokes.Add(_drawPreview);e.Handled=true;
     }
     private void MarkupUp(object sender,MouseButtonEventArgs e)
@@ -3078,11 +3089,13 @@ public partial class CaptureOverlayWindow : Window
         if(sender is not InkCanvas canvas||!canvas.IsMouseCaptured)return;
         if(_drawTool==DrawTool.Eraser){_lastEraserPoint=null;canvas.ReleaseMouseCapture();e.Handled=true;return;}
         if(_drawingMoveOriginalElement is not null||_drawingMoveOriginalStroke is not null){CommitSelectedDrawingMove();canvas.ReleaseMouseCapture();e.Handled=true;return;}
-        if(_drawTool is DrawTool.Freehand or DrawTool.Text or DrawTool.Number)return;var completed=_drawPreview;_drawPreview=null;canvas.ReleaseMouseCapture();if(Active is { } item&&completed is not null){if(_drawTool==DrawTool.Mosaic){canvas.Strokes.Remove(completed);AddMosaicElement(item,_drawStart,e.GetPosition(canvas));}else{item.DrawingOrder.Add(new StrokeDrawingAction(completed));item.DrawingRedo.Clear();_selectedDrawingStroke=completed;ShowDrawingObjectSelection(item);}}if(completed is not null&&Active is { } changedItem)MarkDrawingChanged(changedItem);e.Handled=true;
+        if(_drawTool==DrawTool.Mosaic){if(Active is { } mosaicItem)CommitMosaicDrawingPreview(mosaicItem,e.GetPosition(canvas));else CancelMosaicDrawingPreview();canvas.ReleaseMouseCapture();e.Handled=true;return;}
+        if(_drawTool is DrawTool.Freehand or DrawTool.Text or DrawTool.Number)return;var completed=_drawPreview;_drawPreview=null;canvas.ReleaseMouseCapture();if(Active is { } item&&completed is not null){item.DrawingOrder.Add(new StrokeDrawingAction(completed));item.DrawingRedo.Clear();_selectedDrawingStroke=completed;ShowDrawingObjectSelection(item);}if(completed is not null&&Active is { } changedItem)MarkDrawingChanged(changedItem);e.Handled=true;
     }
     private void MarkupLostMouseCapture(object sender,MouseEventArgs e)
     {
         ResumeAnnotatedImageCopy();
+        CancelMosaicDrawingPreview();
         if(!_drawingMode||sender is not InkCanvas canvas)return;
         if(_drawingMoveOriginalElement is not null||_drawingMoveOriginalStroke is not null){CommitSelectedDrawingMove();return;}
         if(_drawTool==DrawTool.Eraser){_lastEraserPoint=null;return;}
@@ -3091,15 +3104,15 @@ public partial class CaptureOverlayWindow : Window
 
     private bool BeginDrawingObjectSelection(SelectionItem item,Point point,InkCanvas canvas)
     {
-        ClearDrawingObjectSelection();canvas.Focus();Keyboard.Focus(canvas);
+        ClearDrawingObjectSelection();canvas.Focus();Keyboard.Focus(canvas);RemoveEmptyDrawingText(item);
         var element=HitTestDrawingElement(item,point);
         if(element is not null)
         {
-            _selectedDrawingElementId=element.Id;_drawingMoveOriginalElement=element;_drawingMovePointerStart=point;ShowDrawingObjectSelection(item);canvas.EditingMode=InkCanvasEditingMode.None;canvas.CaptureMouse();PromptStatus.Text="拖动移动 · 拖动控制点调整 · Delete 删除";return true;
+            _selectedDrawingElementId=element.Id;_drawingMoveOriginalElement=element;_drawingMovePointerStart=point;SyncDrawingPropertyControls(item);ShowDrawingObjectSelection(item);canvas.EditingMode=InkCanvasEditingMode.None;canvas.CaptureMouse();PromptStatus.Text="拖动移动 · 工具条修改样式 · Delete 删除";return true;
         }
         var stroke=item.Markup.Strokes.Reverse().FirstOrDefault(candidate=>candidate.HitTest(point,8));
         if(stroke is null)return false;
-        _selectedDrawingStroke=stroke;_drawingMoveOriginalStroke=CaptureStrokeState(stroke);_drawingMovePointerStart=point;ShowDrawingObjectSelection(item);canvas.EditingMode=InkCanvasEditingMode.None;canvas.CaptureMouse();PromptStatus.Text="拖动移动 · 拖动控制点调整 · Delete 删除";return true;
+        _selectedDrawingStroke=stroke;_drawingMoveOriginalStroke=CaptureStrokeState(stroke);_drawingMovePointerStart=point;SyncDrawingPropertyControls(item);ShowDrawingObjectSelection(item);canvas.EditingMode=InkCanvasEditingMode.None;canvas.CaptureMouse();PromptStatus.Text="拖动移动 · 工具条修改样式 · Delete 删除";return true;
     }
 
     private bool TryEditDrawingText(SelectionItem item,Point point,InkCanvas canvas)
@@ -3144,11 +3157,11 @@ public partial class CaptureOverlayWindow : Window
         point=new Point(Math.Clamp(point.X,0,Math.Max(0,canvas.ActualWidth)),Math.Clamp(point.Y,0,Math.Max(0,canvas.ActualHeight)));
         if((point-_drawingMovePointerStart).Length<.5&&!_drawingObjectMoving)return;
         _drawingObjectMoving=true;
-        if(_selectedDrawingStroke is { } arrow&&EditableShapeStroke.IsArrow(arrow)&&_drawingMoveOriginalStroke is { } arrowBefore)
+        if(_selectedDrawingStroke is { } arrow&&EditableShapeStroke.HasEditableEndpoints(arrow)&&_drawingMoveOriginalStroke is { } arrowBefore)
         {
             var a=new Point(arrowBefore.Points[0].X,arrowBefore.Points[0].Y);var b=new Point(arrowBefore.Points[1].X,arrowBefore.Points[1].Y);
             if(_drawingResizeHandle==0)a=point;else b=point;
-            arrow.StylusPoints=EditableShapeStroke.Create(a,b,"arrow",arrow.DrawingAttributes).StylusPoints;
+            arrow.StylusPoints=EditableShapeStroke.Create(a,b,EditableShapeStroke.IsLine(arrow)?"line":"arrow",arrow.DrawingAttributes).StylusPoints;
         }
         else
         {
@@ -3174,9 +3187,9 @@ public partial class CaptureOverlayWindow : Window
         if(FindDrawingElementVisual(item,element.Id) is not { } visual)return;
         InkCanvas.SetLeft(visual,element.X);InkCanvas.SetTop(visual,element.Y);
         if(element is MosaicDrawingElement mosaic){visual.Width=mosaic.Width;visual.Height=mosaic.Height;}
-        else if(element is TextDrawingElement text&&visual is TextBox editor){editor.Width=text.Width;editor.FontSize=text.FontSize;editor.MinHeight=Math.Max(30,text.FontSize*1.55);}
+        else if(element is TextDrawingElement text&&visual is TextBox editor){editor.Width=text.Width;editor.FontSize=text.FontSize;editor.MinHeight=Math.Max(30,text.FontSize*1.55);editor.FontFamily=new FontFamily(text.FontFamily);editor.Foreground=editor.CaretBrush=new SolidColorBrush(text.Color);editor.Background=text.Highlight?new SolidColorBrush(Color.FromArgb(150,255,237,105)):Brushes.Transparent;}
         else if(element is NumberDrawingElement number&&visual is Border numberVisual)
-        {numberVisual.Width=numberVisual.Height=number.Diameter;numberVisual.CornerRadius=new CornerRadius(number.Diameter/2);if(numberVisual.Child is TextBlock label)label.FontSize=Math.Clamp(number.Diameter*.48,8,80);}
+        {numberVisual.Width=numberVisual.Height=number.Diameter;numberVisual.CornerRadius=new CornerRadius(number.Diameter/2);numberVisual.Background=new SolidColorBrush(number.Color);if(numberVisual.Child is TextBlock label){label.FontSize=DrawingNumberFontSize(number);label.Foreground=ContrastBrush(number.Color);}}
     }
 
     private void CommitSelectedDrawingMove()
@@ -3257,7 +3270,7 @@ public partial class CaptureOverlayWindow : Window
         else if(_selectedDrawingStroke is { } stroke&&item.Markup.Strokes.Contains(stroke))bounds=EditableShapeStroke.Bounds(stroke.StylusPoints.ToArray());
         else return;
         _drawingSelectionOutline=new Canvas{IsHitTestVisible=false};Panel.SetZIndex(_drawingSelectionOutline,int.MaxValue);item.Host.Children.Add(_drawingSelectionOutline);
-        if(_selectedDrawingStroke is { } arrow&&EditableShapeStroke.IsArrow(arrow))
+        if(_selectedDrawingStroke is { } arrow&&EditableShapeStroke.HasEditableEndpoints(arrow))
         {
             _drawingObjectHandles.Add(new Point(arrow.StylusPoints[0].X,arrow.StylusPoints[0].Y));
             _drawingObjectHandles.Add(new Point(arrow.StylusPoints[1].X,arrow.StylusPoints[1].Y));
@@ -3299,10 +3312,13 @@ public partial class CaptureOverlayWindow : Window
     private static Stroke CreateShapeStroke(InkCanvas canvas,Point a,Point b,DrawTool tool,bool constrain)
     {
         if(tool==DrawTool.Ellipse&&constrain)b=DrawingAnnotationGeometry.ConstrainEllipseEndToCircle(a,b,new Size(canvas.ActualWidth,canvas.ActualHeight));
-        return EditableShapeStroke.Create(a,b,tool switch{DrawTool.Rectangle or DrawTool.Mosaic=>"rectangle",DrawTool.Ellipse=>"ellipse",_=>"arrow"},canvas.DefaultDrawingAttributes);
+        return EditableShapeStroke.Create(a,b,tool switch{DrawTool.Line=>"line",DrawTool.Rectangle or DrawTool.Mosaic=>"rectangle",DrawTool.Ellipse=>"ellipse",_=>"arrow"},canvas.DefaultDrawingAttributes);
     }
     private void EnsureDrawingControls()
     {
+        var wasSyncing=_syncingDrawingControls;_syncingDrawingControls=true;
+        try
+        {
         if(!_drawingFontsLoaded)
         {
             foreach(var family in Fonts.SystemFontFamilies.GroupBy(font=>font.Source,StringComparer.CurrentCultureIgnoreCase).Select(group=>group.First()).Select(font=>new DrawingFontChoice(font.Source,LocalizedFontName(font))).OrderBy(choice=>choice.DisplayName,StringComparer.CurrentCultureIgnoreCase))DrawingFontFamily.Items.Add(family);
@@ -3310,8 +3326,12 @@ public partial class CaptureOverlayWindow : Window
             _drawingFontsLoaded=true;
         }
         DrawingFontFamily.SelectedItem=DrawingFontFamily.Items.Cast<object>().OfType<DrawingFontChoice>().FirstOrDefault(item=>string.Equals(item.Source,_drawFontFamily,StringComparison.CurrentCultureIgnoreCase))??DrawingFontFamily.Items.Cast<object>().FirstOrDefault();
-        DrawingFontSize.SelectedItem=DrawingFontSize.Items.Cast<object>().FirstOrDefault(item=>item is double value&&Math.Abs(value-_drawFontSize)<.1)??24d;
+        var fontSizeChoice=DrawingFontSize.Items.Cast<object>().FirstOrDefault(item=>item is double value&&Math.Abs(value-_drawFontSize)<.1);
+        if(fontSizeChoice is null){fontSizeChoice=_drawFontSize;DrawingFontSize.Items.Add(fontSizeChoice);}
+        DrawingFontSize.SelectedItem=fontSizeChoice;
         TextHighlightButton.Background=new SolidColorBrush(_drawTextHighlight?Color.FromRgb(255,236,139):Colors.Transparent);DrawColorSwatch.Fill=new SolidColorBrush(_drawColor);
+        }
+        finally{_syncingDrawingControls=wasSyncing;}
     }
     private static string LocalizedFontName(FontFamily family)
     {
@@ -3321,19 +3341,21 @@ public partial class CaptureOverlayWindow : Window
         }
         return family.FamilyNames.Values.FirstOrDefault(name=>!string.IsNullOrWhiteSpace(name))??family.Source;
     }
-    private void DrawingFontFamilyChanged(object sender,SelectionChangedEventArgs e){if(DrawingFontFamily.SelectedItem is DrawingFontChoice selected)_drawFontFamily=selected.Source;UpdateFocusedDrawingTextStyle();}
-    private void DrawingFontSizeChanged(object sender,SelectionChangedEventArgs e){if(DrawingFontSize.SelectedItem is double selected)_drawFontSize=selected;UpdateFocusedDrawingTextStyle();}
+    private void DrawingFontFamilyChanged(object sender,SelectionChangedEventArgs e){if(_syncingDrawingControls)return;if(DrawingFontFamily.SelectedItem is DrawingFontChoice selected)_drawFontFamily=selected.Source;UpdateFocusedDrawingTextStyle();}
+    private void DrawingFontSizeChanged(object sender,SelectionChangedEventArgs e){if(_syncingDrawingControls)return;if(DrawingFontSize.SelectedItem is double selected)_drawFontSize=selected;UpdateFocusedDrawingTextStyle();}
     private void UpdateFocusedDrawingTextStyle()
     {
-        if(Active is not { } item||Keyboard.FocusedElement is not TextBox box||box.Tag is not Guid id)return;var index=item.DrawingElements.FindIndex(element=>element.Id==id);if(index<0||item.DrawingElements[index] is not TextDrawingElement text)return;var updated=text with{FontFamily=_drawFontFamily,FontSize=_drawFontSize};item.DrawingElements[index]=updated;box.FontFamily=new FontFamily(updated.FontFamily);box.FontSize=updated.FontSize;MarkDrawingChanged(item);
+        if(_syncingDrawingControls||Active is not { } item||SelectedDrawingElement(item) is not TextDrawingElement text)return;
+        CommitDrawingElementProperty(item,text,text with{FontFamily=_drawFontFamily,FontSize=_drawFontSize});
     }
     private void AddTextDrawingElement(SelectionItem item,Point point)
     {
-        var width=Math.Clamp(Math.Min(260,Math.Max(120,item.Bounds.Width*.42)),80,Math.Max(80,item.Bounds.Width));var x=Math.Clamp(point.X,0,Math.Max(0,item.Bounds.Width-width));var y=Math.Clamp(point.Y,0,Math.Max(0,item.Bounds.Height-Math.Max(32,_drawFontSize*1.7)));var element=new TextDrawingElement(Guid.NewGuid(),x,y,width,string.Empty,_drawFontFamily,_drawFontSize,_drawColor,_drawTextHighlight);item.DrawingElements.Add(element);item.DrawingOrder.Add(new ElementDrawingAction(element));item.DrawingRedo.Clear();var editor=CreateTextDrawingEditor(item,element);item.Markup.Children.Add(editor);editor.Focus();_drawingOperationChanged=true;
+        RemoveEmptyDrawingText(item);
+        var width=Math.Clamp(Math.Min(260,Math.Max(120,item.Bounds.Width*.42)),80,Math.Max(80,item.Bounds.Width));var x=Math.Clamp(point.X,0,Math.Max(0,item.Bounds.Width-width));var y=Math.Clamp(point.Y,0,Math.Max(0,item.Bounds.Height-Math.Max(32,_drawFontSize*1.7)));var element=new TextDrawingElement(Guid.NewGuid(),x,y,width,string.Empty,_drawFontFamily,_drawFontSize,_drawColor,_drawTextHighlight);item.DrawingElements.Add(element);item.DrawingOrder.Add(new ElementDrawingAction(element));var editor=CreateTextDrawingEditor(item,element);item.Markup.Children.Add(editor);_selectedDrawingElementId=element.Id;_selectedDrawingStroke=null;editor.Focus();
     }
     private void AddNumberDrawingElement(SelectionItem item,Point point)
     {
-        var diameter=Math.Clamp(_drawFontSize+12,28,56);var x=Math.Clamp(point.X-diameter/2,0,Math.Max(0,item.Bounds.Width-diameter));var y=Math.Clamp(point.Y-diameter/2,0,Math.Max(0,item.Bounds.Height-diameter));var element=new NumberDrawingElement(Guid.NewGuid(),x,y,diameter,item.NextDrawingNumber++,_drawColor);item.DrawingElements.Add(element);item.DrawingOrder.Add(new ElementDrawingAction(element));item.DrawingRedo.Clear();item.Markup.Children.Add(CreateNumberDrawingVisual(element));MarkDrawingChanged(item);PromptStatus.Text=$"已放置序号 {element.Number} · 继续点击放置 {item.NextDrawingNumber}";
+        var diameter=Math.Clamp(_drawFontSize*1.15,22,48);var x=Math.Clamp(point.X-diameter/2,0,Math.Max(0,item.Bounds.Width-diameter));var y=Math.Clamp(point.Y-diameter/2,0,Math.Max(0,item.Bounds.Height-diameter));var element=new NumberDrawingElement(Guid.NewGuid(),x,y,diameter,NextAvailableDrawingNumber(item),_drawColor);item.DrawingElements.Add(element);item.NextDrawingNumber=NextAvailableDrawingNumber(item);item.DrawingOrder.Add(new ElementDrawingAction(element));item.DrawingRedo.Clear();item.Markup.Children.Add(CreateNumberDrawingVisual(element));MarkDrawingChanged(item);PromptStatus.Text=$"已放置序号 {element.Number} · 继续点击放置 {item.NextDrawingNumber}";
     }
     private void AddMosaicElement(SelectionItem item,Point start,Point end)
     {
@@ -3341,21 +3363,21 @@ public partial class CaptureOverlayWindow : Window
     }
     private Image CreateMosaicVisual(SelectionItem item,MosaicDrawingElement element)
     {
-        var source=RenderSelectionImage(item,false,false,false);var scaleX=source.PixelWidth/Math.Max(1,item.Bounds.Width);var scaleY=source.PixelHeight/Math.Max(1,item.Bounds.Height);var left=Math.Clamp((int)Math.Floor(element.X*scaleX),0,source.PixelWidth-1);var top=Math.Clamp((int)Math.Floor(element.Y*scaleY),0,source.PixelHeight-1);var right=Math.Clamp((int)Math.Ceiling((element.X+element.Width)*scaleX),left+1,source.PixelWidth);var bottom=Math.Clamp((int)Math.Ceiling((element.Y+element.Height)*scaleY),top+1,source.PixelHeight);var region=new Int32Rect(left,top,right-left,bottom-top);var pixelated=ImagePixelationService.Pixelate(source,region,Math.Clamp((int)Math.Round(12*Math.Max(scaleX,scaleY)),6,40));var crop=new CroppedBitmap(pixelated,region);crop.Freeze();var visual=new Image{Tag=element.Id,Source=crop,Width=element.Width,Height=element.Height,Stretch=Stretch.Fill,IsHitTestVisible=false};InkCanvas.SetLeft(visual,element.X);InkCanvas.SetTop(visual,element.Y);return visual;
+        var source=RenderSelectionImage(item,false,false,false);var scaleX=source.PixelWidth/Math.Max(1,item.Bounds.Width);var scaleY=source.PixelHeight/Math.Max(1,item.Bounds.Height);var left=Math.Clamp((int)Math.Floor(element.X*scaleX),0,source.PixelWidth-1);var top=Math.Clamp((int)Math.Floor(element.Y*scaleY),0,source.PixelHeight-1);var right=Math.Clamp((int)Math.Ceiling((element.X+element.Width)*scaleX),left+1,source.PixelWidth);var bottom=Math.Clamp((int)Math.Ceiling((element.Y+element.Height)*scaleY),top+1,source.PixelHeight);var region=new Int32Rect(left,top,right-left,bottom-top);var crop=CreateMosaicPixels(source,region,Math.Clamp((int)Math.Round(12*Math.Max(scaleX,scaleY)),6,40));var visual=new Image{Tag=element.Id,Source=crop,Width=element.Width,Height=element.Height,Stretch=Stretch.Fill,IsHitTestVisible=false};RenderOptions.SetBitmapScalingMode(visual,BitmapScalingMode.NearestNeighbor);InkCanvas.SetLeft(visual,element.X);InkCanvas.SetTop(visual,element.Y);return visual;
     }
     private TextBox CreateTextDrawingEditor(SelectionItem item,TextDrawingElement element,bool interactive=true)
     {
         var editor=new TextBox{Tag=element.Id,Text=element.Text,Width=element.Width,MinHeight=Math.Max(30,element.FontSize*1.55),AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,FontFamily=new FontFamily(element.FontFamily),FontSize=element.FontSize,FontWeight=FontWeights.SemiBold,Padding=new Thickness(4,1,4,2),Foreground=new SolidColorBrush(element.Color),Background=element.Highlight?new SolidColorBrush(Color.FromArgb(150,255,237,105)):Brushes.Transparent,BorderBrush=Brushes.Transparent,BorderThickness=new Thickness(1),CaretBrush=new SolidColorBrush(element.Color)};
         InkCanvas.SetLeft(editor,element.X);InkCanvas.SetTop(editor,element.Y);
         if(!interactive)return editor;
-        editor.GotKeyboardFocus+=(_,_)=>editor.BorderBrush=new SolidColorBrush(Color.FromRgb(108,124,238));
-        editor.LostKeyboardFocus+=(_,_)=>editor.BorderBrush=Brushes.Transparent;
+        editor.GotKeyboardFocus+=(_,_)=>FocusDrawingText(item,editor);
+        editor.LostKeyboardFocus+=(_,_)=>DrawingTextLostFocus(item,editor);
         editor.TextChanged+=(_,_)=>{var index=item.DrawingElements.FindIndex(candidate=>candidate.Id==element.Id);if(index<0||item.DrawingElements[index] is not TextDrawingElement current)return;item.DrawingElements[index]=current with{Text=editor.Text};item.DrawingRedo.Clear();MarkDrawingChanged(item);};
         return editor;
     }
     private static Border CreateNumberDrawingVisual(NumberDrawingElement element)
     {
-        var visual=new Border{Tag=element.Id,Width=element.Diameter,Height=element.Diameter,CornerRadius=new CornerRadius(element.Diameter/2),Background=new SolidColorBrush(element.Color),IsHitTestVisible=false,Child=new TextBlock{Text=element.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),Foreground=ContrastBrush(element.Color),FontSize=Math.Clamp(element.Diameter*.48,8,80),FontWeight=FontWeights.Bold,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center,TextAlignment=TextAlignment.Center}};InkCanvas.SetLeft(visual,element.X);InkCanvas.SetTop(visual,element.Y);return visual;
+        var visual=new Border{Tag=element.Id,Width=element.Diameter,Height=element.Diameter,CornerRadius=new CornerRadius(element.Diameter/2),Background=new SolidColorBrush(element.Color),IsHitTestVisible=false,Child=new TextBlock{Text=element.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),Foreground=ContrastBrush(element.Color),FontSize=DrawingNumberFontSize(element),FontWeight=FontWeights.SemiBold,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center,TextAlignment=TextAlignment.Center}};InkCanvas.SetLeft(visual,element.X);InkCanvas.SetTop(visual,element.Y);return visual;
     }
     private static Brush ContrastBrush(Color color)=>color.R*.299+color.G*.587+color.B*.114>155?Brushes.Black:Brushes.White;
     private void RebuildDrawingElements(SelectionItem item)
@@ -3364,7 +3386,11 @@ public partial class CaptureOverlayWindow : Window
     }
     private void RemoveEmptyDrawingText(SelectionItem item)
     {
-        var empty=item.DrawingElements.OfType<TextDrawingElement>().Where(element=>string.IsNullOrWhiteSpace(element.Text)).Select(element=>element.Id).ToHashSet();if(empty.Count==0)return;item.DrawingElements.RemoveAll(element=>empty.Contains(element.Id));item.DrawingOrder.RemoveAll(action=>action is ElementDrawingAction element&&empty.Contains(element.Element.Id));RebuildDrawingElements(item);
+        var empty=item.DrawingElements.OfType<TextDrawingElement>().Where(element=>string.IsNullOrWhiteSpace(element.Text)).Select(element=>element.Id).ToHashSet();if(empty.Count==0)return;
+        item.DrawingElements.RemoveAll(element=>empty.Contains(element.Id));item.DrawingOrder.RemoveAll(action=>DrawingActionTargets(action,empty));
+        var redo=item.DrawingRedo.Where(action=>!DrawingActionTargets(action,empty)).Reverse().ToArray();item.DrawingRedo.Clear();foreach(var action in redo)item.DrawingRedo.Push(action);
+        foreach(var visual in item.Markup.Children.OfType<FrameworkElement>().Where(visual=>visual.Tag is Guid id&&empty.Contains(id)).ToArray())item.Markup.Children.Remove(visual);
+        if(_selectedDrawingElementId is { } selected&&empty.Contains(selected))ClearDrawingObjectSelection();
     }
     private async void QuickSend(object s,RoutedEventArgs e)=>await SendAsync(true);
     private async void QuickPromptKeyDown(object s,KeyEventArgs e){if(e.Key==Key.Enter&&!Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)){e.Handled=true;if(ReferencePicker.IsOpen&&_referencePickerCandidates.Count>0){InsertReferenceMention(_referencePickerCandidates[0]);return;}await SendAsync(true);}}
@@ -3888,6 +3914,9 @@ public partial class CaptureOverlayWindow : Window
         }
         if(IsTeachingControl(Keyboard.FocusedElement as DependencyObject))return;
         if(_longCaptureMode){e.Handled=true;return;}
+        if(_drawingMode&&e.Key==Key.Enter&&
+            (DrawingFontFamily.IsDropDownOpen||DrawingFontSize.IsDropDownOpen||
+             Keyboard.FocusedElement is DependencyObject drawingFocus&&IsInside(drawingFocus,DrawingToolbar)))return;
         if(e.Key==Key.Enter&&Keyboard.Modifiers==ModifierKeys.None&&
             (Keyboard.FocusedElement is not TextBoxBase {IsReadOnly:false}||_selectionPromptFocus&&QuickPrompt.IsKeyboardFocused&&string.IsNullOrWhiteSpace(QuickPrompt.Text))&&
             !_recordingCountdownActive&&!_recordingMode)

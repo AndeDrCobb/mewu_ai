@@ -10,11 +10,17 @@ internal static class EditableShapeStroke
 {
     private static readonly Guid KindKey=new("0dcb4b2d-6ed6-455b-a75c-64c574c7af4e");
     internal static bool IsArrow(Stroke stroke)=>stroke.ContainsPropertyData(KindKey)&&Equals(stroke.GetPropertyData(KindKey),"arrow");
+    internal static bool IsLine(Stroke stroke)=>stroke.ContainsPropertyData(KindKey)&&Equals(stroke.GetPropertyData(KindKey),"line");
+    internal static bool HasEditableEndpoints(Stroke stroke)=>IsLine(stroke)||IsArrow(stroke);
 
     internal static Stroke Create(Point a,Point b,string kind,DrawingAttributes attributes)
     {
         var points=new StylusPointCollection();
-        if(kind=="rectangle")
+        if(kind=="line")
+        {
+            points.Add(new StylusPoint(a.X,a.Y));points.Add(new StylusPoint(b.X,b.Y));
+        }
+        else if(kind=="rectangle")
         {
             points.Add(new StylusPoint(a.X,a.Y));points.Add(new StylusPoint(b.X,a.Y));points.Add(new StylusPoint(b.X,b.Y));points.Add(new StylusPoint(a.X,b.Y));points.Add(new StylusPoint(a.X,a.Y));
         }

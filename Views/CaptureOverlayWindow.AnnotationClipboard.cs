@@ -20,6 +20,7 @@ public partial class CaptureOverlayWindow
     private void MarkDrawingChanged(SelectionItem item)
     {
         _drawingOperationChanged = true;
+        item.NextDrawingNumber = NextAvailableDrawingNumber(item);
         QueueAnnotatedImageCopy(item);
     }
 
@@ -58,7 +59,7 @@ public partial class CaptureOverlayWindow
         // A pause while the pointer is still down is not a completed stroke.
         // Keep the pending item; mouse-up/focus-loss or Done will flush it.
         if (item.Markup.IsMouseCaptureWithin ||
-            _drawPreview is not null || _drawingObjectMoving) return;
+            _drawPreview is not null || _drawingMosaicPreview is not null || _drawingObjectMoving) return;
         _annotationCopyItem = null;
         try
         {
