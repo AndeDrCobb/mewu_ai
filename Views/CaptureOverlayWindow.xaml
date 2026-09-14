@@ -80,6 +80,9 @@
     <Button ToolTip="完成标注" AutomationProperties.Name="完成标注" Click="DrawDone" Style="{StaticResource ReferenceIconButton}"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M4,10 L8,14 L16,5"/></Button>
    </WrapPanel>
   </Border>
+  <Border x:Name="ApplicationSnapshotFeedback" Visibility="Collapsed" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="12" Padding="12,8" IsHitTestVisible="False" Panel.ZIndex="90">
+   <TextBlock x:Name="ApplicationSnapshotFeedbackText" Foreground="#52637A" FontSize="12" TextWrapping="Wrap" MaxWidth="380"/>
+  </Border>
   <Border x:Name="LongCaptureBar" Visibility="Collapsed" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="10,6">
    <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
    <StackPanel Orientation="Horizontal">

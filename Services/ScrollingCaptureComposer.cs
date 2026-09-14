@@ -20,7 +20,7 @@ internal static class ScrollingCaptureComposer
     internal static int EstimateVerticalShift(BitmapSource previous,BitmapSource current,out double matchScore,Int32Rect? ignoredRegion)
         =>EstimateVerticalShift(previous,current,out matchScore,ignoredRegion,0);
 
-    internal static int EstimateVerticalShift(BitmapSource previous,BitmapSource current,out double matchScore,Int32Rect? ignoredRegion,int preferredDirection,double? expectedShift=null)
+    internal static int EstimateVerticalShift(BitmapSource previous,BitmapSource current,out double matchScore,Int32Rect? ignoredRegion,int preferredDirection,double? expectedShift=null,bool ignoreStationary=false)
     {
         matchScore=double.PositiveInfinity;
         if(previous.PixelWidth!=current.PixelWidth||previous.PixelHeight!=current.PixelHeight)return 0;
@@ -32,8 +32,19 @@ internal static class ScrollingCaptureComposer
         // keep their position signal. The unshifted frame is scored too: a
         // cursor animation or other local change must not be mistaken for page
         // movement unless a translated overlap is materially better.
-        var first=FeatureGrid.Create(previous,ignoredRegion);var second=FeatureGrid.Create(current,ignoredRegion);
+        var first=FeatureGrid.Create(previous,ignoredRegion,ignoreStationary);var second=FeatureGrid.Create(current,ignoredRegion,ignoreStationary);
         var stationary=Difference(first,second,0);
+        if(ignoreStationary)
+        {
+            // Fixed composers, navigation and sticky controls belong to the
+            // viewport, not the scrolling document. Exclude their unchanged
+            // cells from both ends of a translated comparison. Blank cells
+            // alone never establish a match; the existing detail threshold
+            // still requires independently moving image/text features.
+            for(var index=0;index<first.Red.Length;index++)
+                if(Math.Abs(first.Red[index]-second.Red[index])<=2&&Math.Abs(first.Green[index]-second.Green[index])<=2&&Math.Abs(first.Blue[index]-second.Blue[index])<=2&&Math.Abs(first.Activity[index]-second.Activity[index])<=2)
+                    first.Ignored[index]=second.Ignored[index]=true;
+        }
         if(expectedShift is null&&stationary<=1.5){matchScore=stationary;return 0;}
 
         var maximum=Math.Min(height-16,(int)(height*.92));var bestShift=0;var bestScore=double.PositiveInfinity;
@@ -46,13 +57,13 @@ internal static class ScrollingCaptureComposer
         for(var shift=minimum;shift<=maximum;shift++)
         {
             if(preferredDirection>=0)
-                AddCandidate(candidates,shift,Difference(first,second,shift,true));
+                AddCandidate(candidates,shift,Difference(first,second,shift,true,ignoreStationary));
             if(preferredDirection<=0)
-                AddCandidate(candidates,-shift,Difference(second,first,shift,true));
+                AddCandidate(candidates,-shift,Difference(second,first,shift,true,ignoreStationary));
         }
         foreach(var candidate in candidates)
         {
-            var score=candidate.Shift>0?Difference(first,second,candidate.Shift):Difference(second,first,-candidate.Shift);
+            var score=candidate.Shift>0?Difference(first,second,candidate.Shift,false,ignoreStationary):Difference(second,first,-candidate.Shift,false,ignoreStationary);
             if(IsBetterMatch(score,candidate.Shift,bestScore,bestShift)){bestScore=score;bestShift=candidate.Shift;}
         }
         matchScore=bestScore;
@@ -75,8 +86,9 @@ internal static class ScrollingCaptureComposer
         return candidateScore<bestScore-tieTolerance||Math.Abs(candidateScore-bestScore)<=tieTolerance&&Math.Abs(candidateShift)<Math.Abs(bestShift);
     }
 
-    private static double Difference(FeatureGrid first,FeatureGrid second,int shift,bool coarse=false)
+    private static double Difference(FeatureGrid first,FeatureGrid second,int shift,bool coarse=false,bool robust=false)
     {
+        var tileErrors=robust?new double[48]:null;var tileCounts=robust?new int[48]:null;
         var overlap=first.Rows-shift;if(overlap<=0)return double.PositiveInfinity;
         var edgeRows=Math.Clamp(first.Rows/160,4,10);var edgeColumns=Math.Clamp(first.Columns/120,1,3);var stepY=Math.Max(1,first.Rows/(coarse?48:300));var stepX=coarse?4:1;var start=Math.Max(edgeRows,Math.Min(overlap/5,Math.Max(0,first.Rows/20)));var end=overlap-edgeRows;double difference=0;var informative=0;
         for(var y=start;y<end;y+=stepY)
@@ -88,11 +100,22 @@ internal static class ScrollingCaptureComposer
                 if(first.Ignored[firstIndex]||second.Ignored[secondIndex])continue;
                 var colorActivity=Math.Max(first.Chroma[firstIndex],second.Chroma[secondIndex]);
                 if(activity<5&&colorActivity<20)continue;
-                difference+=(Math.Abs(first.Red[firstIndex]-second.Red[secondIndex])+Math.Abs(first.Green[firstIndex]-second.Green[secondIndex])+Math.Abs(first.Blue[firstIndex]-second.Blue[secondIndex]))/3d+Math.Abs(first.Activity[firstIndex]-second.Activity[secondIndex])*.25;
-                informative++;
+                var error=(Math.Abs(first.Red[firstIndex]-second.Red[secondIndex])+Math.Abs(first.Green[firstIndex]-second.Green[secondIndex])+Math.Abs(first.Blue[firstIndex]-second.Blue[secondIndex]))/3d+Math.Abs(first.Activity[firstIndex]-second.Activity[secondIndex])*.25;
+                difference+=error;informative++;
+                if(robust){var tile=Math.Min(5,y*6/overlap)*8+Math.Min(7,column*8/first.Columns);tileErrors![tile]+=error;tileCounts![tile]++;}
             }
         }
         var sampledRows=Math.Max(1,(Math.Max(start,end)-start+stepY-1)/stepY);var minimum=Math.Max(coarse?6:24,sampledRows*(coarse?1:2));
+        if(robust)
+        {
+            // A translucent fixed panel changes too, so unchanged-pixel masks
+            // alone are insufficient. Require agreement across distinct rows
+            // and columns of informative tiles; trim the contaminated half.
+            var scores=Enumerable.Range(0,48).Where(i=>tileCounts![i]>=(coarse?3:12)).Select(i=>(Index:i,Score:tileErrors![i]/tileCounts![i])).OrderBy(tile=>tile.Score).ToArray();
+            var keep=Math.Max(4,(scores.Length+1)/2);
+            if(scores.Length<keep||scores.Take(keep).Select(tile=>tile.Index/8).Distinct().Count()<2||scores.Take(keep).Select(tile=>tile.Index%8).Distinct().Count()<2)return double.PositiveInfinity;
+            return scores.Take(keep).Average(tile=>tile.Score);
+        }
         return informative<minimum?double.PositiveInfinity:difference/informative;
     }
 
@@ -109,7 +132,7 @@ internal static class ScrollingCaptureComposer
         internal byte[] Blue{get;}
         internal byte[] Chroma{get;}
 
-        internal static FeatureGrid Create(BitmapSource source,Int32Rect? ignoredRegion)
+        internal static FeatureGrid Create(BitmapSource source,Int32Rect? ignoredRegion,bool smooth=false)
         {
             var pixels=Pixels(source);var width=source.PixelWidth;var height=source.PixelHeight;var stride=width*4;var columns=Math.Clamp(width/6,64,256);
             var mean=new byte[checked(columns*height)];var range=new byte[mean.Length];var activity=new byte[mean.Length];var ignoredCells=new bool[mean.Length];
@@ -133,6 +156,18 @@ internal static class ScrollingCaptureComposer
                 if(ignored){ignoredCells[index]=true;activity[index]=0;continue;}
                 var value=(int)range[index];if(column>0)value=Math.Max(value,Math.Abs(mean[index]-mean[index-1]));if(y>0)value=Math.Max(value,Math.Abs(mean[index]-mean[index-columns]));activity[index]=(byte)Math.Min(255,value);
             }
+            if(smooth)
+            {
+                // Compare descriptors with subpixel text movement tolerance.
+                // Captured/output pixels themselves remain untouched.
+                foreach(var channel in new[]{red,green,blue,activity})
+                {
+                    var copy=(byte[])channel.Clone();
+                    for(var y=1;y<height-1;y++)for(var x=0;x<columns;x++){var i=y*columns+x;channel[i]=(byte)((copy[i-columns]+copy[i]*2+copy[i+columns])/4);}
+                    Array.Clear(copy);
+                }
+            }
+            Array.Clear(pixels);
             return new FeatureGrid(columns,height,mean,activity,ignoredCells,red,green,blue,chroma);
         }
     }

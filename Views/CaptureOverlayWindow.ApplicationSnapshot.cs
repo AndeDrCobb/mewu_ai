@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Windows.Controls;
 using System.Diagnostics;
 using mewu_ai_Assistant.Interop;
 using mewu_ai_Assistant.Models;
@@ -48,6 +49,7 @@ public partial class CaptureOverlayWindow
         PinnedImageWindow? pin=null;
         var interop=new WindowInteropHelper(this);var previousOwner=interop.Owner;var ownerChanged=false;
         var restored=false;var stage="prepare";_applicationSnapshotActive=true;_applicationSnapshotFailure=null;
+        ShowApplicationSnapshotFeedback(item,PromptStatus.Text);
         try
         {
             scroll=await ApplicationScrollSession.StartAsync(target,operation.Token);
@@ -65,6 +67,7 @@ public partial class CaptureOverlayWindow
             var token=deadline.Token;
             var generation=capture.Generation;
             stage="top";var state=scroll.Initial.Scrollable?await scroll.MoveAsync(0,token):scroll.Initial;
+            if(Math.Abs(state.Position-scroll.Initial.Position)<.000001)generation=-1;
             stage="first-frame";var first=await ReadApplicationFrameAsync(capture,viewport,generation,token);
             var accumulator=ScrollingCaptureAccumulator.Start(first);
             while(state.Scrollable&&state.Position<99.99)
@@ -72,17 +75,35 @@ public partial class CaptureOverlayWindow
                 token.ThrowIfCancellationRequested();
                 if(!IsOverlayOperationActive(operation,item)||!target.IsCurrent())throw new OperationCanceledException(token);
                 if(state.ViewSize>=100)throw new InvalidDataException("Invalid scroll range.");
-                var step=Math.Clamp(state.ViewSize/(100-state.ViewSize)*45,.001,100);
-                generation=capture.Generation;
-                stage="move";var next=await scroll.MoveAsync(Math.Min(100,state.Position+step),token);
-                if(next.Bounds!=state.Bounds||Math.Abs(next.ViewSize-state.ViewSize)>.01||next.Position<=state.Position)
-                    throw new InvalidDataException("Source content changed while capturing.");
-                stage="frame";var frame=await ReadApplicationFrameAsync(capture,viewport,generation,token);
-                var expected=viewport.Height*(100-state.ViewSize)/state.ViewSize*(next.Position-state.Position)/100;
-                var shift=await Task.Run(()=>ScrollingCaptureComposer.EstimateVerticalShift(accumulator.LastFrame,frame,out _,null,1,expected),token);
-                stage="stitch";if(shift<=0)throw new InvalidDataException("Content overlap could not be verified.");
+                var step=Math.Clamp(state.ViewSize/(100-state.ViewSize)*25,.001,100);
+                ApplicationScrollState next=state;BitmapSource frame=accumulator.LastFrame;var shift=0;double matchScore=0;
+                for(var attempt=0;attempt<6&&shift<=0;attempt++)
+                {
+                    generation=capture.Generation;
+                    stage="move";next=await scroll.MoveAsync(Math.Min(100,state.Position+step/Math.Pow(2,attempt)),token);
+                    if(next.Bounds.Intersect(capture.Bounds)!=viewport||next.Position<=state.Position)
+                    {
+                        new PrivacyLogger().Info("ApplicationSnapshotGeometry",$"before={state.Bounds};after={next.Bounds};from={state.Position:F4};to={next.Position:F4};view={state.ViewSize:F4}/{next.ViewSize:F4}");
+                        throw new InvalidDataException("Source content changed while capturing.");
+                    }
+                    var expected=viewport.Height*(100-state.ViewSize)/state.ViewSize*(next.Position-state.Position)/100;
+                    for(var refresh=0;refresh<3&&shift<=0;refresh++)
+                    {
+                        stage="frame";frame=await ReadApplicationFrameAsync(capture,viewport,refresh==0?generation:-1,token);
+                        shift=await Task.Run(()=>ScrollingCaptureComposer.EstimateVerticalShift(accumulator.LastFrame,frame,out matchScore,null,1,expected,true),token);
+                        // Virtualized applications expose logical percentages;
+                        // verify pixels when those hints do not match rendering.
+                        if(shift<=0)shift=await Task.Run(()=>ScrollingCaptureComposer.EstimateVerticalShift(accumulator.LastFrame,frame,out matchScore,null,1,null,true),token);
+                    }
+                }
+                stage="stitch";if(shift<=0)
+                {
+                    new PrivacyLogger().Info("ApplicationSnapshotAlignment",$"from={state.Position:F4};to={next.Position:F4};score={matchScore:F2}");
+                    throw new InvalidDataException("Content overlap could not be verified.");
+                }
                 accumulator=await Task.Run(()=>accumulator.Append(frame,shift,token),token)??throw new InvalidDataException("Image capacity reached.");
                 state=next;
+                ShowApplicationSnapshotFeedback(item,L($"正在截取完整画面… {state.Position:F0}% · Esc 取消",$"Capturing full content… {state.Position:F0}% · Esc to cancel"));
             }
             stage="restore";await scroll.RestoreAsync();restored=true;
             await Task.Delay(200,token);
@@ -104,11 +125,19 @@ public partial class CaptureOverlayWindow
                 ?L("完整画面已置顶并引用 · 原窗口位置已恢复","Full content pinned and referenced · Original position restored")
                 :L("窗口画面已置顶并引用 · 未检测到可自动展开的滚动区域","Window pinned and referenced · No accessible scroll area detected");
             pin=null;
+            ApplicationSnapshotFeedback.Visibility=Visibility.Collapsed;
         }
-        catch(OperationCanceledException){}
+        catch(OperationCanceledException)
+        {
+            if(!operation.IsCancellationRequested&&!_closed)
+            {
+                _applicationSnapshotFailure=stage+":Timeout";
+                PromptStatus.Text=L("快照超时，已停止采集并保留原选区。","Snapshot timed out. Capture stopped and the original selection was kept.");
+            }
+        }
         catch(Exception ex)
         {
-            _applicationSnapshotFailure=stage+":"+ex.GetType().Name;
+            _applicationSnapshotFailure=stage+":"+ex.GetType().Name+(ex is InvalidDataException&&ex.Message.StartsWith("scroll-",StringComparison.Ordinal)?":"+ex.Message:"");
             new PrivacyLogger().Info("ApplicationSnapshotFailed",_applicationSnapshotFailure);
             if(!_closed)PromptStatus.Text=L("未能取得完整画面：此窗口的渲染或滚动接口不可用，或内容无法可靠拼接。","Full capture unavailable: the window could not provide rendering, scroll control, or reliable image overlap.");
         }
@@ -128,34 +157,44 @@ public partial class CaptureOverlayWindow
                 catch(Exception ex){new PrivacyLogger().Info("ApplicationSnapshotOwnerRestore",ex.GetType().Name);_closeAfterApplicationSnapshot=true;}
             }
             if(operation.IsCancellationRequested&&restored&&!_closed)PromptStatus.Text=L("已取消快照 · 原位置已恢复","Snapshot cancelled · Original position restored");
+            var cancelled=operation.IsCancellationRequested;
             _applicationSnapshotActive=false;EndOverlayOperation(operation);
+            if(!_closed&&(cancelled||_applicationSnapshotFailure is not null))ShowApplicationSnapshotFeedback(item,PromptStatus.Text);
             if(_closeAfterApplicationSnapshot&&!_closed){_closeAfterApplicationSnapshot=false;Close();}
         }
     }
 
     private static async Task<BitmapSource> ReadApplicationFrameAsync(ApplicationWindowCapture capture,ScreenRect viewport,long previousGeneration,CancellationToken token)
     {
-        var timer=Stopwatch.StartNew();await Task.Delay(160,token);
-        BitmapSource? previous=null;
+        var timer=Stopwatch.StartNew();await Task.Delay(240,token);
         while(timer.Elapsed<TimeSpan.FromSeconds(5))
         {
             token.ThrowIfCancellationRequested();
             if(capture.Generation>previousGeneration&&capture.Latest is { } image)
             {
                 var crop=new CroppedBitmap(image,new Int32Rect(viewport.X-capture.Bounds.X,viewport.Y-capture.Bounds.Y,viewport.Width,viewport.Height));crop.Freeze();
-                if(previous is not null&&await Task.Run(()=>ApplicationFramesEqual(previous,crop),token))return crop;
-                previous=crop;
+                // A video, caret or animated control need never become fully
+                // static. Fresh compositor pixels and verified scroll overlap
+                // establish progress; whole-window byte equality does not.
+                return crop;
             }
             await Task.Delay(100,token);
         }
-        throw new TimeoutException("Window did not deliver a stable updated frame.");
+        throw new TimeoutException("Window did not deliver an updated frame.");
     }
 
-    private static bool ApplicationFramesEqual(BitmapSource first,BitmapSource second)
+    private void ShowApplicationSnapshotFeedback(SelectionItem item,string message)
     {
-        var stride=checked(first.PixelWidth*4);var a=new byte[checked(stride*first.PixelHeight)];var b=new byte[a.Length];
-        try{first.CopyPixels(a,stride,0);second.CopyPixels(b,stride,0);return a.AsSpan().SequenceEqual(b);}
-        finally{Array.Clear(a);Array.Clear(b);}
+        ApplicationSnapshotFeedbackText.Text=message;ApplicationSnapshotFeedback.Visibility=Visibility.Visible;
+        PositionFloatingBar(ApplicationSnapshotFeedback,item);
+        if(Toolbar.Visibility!=Visibility.Visible)return;
+        var statusTop=Canvas.GetTop(ApplicationSnapshotFeedback);var toolbarTop=Canvas.GetTop(Toolbar);
+        var height=ApplicationSnapshotFeedback.DesiredSize.Height;var toolbarHeight=Toolbar.DesiredSize.Height;
+        if(!double.IsFinite(toolbarTop)||statusTop+height<=toolbarTop||statusTop>=toolbarTop+toolbarHeight)return;
+        var monitor=MonitorBounds(item.Bounds);
+        var top=toolbarTop-height-8;
+        if(top<monitor.Top+8)top=toolbarTop+toolbarHeight+8;
+        Canvas.SetTop(ApplicationSnapshotFeedback,Math.Clamp(top,monitor.Top+8,Math.Max(monitor.Top+8,monitor.Bottom-height-8)));
     }
 
     private void ApplicationSnapshotClosing(object? sender,System.ComponentModel.CancelEventArgs e)

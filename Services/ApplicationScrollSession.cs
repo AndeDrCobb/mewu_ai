@@ -61,8 +61,9 @@ internal sealed class ApplicationScrollSession : IAsyncDisposable
     internal static ApplicationScrollState Validate(ApplicationScrollState state)
     {
         if(state.Failure is not null)throw new IOException("Scroll worker failed: "+state.Failure);
-        if(state.Bounds.IsEmpty||!double.IsFinite(state.Position)||!double.IsFinite(state.ViewSize)||state.ViewSize<=0||state.ViewSize>100.000001||state.Position<-.000001||state.Position>100.000001)
-            throw new InvalidDataException("Invalid scroll state.");
+        if(state.Bounds.IsEmpty)throw new InvalidDataException("scroll-bounds");
+        if(!double.IsFinite(state.Position)||state.Position<-.000001||state.Position>100.000001)throw new InvalidDataException("scroll-position");
+        if(!double.IsFinite(state.ViewSize)||state.ViewSize<=0||state.ViewSize>100.000001)throw new InvalidDataException("scroll-view-size");
         // WPF's provider can report 100.00000000000001 at the bottom.
         return state with{Position=Math.Clamp(state.Position,0,100),ViewSize=Math.Min(100,state.ViewSize)};
     }
@@ -110,7 +111,10 @@ internal sealed class ApplicationScrollSession : IAsyncDisposable
                 var bounds=element.Current.BoundingRectangle;
                 var x=(int)Math.Ceiling(bounds.Left);var y=(int)Math.Ceiling(bounds.Top);
                 var rect=new ScreenRect(x,y,(int)Math.Floor(bounds.Right)-x,(int)Math.Floor(bounds.Bottom)-y);
-                return new(rect,scroll?.Current.VerticalScrollPercent??0,scroll?.Current.VerticalViewSize??100,scroll is not null);
+                var current=scroll?.Current;
+                return current is {VerticallyScrollable:true} info
+                    ?new(rect,info.VerticalScrollPercent,info.VerticalViewSize,true)
+                    :new(rect,0,100,false);
             }
             stage="initial-state";await ApplicationSnapshotProcess.WriteMessage(output,State(),4096,lifetime.Token);
             while(true)

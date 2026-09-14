@@ -49,6 +49,11 @@ internal static class Program
             WindowIssuesReplay.Run(app,host);return;
         }
         host.Settings.TeachingMode=teaching;
+        if(args.FirstOrDefault(argument=>argument.StartsWith("--snapshot-window=",StringComparison.Ordinal)) is { } selectedWindow)
+        {
+            if(!long.TryParse(selectedWindow.AsSpan("--snapshot-window=".Length),out var handle)||handle<=0)throw new ArgumentException("Invalid selected window.");
+            ApplicationSnapshotLiveReplay.Run(app,host,handle);return;
+        }
         if(args.Contains("--verify-capture-timing")){CaptureTimingReplay.Run(app,host);return;}
         if(args.Contains("--verify-application-snapshot")||args.Contains("--verify-application-snapshot-web")||args.Contains("--verify-application-snapshot-graphics")||args.Contains("--verify-application-snapshot-cancel")||args.Contains("--verify-application-snapshot-close"))
         {
