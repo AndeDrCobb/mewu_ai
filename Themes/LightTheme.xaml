@@ -216,7 +216,8 @@
             <Setter.Value>
                 <ControlTemplate TargetType="PasswordBox">
                     <Border x:Name="Input" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="11">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        <!-- PasswordBox forwards Padding to its content host itself. -->
+                        <ScrollViewer x:Name="PART_ContentHost"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
@@ -337,7 +338,7 @@
                 <ControlTemplate TargetType="CheckBox">
                     <StackPanel x:Name="CheckShell" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
                         <Border x:Name="Box" Width="18" Height="18" Background="White" BorderBrush="#C6D1E0" BorderThickness="1.2" CornerRadius="5" Margin="0,0,8,0">
-                            <Path x:Name="Tick" Data="M4,9 L8,13 L15,5" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                            <Path x:Name="Tick" Data="M4,9 L8,13 L15,5" Width="13" Height="10" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                         </Border>
                         <ContentPresenter VerticalAlignment="Center"/>
                     </StackPanel>

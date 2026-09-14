@@ -464,7 +464,7 @@ public sealed partial class SettingsWindow : Window
         _providerList.MinWidth=0;
         System.Windows.Automation.AutomationProperties.SetName(_providerList,"API接入列表");
         _providerList.SelectionChanged+=(_,_)=>{if(!_loadingProvider&&_providerList.SelectedItem is AiProviderSettings provider){_defaultProviderId=provider.Id;SelectProvider(provider);}};
-        var providerActions=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Left};
+        var providerActions=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0,8,0,0)};
         _addProvider.Content=LocalizationService.T("新增接入点","Add endpoint");_deleteProvider.Content=LocalizationService.T("删除接入点","Remove endpoint");
         foreach(var button in new[]{_addProvider,_deleteProvider}){button.FontSize=12;button.MinHeight=32;button.Padding=new Thickness(12,6,12,6);button.Margin=new Thickness(0,0,8,0);button.SetResourceReference(StyleProperty,"SecondaryButton");}
         _addProvider.Click+=(_,_)=>AddApiProvider();_deleteProvider.Click+=(_,_)=>RemoveApiProvider();
@@ -493,6 +493,7 @@ public sealed partial class SettingsWindow : Window
         _apiKey.PasswordChar = '\u25CF';
         var apiKeyRow=new Grid();apiKeyRow.ColumnDefinitions.Add(new ColumnDefinition());apiKeyRow.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
         AiSettingsForm.PrepareEditor(_apiKey);
+        _apiKey.VerticalContentAlignment=VerticalAlignment.Center;
         _clearApiKey.Content="清除已保存密钥";_clearApiKey.FontSize=12;_clearApiKey.FontWeight=FontWeights.Normal;_clearApiKey.MinHeight=38;_clearApiKey.Padding=new Thickness(13,7,13,7);_clearApiKey.Margin=new Thickness(8,0,0,0);_clearApiKey.SetResourceReference(StyleProperty,"SecondaryButton");_clearApiKey.Click+=(_,_)=>ToggleApiKeyDeletion();
         System.Windows.Automation.AutomationProperties.SetName(_apiKey,"API Key");
         apiKeyRow.Children.Add(_apiKey);Grid.SetColumn(_clearApiKey,1);apiKeyRow.Children.Add(_clearApiKey);panel.Children.Add(AiSettingsForm.Field("API Key",apiKeyRow));

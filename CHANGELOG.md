@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修正设置页复选框勾号偏移，增加 API 接入点操作按钮与列表的间距，并统一 API Key 输入框及相邻按钮的高度。 / Center settings checkmarks, separate endpoint actions from the selector, and align the API key field and its adjacent button with the other form controls.
+
 - 截图画布支持右键穿透：右键点击或按住拖动操作底层应用的左键，Ctrl＋右键传递真正的右键。松开后恢复截图界面并保留已有截图；对话条、工具栏和 OCR 的右键菜单保留。 / On the capture canvas, right-click or hold and drag to operate the underlying application's left button; Ctrl + right-click forwards a real right-click. Releasing restores the overlay and preserves existing captures. Composer, toolbar and OCR context menus remain available.
 
 - 无延时截图在快捷键所在的界面线程直接冻结画面，去掉启动过程的两次额外排队，避免抓取时机落到后续画面。 / Zero-delay screenshot requests freeze the current frame directly on the hotkey UI thread, eliminating two unnecessary dispatcher hops.
