@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+## 0.4.6 — API 接入、标注编辑与应用快照 / API connections, annotation editing and app snapshots
+
 - 按 2026 年 9 月官方接口更新国内外 API 接入模板，添加服务商分组与搜索；完善模型目录格式、分页及对话模型筛选，适配新推理模型参数、图文能力和类型化流式回复。已有连接、密钥及默认选择保持原样。 / Update China and global API presets against September 2026 documentation, with grouped service search, model catalog pagination and chat filtering, current reasoning-model parameters, vision capabilities and typed streaming responses. Existing connections, keys and defaults are preserved.
 
 - 颜色选择改为可直接点选、拖动的全彩色板：外圈选色相，中间调整饱和度与明暗，保留同步的 RGB 和 HEX 精确输入。 / Replace RGB sliders with a full-color palette: choose a hue on the ring and saturation and brightness on the center plane, with synchronized RGB and HEX inputs.
@@ -23,6 +25,8 @@
 - 修复置顶长图放大时受窗口尺寸约束而变形的问题，窗口和图片同步等比例缩放；改进滚动拼接接缝，避免重复保留上一帧的底部边框。 / Fix pinned long images distorting at native window size limits, and join scrolling frames within their overlap to avoid repeating bottom borders.
 - 自动吸附窗口后可截取应用快照：在前台保持冻结画面，通过系统窗口渲染接口取得可访问滚动区域的原始图像并自动拼接，完成后恢复滚动位置、置顶并引用；取消或关闭也先恢复位置。依赖应用提供可用的渲染和滚动接口，不以文字重排代替原图，不将拼接失败当作完整截图。手动拖选仍保留滚动长截图。 / Window-snapped selections can capture original pixels from an accessible scroll area through Windows compositor capture while the foreground stays frozen. Capture restores the original scroll position, then pins and references the result; cancellation and closing also restore first. Rendering and scroll support depend on the application. No reflowed text substitution or incomplete captures reported as complete; manual selections retain scrolling capture.
 - 长截图取消固定 24 段限制，改用增量拼接，仅保留合成图与最新匹配帧，按实际图像容量控制内存。 / Remove the fixed 24-segment limit and merge incrementally, retaining the composite and latest matching frame within the image capacity budget.
+
+- [完整说明 / Full notes](./docs/release-notes-v0.4.6.md)
 
 ## 0.4.5 — 回复解析与贴图层级 / Reply parsing and pinned windows
 

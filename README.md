@@ -3,14 +3,14 @@
   <h1>MewuAI</h1>
   <p>A Windows screenshot tool with screen recording, pinned images, text recognition, and AI annotations.</p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.5"><img src="https://img.shields.io/badge/Public_Beta-v0.4.5-7C6CF0?style=flat-square" alt="v0.4.5 public beta" /></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.6"><img src="https://img.shields.io/badge/Public_Beta-v0.4.6-7C6CF0?style=flat-square" alt="v0.4.6 public beta" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 or later, x64" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MPL--2.0-blue?style=flat-square" alt="MPL-2.0" /></a>
   </p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.5/MewuAI-Setup-0.4.5-win-x64.exe"><strong>Download installer</strong></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Setup-0.4.6-win-x64.exe"><strong>Download installer</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.5/MewuAI-Portable-0.4.5-win-x64.zip">Portable ZIP</a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Portable-0.4.6-win-x64.zip">Portable ZIP</a>
   </p>
   <p><a href="./README.zh-CN.md">简体中文</a> · <strong>English</strong> · <a href="./CHANGELOG.md">Changelog</a> · <a href="https://github.com/abnste/mewu_ai/issues">Report an issue</a></p>
 </div>
@@ -26,8 +26,8 @@ Select something on your screen and ask AI to translate it, explain it, or highl
 
 - **Papers and assignments:** Reference exam screenshots in the ordinary conversation bar for explanations and annotations. Reference multiple screenshots to discuss shared problems and generate practice questions; readings and grading still need human review.
 
-- **Screenshots and scrolling capture:** Select a region or window, capture across monitors, and scroll up or down to capture long pages.
-- **Annotations and pinned images:** Add pen strokes, highlights, arrows, shapes, text, numbered markers, and pixelation. Drag annotations to adjust them, or pin a screenshot on your desktop for reference.
+- **Screenshots and scrolling capture:** Select a region or window, capture across monitors, and capture long pages without a fixed segment limit. Window-snapped selections offer app snapshots that capture supported scroll areas, restore their position, then pin and reference the result. Availability depends on the application's rendering and scrolling support.
+- **Annotations and pinned images:** Add pen strokes, highlights, lines, arrows, shapes, text, numbered markers, and pixelation. Edit selected objects, choose colors from a full-color palette, and preview pixelation while dragging. Hold Shift to constrain lines, arrows and shapes; click Finish to copy the annotated image automatically.
 - **Text and tables:** Copy text from images, translate screenshots, and use AI to extract tables for Excel.
 - **Screen recording:** Record a region with computer audio and an optional microphone. Export MP4 video, MP3 audio, or a GIF.
 - **Ask about images and videos:** Reference several screenshots or attachments, ask follow-up questions, and click a time in an answer to jump to the relevant video scene.
@@ -104,6 +104,8 @@ Original: [HKEAA 2025 HKDSE Mathematics Compulsory Part sample script](https://w
 1. **Install and open.** Download the installer above, or extract the portable ZIP and run MewuAI.exe. Requires Windows 10 2004 or later, x64. No separate .NET installation is needed.
 2. **Capture a region.** Press <kbd>Shift</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd>, drag to select an area, and use the toolbar to copy, save, annotate, extract text, or record.
 3. **Connect AI.** Set up and save a connection in **Settings → AI**. Use the capture toolbar's reference button to add a region to your question. You can also upload attachments or ask a text-only question.
+
+While capturing, right-click or hold and drag on the canvas to click or drag in the application underneath. Hold <kbd>Ctrl</kbd> while right-clicking to pass through a real right-click. Existing captures remain in place when you release.
 
 **Settings → General** lets you change the capture shortcut and switch between English and Simplified Chinese. Press Delete in the shortcut field to disable it. Restart the app after changing its language.
 

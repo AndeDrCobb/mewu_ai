@@ -3,14 +3,14 @@
   <h1>喵呜AI</h1>
   <p>Windows 截图工具，支持录屏、贴图、文字识别和 AI 标注。</p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.5"><img src="https://img.shields.io/badge/公测版-v0.4.5-7C6CF0?style=flat-square" alt="v0.4.5 公测版" /></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.6"><img src="https://img.shields.io/badge/公测版-v0.4.6-7C6CF0?style=flat-square" alt="v0.4.6 公测版" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 及以上，x64" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MPL--2.0-blue?style=flat-square" alt="MPL-2.0" /></a>
   </p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.5/MewuAI-Setup-0.4.5-win-x64.exe"><strong>下载安装版</strong></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Setup-0.4.6-win-x64.exe"><strong>下载安装版</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.5/MewuAI-Portable-0.4.5-win-x64.zip">免安装版</a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Portable-0.4.6-win-x64.zip">免安装版</a>
   </p>
   <p><strong>简体中文</strong> · <a href="./README.md">English</a> · <a href="./CHANGELOG.md">更新日志</a> · <a href="https://github.com/abnste/mewu_ai/issues">问题反馈</a></p>
 </div>
@@ -26,8 +26,8 @@
 
 - **试卷与作业**：像普通截图一样引用试卷，直接让 AI 讲解、批注；引用多张截图分析共同问题并生成练习，识读与判分仍需人工核对。
 
-- **截图与长截图**：框选区域、选择窗口、多屏截图，支持上下滚动截取长页面。
-- **标注与贴图**：画笔、高亮、箭头、形状、文字、序号和马赛克；拖动调整已有标注，把截图置顶在桌面上参考。
+- **截图与长截图**：框选区域、选择窗口、多屏截图，长截图不再限制固定拼接次数。自动吸附窗口后可截取应用快照，捕获受支持的滚动区域并恢复原位置，完成后自动置顶和引用；可用性取决于应用的渲染与滚动支持。
+- **标注与贴图**：画笔、高亮、直线、箭头、形状、文字、序号和马赛克；选中对象即可调整样式，全彩色板取色，拖动时预览真实马赛克。按住 Shift 约束线条、箭头和形状，点击“完成”后自动复制标注图。
 - **文字与表格**：识别并复制图片中的文字，翻译截图；用 AI 提取表格，粘贴到 Excel。
 - **录屏与导出**：录制指定区域，支持电脑声音和麦克风；保存为 MP4 视频、MP3 音频或 GIF 动图。
 - **看图、看视频提问**：引用多张截图或附件继续追问，查看 AI 批注，点击回答中的时间跳到对应视频片段。
@@ -104,6 +104,8 @@
 1. **安装并打开。** 下载上方安装版，或解压免安装版后运行 MewuAI.exe。支持 Windows 10 2004 及以上的 x64 系统，无需另装 .NET。
 2. **截取画面。** 按 <kbd>Shift</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd>，拖动选择区域，再从工具条中选择复制、保存、标注、文字识别或录屏。
 3. **连接 AI。** 在 **设置 → AI** 中配置并保存。截图后点击工具条中的引用按钮，把区域加入对话；也可以上传附件或直接输入文字提问。
+
+截图时，在画布上右键点击或按住拖动，可以操作底层应用的左键；按住 <kbd>Ctrl</kbd> 再右键则传递真正的右键操作。松开后恢复截图界面，已有截图继续保留。
 
 在 **设置 → 常规** 中可以修改截图快捷键、切换简体中文或 English。在快捷键输入框按 Delete 可清空快捷键；更换界面语言后重启生效。
 
