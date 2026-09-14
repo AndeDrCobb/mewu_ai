@@ -36,26 +36,30 @@ public partial class CaptureOverlayWindow
         if(item.SnapshotTarget is not { } target)return;
         var operation=BeginOverlayOperation(L("正在截取应用快照…按 Esc 可取消","Capturing application snapshot… Press Esc to cancel"));
         PinnedImageWindow? pin=null;
-        var reading=true;
         try
         {
-            var document=await ApplicationSnapshotProcess.ReadAsync(target,operation.Token);
-            reading=false;
+            ApplicationSnapshotDocument? document=null;
+            try{document=await ApplicationSnapshotProcess.ReadAsync(target,operation.Token);}
+            catch(Exception ex) when(ex is InvalidDataException or IOException or TimeoutException)
+            {
+                // Text is optional context. A provider without readable text
+                // must not prevent the original window image from being used.
+                new PrivacyLogger().Info("ApplicationSnapshotTextUnavailable",ex.GetType().Name);
+            }
             if(!IsOverlayOperationActive(operation,item))return;
-            var pixels=ToPixelRect(item.Bounds);
-            var english=System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName=="en";
-            var image=await Task.Run(()=>ApplicationSnapshotRenderer.Render(document,pixels.Width,english,operation.Token),operation.Token);
-            if(!IsOverlayOperationActive(operation,item))return;
+            var image=RenderSelectionImage(item,false,false,false);
             var before=CaptureOverlaySnapshot();
-            var bounds=CaptureOverlayPolicy.FitLongCaptureResultBounds(item.Bounds,MonitorBounds(item.Bounds),image.PixelWidth,image.PixelHeight);
+            var bounds=item.Bounds;
             var region=ScreenCoordinateService.ToScreenRect(ToPixelRect(bounds),_frame.OriginX,_frame.OriginY);
-            pin=new PinnedImageWindow(image,region,IsTeachingMode);pin.Show();
+            pin=new PinnedImageWindow(RenderSelectionImage(item,true,true,true),region,IsTeachingMode);pin.Show();
             if(!IsOverlayOperationActive(operation,item))return;
-            ClearImageOnlyLayers(item);item.CapturedImageOverride=image;item.SnapshotText=document.Text;item.SnapshotTarget=null;item.Bounds=bounds;
+            item.CapturedImageOverride=image;item.SnapshotText=document?.Text;item.SnapshotTarget=null;
             _references.Add(item);UpdateSelection(item);UpdateReferenceChips();
             RecordOverlayOperation(before,L("应用快照","Application snapshot"));
             RefreshDesktopFrameIncludingPinnedWindows();RestoreOverlayKeyboardFocusAfterPin();KeepOverlayBelowPinnedWindows();SetPromptBarHidden(false);
-            PromptStatus.Text=L("应用内容快照已置顶并引用 · 未加载的内容可能无法读取","Content snapshot pinned and referenced · Unloaded content may be unavailable");
+            PromptStatus.Text=document is null
+                ?L("窗口原图已置顶并引用 · 此应用未提供额外文本","Original window pinned and referenced · No additional text available")
+                :L("窗口原图已置顶并引用 · 已附带应用提供的文本","Original window pinned and referenced · Available application text attached");
             pin=null;
         }
         catch(OperationCanceledException){}
@@ -63,7 +67,7 @@ public partial class CaptureOverlayWindow
         {
             // Cross-process provider errors must never log the application text.
             new PrivacyLogger().Info("ApplicationSnapshotFailed",ex.GetType().Name);
-            if(IsOverlayOperationActive(operation,item))PromptStatus.Text=ex is TimeoutException||!reading&&ex is InvalidDataException?ex.Message:L("应用快照失败：窗口可能已关闭、未响应或未提供文本；可拖选区域使用长截图。","Snapshot failed: the window may be closed, unresponsive or lack readable text. Drag a region for scrolling capture.");
+            if(IsOverlayOperationActive(operation,item))PromptStatus.Text=L("应用快照失败：窗口可能已关闭或改变，请重新选择。","Snapshot failed: the source window may have closed or changed. Select it again.");
         }
         finally{pin?.Close();EndOverlayOperation(operation);}
     }

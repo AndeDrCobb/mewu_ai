@@ -22,11 +22,12 @@ internal static class ApplicationSnapshotReplay
 {
     private const BindingFlags Private=BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.DeclaredOnly;
 
-    internal static void RunBackground(bool web=false)
+    internal static void RunBackground(bool web=false,bool graphicsOnly=false)
     {
         var app=new Application();
         var text=new TextBox{Text="SNAPSHOT_FIRST\n"+string.Join('\n',Enumerable.Range(1,200).Select(n=>$"Snapshot row {n:000}"))+"\nSNAPSHOT_LAST",IsReadOnly=true,AcceptsReturn=true,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
         var window=new Window{Title="Mewu synthetic snapshot document",Width=600,Height=400,Left=120,Top=180,Content=text,Topmost=true};
+        if(graphicsOnly)window.Content=new Border{Background=System.Windows.Media.Brushes.RoyalBlue,Child=new System.Windows.Shapes.Ellipse{Width=140,Height=140,Fill=System.Windows.Media.Brushes.Gold}};
         Microsoft.Web.WebView2.Wpf.WebView2? browser=null;
         if(web){browser=new();window.Content=browser;}
         window.Loaded+=async(_,_)=>
@@ -37,7 +38,7 @@ internal static class ApplicationSnapshotReplay
                 await browser.EnsureCoreWebView2Async(environment);
                 var navigated=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 browser.NavigationCompleted+=(_,_)=>navigated.TrySetResult();
-                browser.NavigateToString("<!doctype html><html><head><title>Snapshot webpage</title></head><body><h1>SNAPSHOT_FIRST</h1>"+string.Concat(Enumerable.Range(1,200).Select(n=>$"<p style='margin:20px'>Snapshot row {n:000}</p>"))+"<table><tr><td>TABLE_LAST</td><td>200</td></tr></table><p>SNAPSHOT_LAST</p></body></html>");
+                browser.NavigateToString("<!doctype html><html><head><title>Snapshot webpage</title></head><body><h1>SNAPSHOT_FIRST</h1><svg width='180' height='90'><circle cx='60' cy='45' r='40' fill='#ff0000'/></svg>"+string.Concat(Enumerable.Range(1,200).Select(n=>$"<p style='margin:20px'>Snapshot row {n:000}</p>"))+"<table><tr><td>TABLE_LAST</td><td>200</td></tr></table><p>SNAPSHOT_LAST</p></body></html>");
                 await navigated.Task.WaitAsync(TimeSpan.FromSeconds(15));
             }
             window.UpdateLayout();Console.WriteLine(JsonSerializer.Serialize(ApplicationSnapshotTarget.FromWindow(new WindowInteropHelper(window).Handle)));
@@ -51,12 +52,12 @@ internal static class ApplicationSnapshotReplay
         app.Run(window);
     }
 
-    internal static void Run(Application app,AppHost host,bool web=false)
+    internal static void Run(Application app,AppHost host,bool web=false,bool graphicsOnly=false)
     {
         app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
         var overlay=new CaptureOverlayWindow(host);var checks=new Dictionary<string,bool>();
         var source=new Process{StartInfo=new(Environment.ProcessPath!){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true}};
-        source.StartInfo.ArgumentList.Add(web?"--snapshot-web-background":"--snapshot-background");
+        source.StartInfo.ArgumentList.Add(graphicsOnly?"--snapshot-graphics-background":web?"--snapshot-web-background":"--snapshot-background");
         source.Start();var errors=source.StandardError.BaseStream.CopyToAsync(Stream.Null);
         overlay.Loaded+=async(_,_)=>
         {
@@ -65,6 +66,10 @@ internal static class ApplicationSnapshotReplay
             {
                 var line=await source.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(15));
                 var target=JsonSerializer.Deserialize<ApplicationSnapshotTarget>(line!)!;
+                var overlayHandle=new WindowInteropHelper(overlay).Handle;
+                if(!NativeMethods.ExcludeFromCapture(overlayHandle,true))throw new InvalidOperationException("Cannot capture synthetic fixture safely.");
+                var sourceFrame=new ScreenCaptureService().CaptureDesktop();Set("_frame",sourceFrame);((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source=sourceFrame.Image;
+                NativeMethods.ApplyPresentationCaptureVisibility(overlayHandle,true);
                 Set("_conversationAiAvailable",true);
                 var frame=(CaptureFrame)Get("_frame");
                 NativeMethods.GetWindowRect(new IntPtr(target.Handle),out var rectangle);
@@ -81,17 +86,20 @@ internal static class ApplicationSnapshotReplay
                 Check("auto-selection-binds-window",Equals(item.GetType().GetField("SnapshotTarget")!.GetValue(item),target));
                 Invoke("UpdateApplicationSnapshotTool",item);
                 Check("auto-selection-switches-snapshot-tool",((Button)overlay.FindName("LongCaptureButton")).ToolTip.ToString()!.Contains("应用快照"));
-                var probe=await ApplicationSnapshotProcess.ReadAsync(target,CancellationToken.None);
-                Check("direct-reader-has-last-row",probe.Text.Contains("SNAPSHOT_LAST"));
+                var originalImage=(System.Windows.Media.Imaging.BitmapSource)Invoke("RenderSelectionImage",item,false,false,false)!;
+                var originalPixels=Pixels(originalImage);
                 await ((Task)Invoke("CaptureApplicationSnapshotAsync",item)!).WaitAsync(TimeSpan.FromSeconds(25));
                 var text=(string?)item.GetType().GetField("SnapshotText")!.GetValue(item);
-                Check("offscreen-last-row-retained",text?.Contains("SNAPSHOT_LAST")==true);
+                Check(graphicsOnly?"image-only-application-supported":"offscreen-last-row-retained",graphicsOnly?text is null:text?.Contains("SNAPSHOT_LAST")==true);
                 if(web)Check("web-table-text-retained",text?.Contains("TABLE_LAST")==true);
                 Check("snapshot-pinned",app.Windows.OfType<PinnedImageWindow>().Count()==1);
                 if(item.GetType().GetField("CapturedImageOverride")!.GetValue(item) is System.Windows.Media.Imaging.BitmapSource image)
                 {
                     var directory=Path.Combine(Environment.CurrentDirectory,".codex-build","application-snapshot");Directory.CreateDirectory(directory);
-                    ScreenCaptureService.Save(image,Path.Combine(directory,web?"web-preview.png":"preview.png"),false);
+                    ScreenCaptureService.Save(image,Path.Combine(directory,graphicsOnly?"graphics-preview.png":web?"web-preview.png":"preview.png"),false);
+                    Check("original-image-size-kept",image.PixelWidth==originalImage.PixelWidth&&image.PixelHeight==originalImage.PixelHeight);
+                    var resultPixels=Pixels(image);Check("original-pixels-unchanged",originalPixels.SequenceEqual(resultPixels));
+                    if(web){var red=false;for(var i=0;i<resultPixels.Length;i+=4)if(resultPixels[i+2]>240&&resultPixels[i+1]<20&&resultPixels[i]<20){red=true;break;}Check("original-svg-retained",red);}
                 }
                 var references=Get("_references");Check("snapshot-auto-referenced",(bool)references.GetType().GetMethod("Contains")!.Invoke(references,[item])!);
                 Check("no-ai-request-started",Get("_request") is null);
@@ -103,7 +111,7 @@ internal static class ApplicationSnapshotReplay
             finally
             {
                 var directory=Path.Combine(Environment.CurrentDirectory,".codex-build","application-snapshot");Directory.CreateDirectory(directory);
-                File.WriteAllText(Path.Combine(directory,web?"web-replay.json":"replay.json"),JsonSerializer.Serialize(new{checks,failure}));
+                File.WriteAllText(Path.Combine(directory,graphicsOnly?"graphics-replay.json":web?"web-replay.json":"replay.json"),JsonSerializer.Serialize(new{checks,failure}));
                 foreach(var pin in app.Windows.OfType<PinnedImageWindow>().ToArray())pin.Close();
                 if(!source.HasExited){source.StandardInput.Close();if(!source.WaitForExit(3000))source.Kill(true);}
                 await errors;source.Dispose();overlay.Close();app.Shutdown(failure is null?0:1);
@@ -114,5 +122,11 @@ internal static class ApplicationSnapshotReplay
         void Set(string name,object? value)=>typeof(CaptureOverlayWindow).GetField(name,Private)!.SetValue(overlay,value);
         object? Invoke(string name,params object?[] values)=>typeof(CaptureOverlayWindow).GetMethod(name,Private)!.Invoke(overlay,values);
         void Check(string name,bool value)=>checks.Add(name,value);
+    }
+
+    private static byte[] Pixels(System.Windows.Media.Imaging.BitmapSource source)
+    {
+        var formatted=new System.Windows.Media.Imaging.FormatConvertedBitmap(source,System.Windows.Media.PixelFormats.Bgra32,null,0);
+        var bytes=new byte[source.PixelWidth*source.PixelHeight*4];formatted.CopyPixels(bytes,source.PixelWidth*4,0);return bytes;
     }
 }
