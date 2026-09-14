@@ -80,13 +80,14 @@ internal static class WindowIssuesReplay
                     windows.Add(second);second.Show();await Idle();
                     for(var round=0;round<2;round++)
                     {
+                        var secondWasAbove=Above(second,pin);
                         var overlay=new CaptureOverlayWindow(host){Title="Mewu QA · Screenshot below pinned images",ShowInTaskbar=true};windows.Add(overlay);
                         Program.MarkReplayWindow(overlay,"置顶验收 · 再次截图在已有贴图下方 · 完成后自动关闭");
                         overlay.Show();overlay.Activate();await Idle();
                         var label=$"{prefix}-{round}";
                         Check(label+"-later-overlay-below-both-pins",Above(pin,overlay)&&Above(second,overlay));
                         Check(label+"-pin-area-input-goes-to-pin",WindowFromPoint(new NativePoint{X=area.Left+200,Y=area.Top+210})==Handle(pin));
-                        Check(label+"-existing-pin-order-retained",Above(second,pin));
+                        Check(label+"-existing-pin-order-retained",Above(second,pin)==secondWasAbove);
                         Check(label+"-overlay-protection",Affinity(overlay)==(teaching?0:NativeMethods.WdaExcludeFromCapture));
                         Check(label+"-pins-retain-topmost",pin.Topmost&&second.Topmost&&pin.IsVisible&&second.IsVisible);
                         Check(label+"-pin-protection",Affinity(pin)==(teaching?0:NativeMethods.WdaExcludeFromCapture));

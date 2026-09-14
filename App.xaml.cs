@@ -18,6 +18,10 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        if(e.Args.Length==1&&e.Args[0]==ApplicationScrollSession.Argument)
+        {
+            Shutdown(await ApplicationScrollSession.RunWorkerAsync());return;
+        }
         if(e.Args.Length==1&&e.Args[0]==ApplicationSnapshotProcess.Argument)
         {
             Shutdown(await ApplicationSnapshotProcess.RunWorkerAsync());return;

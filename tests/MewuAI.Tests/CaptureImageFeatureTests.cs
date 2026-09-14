@@ -115,6 +115,15 @@ public sealed class CaptureImageFeatureTests
         var first=Frame(64,100,0);var second=Frame(64,100,40);Assert.Equal(40,ScrollingCaptureComposer.EstimateVerticalShift(first,second));var result=ScrollingCaptureComposer.Compose([first,second]);Assert.Equal(64,result.PixelWidth);Assert.Equal(140,result.PixelHeight);
     }
 
+    [Theory]
+    [InlineData(38)]
+    [InlineData(40)]
+    [InlineData(42)]
+    public void ProviderScrollEstimateStillRequiresPixelAlignedOverlap(double expected)
+    {
+        Assert.Equal(40,ScrollingCaptureComposer.EstimateVerticalShift(Frame(64,100,0),Frame(64,100,40),out _,null,1,expected));
+    }
+
     [Fact]
     public void ScrollingFramesSupportUpwardCaptureAndPrependNovelRows()
     {

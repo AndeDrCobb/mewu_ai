@@ -20,7 +20,7 @@ internal static class ScrollingCaptureComposer
     internal static int EstimateVerticalShift(BitmapSource previous,BitmapSource current,out double matchScore,Int32Rect? ignoredRegion)
         =>EstimateVerticalShift(previous,current,out matchScore,ignoredRegion,0);
 
-    internal static int EstimateVerticalShift(BitmapSource previous,BitmapSource current,out double matchScore,Int32Rect? ignoredRegion,int preferredDirection)
+    internal static int EstimateVerticalShift(BitmapSource previous,BitmapSource current,out double matchScore,Int32Rect? ignoredRegion,int preferredDirection,double? expectedShift=null)
     {
         matchScore=double.PositiveInfinity;
         if(previous.PixelWidth!=current.PixelWidth||previous.PixelHeight!=current.PixelHeight)return 0;
@@ -34,14 +34,16 @@ internal static class ScrollingCaptureComposer
         // movement unless a translated overlap is materially better.
         var first=FeatureGrid.Create(previous,ignoredRegion);var second=FeatureGrid.Create(current,ignoredRegion);
         var stationary=Difference(first,second,0);
-        if(stationary<=1.5){matchScore=stationary;return 0;}
+        if(expectedShift is null&&stationary<=1.5){matchScore=stationary;return 0;}
 
         var maximum=Math.Min(height-16,(int)(height*.92));var bestShift=0;var bestScore=double.PositiveInfinity;
         // Search every pixel displacement on a sparse grid first, then verify
         // the best candidates densely. Exhaustively rescoring hundreds of
         // rows/columns for every shift stalls acquisition during smooth scroll.
         var candidates=new List<(int Shift,double Score)>();
-        for(var shift=1;shift<=maximum;shift++)
+        var minimum=expectedShift is { } expected?Math.Max(1,(int)Math.Floor(expected-Math.Max(4,expected*.06))):1;
+        if(expectedShift is { } expectedMaximum)maximum=Math.Min(maximum,(int)Math.Ceiling(expectedMaximum+Math.Max(4,expectedMaximum*.06)));
+        for(var shift=minimum;shift<=maximum;shift++)
         {
             if(preferredDirection>=0)
                 AddCandidate(candidates,shift,Difference(first,second,shift,true));

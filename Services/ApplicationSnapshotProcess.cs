@@ -57,7 +57,7 @@ internal static class ApplicationSnapshotProcess
         catch(Exception){return 1;} // No titles, content or provider error text in logs.
     }
 
-    private static async Task WriteMessage<T>(Stream stream,T value,int limit,CancellationToken token)
+    internal static async Task WriteMessage<T>(Stream stream,T value,int limit,CancellationToken token)
     {
         var bytes=JsonSerializer.SerializeToUtf8Bytes(value);
         try
@@ -68,7 +68,7 @@ internal static class ApplicationSnapshotProcess
         }
         finally{CryptographicOperations.ZeroMemory(bytes);}
     }
-    private static async Task<T> ReadMessage<T>(Stream stream,int limit,CancellationToken token)
+    internal static async Task<T> ReadMessage<T>(Stream stream,int limit,CancellationToken token)
     {
         var header=new byte[4];await stream.ReadExactlyAsync(header,token);var length=BinaryPrimitives.ReadInt32LittleEndian(header);
         if(length<1||length>limit)throw new InvalidDataException("Invalid snapshot message size.");

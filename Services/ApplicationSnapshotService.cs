@@ -42,17 +42,7 @@ internal static class ApplicationSnapshotService
         if(!target.IsCurrent())throw new InvalidOperationException("The selected window is no longer available.");
         var root=AutomationElement.FromHandle(new IntPtr(target.Handle));
         var title=root.Current.Name;if(title.Length>512)title=title[..512];
-        var roots=new List<AutomationElement>();var renderHosts=new List<IntPtr>();var count=0;
-        EnumChildWindows(new IntPtr(target.Handle),(handle,_)=>
-        {
-            if(++count>256)return false;
-            var name=new StringBuilder(256);GetClassName(handle,name,name.Capacity);
-            if(IsWindowVisible(handle)&&name.ToString()=="Chrome_RenderWidgetHostHWND")renderHosts.Add(handle);
-            return true;
-        },IntPtr.Zero);
-        if(count>256)throw new InvalidDataException("The application has too many native child windows.");
-        foreach(var handle in renderHosts)roots.Add(AutomationElement.FromHandle(handle));
-        if(roots.Count==0)roots.Add(root);
+        var roots=GetContentRoots(target,root);
         // A Chromium document can be rooted at the native render host rather
         // than the WPF/WinUI frame. The first accessibility query may enable
         // its lazy provider; retry only that same target, within one deadline.
@@ -65,6 +55,22 @@ internal static class ApplicationSnapshotService
             if(attempt<2)Thread.Sleep(150);
         }
         throw new InvalidDataException("This application does not expose readable text.");
+    }
+
+    internal static IReadOnlyList<AutomationElement> GetContentRoots(ApplicationSnapshotTarget target,AutomationElement root)
+    {
+        var roots=new List<AutomationElement>();var renderHosts=new List<IntPtr>();var count=0;
+        EnumChildWindows(new IntPtr(target.Handle),(handle,_)=>
+        {
+            if(++count>256)return false;
+            var name=new StringBuilder(256);GetClassName(handle,name,name.Capacity);
+            if(IsWindowVisible(handle)&&name.ToString()=="Chrome_RenderWidgetHostHWND")renderHosts.Add(handle);
+            return true;
+        },IntPtr.Zero);
+        if(count>256)throw new InvalidDataException("The application has too many native child windows.");
+        foreach(var handle in renderHosts)roots.Add(AutomationElement.FromHandle(handle));
+        if(roots.Count==0)roots.Add(root);
+        return roots;
     }
 
     private static string ReadRoots(IReadOnlyList<AutomationElement> roots,TreeWalker walker,Stopwatch timer)

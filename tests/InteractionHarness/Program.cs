@@ -49,9 +49,10 @@ internal static class Program
             WindowIssuesReplay.Run(app,host);return;
         }
         host.Settings.TeachingMode=teaching;
-        if(args.Contains("--verify-application-snapshot")||args.Contains("--verify-application-snapshot-web")||args.Contains("--verify-application-snapshot-graphics"))
+        if(args.Contains("--verify-capture-timing")){CaptureTimingReplay.Run(app,host);return;}
+        if(args.Contains("--verify-application-snapshot")||args.Contains("--verify-application-snapshot-web")||args.Contains("--verify-application-snapshot-graphics")||args.Contains("--verify-application-snapshot-cancel")||args.Contains("--verify-application-snapshot-close"))
         {
-            ApplicationSnapshotReplay.Run(app,host,args.Contains("--verify-application-snapshot-web"),args.Contains("--verify-application-snapshot-graphics"));return;
+            ApplicationSnapshotReplay.Run(app,host,args.Contains("--verify-application-snapshot-web"),args.Contains("--verify-application-snapshot-graphics"),args.Contains("--verify-application-snapshot-cancel"),args.Contains("--verify-application-snapshot-close"));return;
         }
         if(args.Contains("--verify-license-notices"))
         {

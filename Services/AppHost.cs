@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Windows;
 using mewu_ai_Assistant.AI;
+using mewu_ai_Assistant.Interop;
 using mewu_ai_Assistant.Models;
 using mewu_ai_Assistant.Views;
 using Forms=System.Windows.Forms;
@@ -99,17 +100,23 @@ public sealed class AppHost : IDisposable
             // while the launcher is still visible.  Hide it before the frame
             // is frozen so the assistant never captures its own launcher and
             // the overlay remains the single, clean surface the user sees.
-            await _app.Dispatcher.InvokeAsync(() =>
+            void HideLauncher()
             {
-                if (_main?.IsVisible == true) _main.Hide();
-            });
+                if (_main?.IsVisible == true){_main.Hide();NativeMethods.FlushComposition();}
+            }
+            if(_app.Dispatcher.CheckAccess())HideLauncher();
+            else await _app.Dispatcher.InvokeAsync(HideLauncher);
             if(Settings.CaptureDelaySeconds>0)await Task.Delay(TimeSpan.FromSeconds(Settings.CaptureDelaySeconds),token);
             token.ThrowIfCancellationRequested();
-            await _app.Dispatcher.InvokeAsync(()=>
+            void ShowCapture()
             {
                 token.ThrowIfCancellationRequested();
                 var overlay=new CaptureOverlayWindow(this);overlay.Closed+=(_,_)=>{Interlocked.Exchange(ref _captureActive,0);CrashDiagnosticsService.MarkOperation("空闲");};overlay.Show();overlay.Activate();
-            });
+            }
+            // Hotkeys already arrive on the UI thread. Freeze that moment
+            // directly; don't queue two extra turns before taking the frame.
+            if(_app.Dispatcher.CheckAccess())ShowCapture();
+            else await _app.Dispatcher.InvokeAsync(ShowCapture);
         }
         catch(OperationCanceledException) when(token.IsCancellationRequested){Interlocked.Exchange(ref _captureActive,0);CrashDiagnosticsService.MarkOperation("空闲");}
         catch(Exception ex)

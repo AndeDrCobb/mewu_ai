@@ -4,8 +4,10 @@
 
 ## 未发布 / Unreleased
 
+- 无延时截图在快捷键所在的界面线程直接冻结画面，去掉启动过程的两次额外排队，避免抓取时机落到后续画面。 / Zero-delay screenshot requests freeze the current frame directly on the hotkey UI thread, eliminating two unnecessary dispatcher hops.
+
 - 修复置顶长图放大时受窗口尺寸约束而变形的问题，窗口和图片同步等比例缩放；改进滚动拼接接缝，避免重复保留上一帧的底部边框。 / Fix pinned long images distorting at native window size limits, and join scrolling frames within their overlap to avoid repeating bottom borders.
-- 自动吸附窗口后可截取应用快照：保留原窗口图像、图案和排版，自动置顶并引用，同时附带应用可读取的屏幕外文本供 AI 使用；不滚动原窗口，也不把原图替换成文字长图。未提供文本时仍保留原图。手动拖选保留滚动长截图。 / Application snapshots retain and pin the original window image with available off-screen text attached for AI context, without scrolling or replacing the image with reflowed text. Image capture remains available without accessible text; manual selections retain scrolling capture.
+- 自动吸附窗口后可截取应用快照：在前台保持冻结画面，通过系统窗口渲染接口取得可访问滚动区域的原始图像并自动拼接，完成后恢复滚动位置、置顶并引用；取消或关闭也先恢复位置。依赖应用提供可用的渲染和滚动接口，不以文字重排代替原图，不将拼接失败当作完整截图。手动拖选仍保留滚动长截图。 / Window-snapped selections can capture original pixels from an accessible scroll area through Windows compositor capture while the foreground stays frozen. Capture restores the original scroll position, then pins and references the result; cancellation and closing also restore first. Rendering and scroll support depend on the application. No reflowed text substitution or incomplete captures reported as complete; manual selections retain scrolling capture.
 - 长截图取消固定 24 段限制，改用增量拼接，仅保留合成图与最新匹配帧，按实际图像容量控制内存。 / Remove the fixed 24-segment limit and merge incrementally, retaining the composite and latest matching frame within the image capacity budget.
 
 ## 0.4.5 — 回复解析与贴图层级 / Reply parsing and pinned windows

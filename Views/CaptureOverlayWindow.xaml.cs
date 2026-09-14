@@ -398,7 +398,7 @@ public partial class CaptureOverlayWindow : Window
         _recordingTimer.Tick+=(_,_)=>RecordingTick();
         _longCaptureInputTimer.Tick+=(_,_)=>UpdateLongCaptureInputRouting();
         Activated+=OnActivated;
-        Closed+=OnClosed;
+        Closed+=OnClosed;Closing+=ApplicationSnapshotClosing;
         _inactiveEscapeTimer.Tick+=CheckInactiveEscape;
     }
 
@@ -1259,6 +1259,7 @@ public partial class CaptureOverlayWindow : Window
         _inactiveEscapeTimer.Stop();
         if(_closed||!_overlayReady)return;
         if(!IsKeyboardFocusWithin&&!_drawingModalOpen&&_systemFileDialogDepth==0)Root.Focus();
+        if(_applicationSnapshotActive)return;
         if(_longCaptureMode){KeepOverlayBelowPinnedWindows();return;}
         // A modal file picker temporarily activates/deactivates its owner.
         // Capturing the desktop during that transition freezes the picker into
@@ -3901,6 +3902,7 @@ public partial class CaptureOverlayWindow : Window
 
     private void HandleEscape()
     {
+        if(_applicationSnapshotActive){TryCancel(_overlayRequest);return;}
         if(ChannelPickerPopup.IsOpen){ChannelPickerPopup.IsOpen=false;ChannelButton.Focus();}
         else if(_longCaptureMode)CancelLongCaptureSession("已取消长截图");
         else if(ReferencePicker.IsOpen){ReferencePicker.IsOpen=false;_referenceMentionStart=-1;}
