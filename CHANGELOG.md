@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- API 设置改为可命名的连接列表，点击原地展开，添加时选择服务商；提供重命名、设为默认和删除操作。切换时保留模型、密钥及未完成的高级设置草稿，编辑或测试备用连接不再更改默认连接。 / API settings now show named connections with inline editors and service selection when adding. Rename, set a default, or remove connections from their menus. Switching preserves model, key and unfinished advanced-setting drafts; editing or testing a backup connection no longer changes the default.
+
 - 修正设置页复选框勾号偏移，增加 API 接入点操作按钮与列表的间距，并统一 API Key 输入框及相邻按钮的高度。 / Center settings checkmarks, separate endpoint actions from the selector, and align the API key field and its adjacent button with the other form controls.
 
 - 截图画布支持右键穿透：右键点击或按住拖动操作底层应用的左键，Ctrl＋右键传递真正的右键。松开后恢复截图界面并保留已有截图；对话条、工具栏和 OCR 的右键菜单保留。 / On the capture canvas, right-click or hold and drag to operate the underlying application's left button; Ctrl + right-click forwards a real right-click. Releasing restores the overlay and preserves existing captures. Composer, toolbar and OCR context menus remain available.

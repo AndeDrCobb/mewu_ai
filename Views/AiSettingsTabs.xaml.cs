@@ -21,7 +21,7 @@ public partial class AiSettingsTabs : UserControl
     public AiSettingsTabs(UIElement api,UIElement hermes,UIElement? codex=null,int selectedBackendIndex=0,UIElement? workBuddy=null,UIElement? miniMaxCode=null)
     {
         InitializeComponent();
-        ChannelPrompt.Text=LocalizationService.T("请选择AI渠道：","Choose an AI channel:");
+        ChannelPrompt.Text=LocalizationService.T("AI 接入方式","AI integrations");
         System.Windows.Automation.AutomationProperties.SetName(BackendTabs,LocalizationService.T("AI 接入方式","AI integrations"));
         AddPage("API",api);
         AddPage("Hermes",hermes);
