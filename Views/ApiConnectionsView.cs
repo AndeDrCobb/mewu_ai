@@ -151,13 +151,26 @@ internal sealed class ApiConnectionsView : StackPanel
         };
         header.Children.Add(toggle);
 
-        var more = Button("⋯");
+        var more = Button(string.Empty);
         more.Width = 38;
         more.Height = 38;
-        more.FontSize = 20;
         more.Padding = new Thickness(0);
         more.BorderThickness = new Thickness(0);
         more.Background = Brushes.Transparent;
+        more.HorizontalContentAlignment = HorizontalAlignment.Center;
+        more.VerticalContentAlignment = VerticalAlignment.Center;
+        var dots = new GeometryGroup();
+        foreach (var x in new[] { 3d, 9d, 15d })
+            dots.Children.Add(new EllipseGeometry(new Point(x, 9), 1, 1));
+        dots.Freeze();
+        var moreIcon = new System.Windows.Shapes.Path
+        {
+            Width = 18, Height = 18, Data = dots, Stretch = Stretch.None,
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false
+        };
+        moreIcon.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "PrimaryText");
+        more.Content = moreIcon;
         more.Margin = new Thickness(0, 0, 4, 0);
         more.ToolTip = T("连接操作", "Connection actions");
         AutomationProperties.SetName(more, T($"{provider.Name}，连接操作", $"{provider.Name}, connection actions"));
@@ -169,7 +182,7 @@ internal sealed class ApiConnectionsView : StackPanel
         if (ReferenceEquals(provider, _renaming)) content.Children.Add(BuildRename(provider));
         if (expanded)
         {
-            _editorHost = new Border { Padding = new Thickness(12, 8, 12, 4), Child = _editor };
+            _editorHost = new Border { Padding = new Thickness(12, 8, 12, 14), Child = _editor };
             content.Children.Add(_editorHost);
         }
         return Frame(content);
@@ -180,6 +193,7 @@ internal sealed class ApiConnectionsView : StackPanel
         var summary = new Grid();
         summary.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         summary.ColumnDefinitions.Add(new ColumnDefinition());
+        summary.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         summary.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         summary.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var chevron = new System.Windows.Shapes.Path
@@ -193,14 +207,12 @@ internal sealed class ApiConnectionsView : StackPanel
         Grid.SetRowSpan(chevron, 2);
         summary.Children.Add(chevron);
 
-        var nameRow = new Grid();
-        nameRow.ColumnDefinitions.Add(new ColumnDefinition());
-        nameRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var name = Label(provider.Name, 13, true);
         name.TextTrimming = TextTrimming.CharacterEllipsis;
         name.ToolTip = provider.Name;
         LocalizationService.SetExcludeFromLocalization(name, true);
-        nameRow.Children.Add(name);
+        Grid.SetColumn(name, 1);
+        summary.Children.Add(name);
         if (string.Equals(provider.Id, _defaultId, StringComparison.Ordinal))
         {
             var badgeText = Label(T("默认", "Default"), 10);
@@ -211,11 +223,10 @@ internal sealed class ApiConnectionsView : StackPanel
                 Padding = new Thickness(6, 2, 6, 2), Margin = new Thickness(8, 0, 0, 0),
                 Background = new SolidColorBrush(Color.FromRgb(240, 242, 255)), VerticalAlignment = VerticalAlignment.Center
             };
-            Grid.SetColumn(badge, 1);
-            nameRow.Children.Add(badge);
+            Grid.SetColumn(badge, 2);
+            Grid.SetRowSpan(badge, 2);
+            summary.Children.Add(badge);
         }
-        Grid.SetColumn(nameRow, 1);
-        summary.Children.Add(nameRow);
 
         var model = string.IsNullOrWhiteSpace(provider.Model) ? T("未选择模型", "No model selected") : provider.Model;
         var details = Label($"{PresetName(ProviderPresetPolicy.Detect(provider))} · {model}", 11);
@@ -282,7 +293,11 @@ internal sealed class ApiConnectionsView : StackPanel
     private void OpenMenu(AiProviderSettings provider, Button target)
     {
         if (_openMenu is not null) _openMenu.IsOpen = false;
-        var menu = new ContextMenu { PlacementTarget = target, Placement = PlacementMode.Bottom };
+        var menu = new ContextMenu
+        {
+            PlacementTarget = target, Placement = PlacementMode.Bottom,
+            HorizontalOffset = -28, VerticalOffset = -24
+        };
         menu.SetResourceReference(StyleProperty, typeof(ContextMenu));
         void AddItem(string label, Action action, bool enabled = true)
         {

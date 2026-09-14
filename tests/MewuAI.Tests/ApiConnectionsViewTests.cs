@@ -148,6 +148,39 @@ public sealed class ApiConnectionsViewTests
     }
 
     [Fact]
+    public void DefaultBadgeCentersOnHeaderAndExpandedContentHasBottomBreathingRoom()
+    {
+        RunSta(() =>
+        {
+            var provider = Provider("Personal connection");
+            var lastControl = new Expander { Header = T("高级设置", "Advanced settings") };
+            var editor = new StackPanel();
+            editor.Children.Add(new TextBox { Text = "model-draft", Margin = new Thickness(0, 0, 0, 12) });
+            editor.Children.Add(lastControl);
+            var view = Create(editor, _ => true);
+            view.Refresh([provider], provider.Id, provider);
+            Layout(view, 320);
+
+            var badgeText = Assert.Single(Descendants<TextBlock>(view), label => label.Text == T("默认", "Default"));
+            var badge = Assert.IsType<Border>(badgeText.Parent);
+            var actions = ActionsButton(view, provider);
+            var badgeBounds = badge.TransformToAncestor(view).TransformBounds(new Rect(badge.RenderSize));
+            var actionBounds = actions.TransformToAncestor(view).TransformBounds(new Rect(actions.RenderSize));
+            Assert.InRange(Math.Abs((badgeBounds.Top + badgeBounds.Height / 2) -
+                (actionBounds.Top + actionBounds.Height / 2)), 0, 0.5);
+
+            var glyph = Assert.IsType<System.Windows.Shapes.Path>(actions.Content);
+            var paintedBounds = glyph.TransformToAncestor(actions).TransformBounds(glyph.RenderedGeometry.Bounds);
+            Assert.InRange(Math.Abs(paintedBounds.Left + paintedBounds.Width / 2 - actions.ActualWidth / 2), 0, 0.5);
+            Assert.InRange(Math.Abs(paintedBounds.Top + paintedBounds.Height / 2 - actions.ActualHeight / 2), 0, 0.5);
+
+            var editorHost = Assert.IsType<Border>(editor.Parent);
+            var lastBounds = lastControl.TransformToAncestor(editorHost).TransformBounds(new Rect(lastControl.RenderSize));
+            Assert.InRange(editorHost.ActualHeight - lastBounds.Bottom, 12, 16);
+        });
+    }
+
+    [Fact]
     public void LongConnectionNamesLeaveActionsUsableAtNarrowWidth()
     {
         RunSta(() =>
@@ -198,8 +231,8 @@ public sealed class ApiConnectionsViewTests
             Descendants<TextBlock>(button).Any(label => label.Text == provider.Name));
 
     private static Button ActionsButton(ApiConnectionsView view, AiProviderSettings provider) =>
-        Descendants<Button>(view).Single(button => Equals(button.Content, "⋯") &&
-            AutomationProperties.GetName(button).StartsWith(provider.Name, StringComparison.Ordinal));
+        Descendants<Button>(view).Single(button => AutomationProperties.GetName(button) ==
+            T($"{provider.Name}，连接操作", $"{provider.Name}, connection actions"));
 
     private static ContextMenu OpenMenu(ApiConnectionsView view) => Assert.IsType<ContextMenu>(
         typeof(ApiConnectionsView).GetField("_openMenu", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view));

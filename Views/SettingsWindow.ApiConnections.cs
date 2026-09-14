@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using mewu_ai_Assistant.Models;
 using mewu_ai_Assistant.Services;
@@ -33,19 +34,7 @@ public sealed partial class SettingsWindow
         _model.StaysOpenOnEdit = true;
         AiSettingsForm.PrepareEditor(_model);
         AutomationProperties.SetName(_model, LocalizationService.T("模型", "Model"));
-        var refreshModels = ActionButton(string.Empty);
-        refreshModels.Content = new System.Windows.Shapes.Path
-        {
-            Data = Geometry.Parse("M15,5 A7,7 0 1 0 16,12 M15,1 L15,5 L11,5"),
-            Stroke = SecondaryBrush, StrokeThickness = 1.6,
-            StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
-            Width = 18, Height = 18, Stretch = Stretch.Uniform
-        };
-        refreshModels.Width = 38;
-        refreshModels.Height = 38;
-        refreshModels.MinWidth = 38;
-        refreshModels.Padding = new Thickness(9);
-        refreshModels.Margin = new Thickness(8, 0, 0, 0);
+        var refreshModels = CreateModelRefreshButton();
         refreshModels.ToolTip = LocalizationService.T("刷新模型", "Refresh models");
         AutomationProperties.SetName(refreshModels, LocalizationService.T("刷新模型", "Refresh models"));
         refreshModels.Click += async (_, _) => await RefreshModelsAsync();
@@ -152,6 +141,57 @@ public sealed partial class SettingsWindow
     }
 
     private Expander _apiAdvanced = null!;
+
+    private static Button CreateModelRefreshButton()
+    {
+        var button = new Button
+        {
+            Width = 38, Height = 38, MinWidth = 38, MinHeight = 38,
+            Padding = new Thickness(8), Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Content = new System.Windows.Shapes.Path
+            {
+                Data = Geometry.Parse("M15,9 A6,6 0 1 1 13.243,4.757 M9.843,4.757 H13.243 V1.357"),
+                Stroke = SecondaryBrush, StrokeThickness = 1.6,
+                StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
+                StrokeLineJoin = PenLineJoin.Round,
+                Width = 18, Height = 18, Stretch = Stretch.Uniform
+            }
+        };
+        button.SetResourceReference(StyleProperty, "IconButton");
+
+        // Keep the chrome's dimensions stable; keyboard focus is drawn separately
+        // so mouse activation cannot shrink or clip the circular arrow.
+        var chrome = new FrameworkElementFactory(typeof(Border), "RefreshChrome");
+        chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
+        foreach (var property in new[] { Border.BackgroundProperty, Border.BorderBrushProperty, Border.BorderThicknessProperty, Border.PaddingProperty })
+            chrome.SetBinding(property, new Binding(property.Name) { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+        var content = new FrameworkElementFactory(typeof(ContentPresenter));
+        content.SetValue(HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        content.SetValue(VerticalAlignmentProperty, VerticalAlignment.Center);
+        chrome.AppendChild(content);
+        var template = new ControlTemplate(typeof(Button)) { VisualTree = chrome };
+        var hover = new Trigger { Property = IsMouseOverProperty, Value = true };
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(234, 241, 250)), "RefreshChrome"));
+        template.Triggers.Add(hover);
+        var pressed = new Trigger { Property = System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty, Value = true };
+        pressed.Setters.Add(new Setter(OpacityProperty, 0.72, "RefreshChrome"));
+        template.Triggers.Add(pressed);
+        var disabled = new Trigger { Property = IsEnabledProperty, Value = false };
+        disabled.Setters.Add(new Setter(OpacityProperty, 0.4, "RefreshChrome"));
+        template.Triggers.Add(disabled);
+        button.Template = template;
+
+        var focusBorder = new FrameworkElementFactory(typeof(Border));
+        focusBorder.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
+        focusBorder.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
+        focusBorder.SetValue(MarginProperty, new Thickness(2));
+        focusBorder.SetResourceReference(Border.BorderBrushProperty, "Accent");
+        var focusStyle = new Style(typeof(Control));
+        focusStyle.Setters.Add(new Setter(Control.TemplateProperty, new ControlTemplate(typeof(Control)) { VisualTree = focusBorder }));
+        button.FocusVisualStyle = focusStyle;
+        return button;
+    }
 
     private void CaptureApiDraft()
     {

@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 恢复紧凑的设置窗口高度，修正 API 连接默认标签和更多操作图标居中、卡片底部留白、刷新图标与菜单阴影裁切。截图标注完成后自动复制当前带标注图片，文字编辑、AI 标注及撤销重做同步更新；复制图不包含编辑光标、焦点框或控制点。 / Restore compact settings height and fix default-badge and menu-icon alignment, card padding, the refresh icon and clipped menu shadows. Completed screenshot annotations now copy automatically, including text edits, AI annotations and undo/redo, without editor carets, focus borders or handles.
+
 - API 设置改为可命名的连接列表，点击原地展开，添加时选择服务商；提供重命名、设为默认和删除操作。切换时保留模型、密钥及未完成的高级设置草稿，编辑或测试备用连接不再更改默认连接。 / API settings now show named connections with inline editors and service selection when adding. Rename, set a default, or remove connections from their menus. Switching preserves model, key and unfinished advanced-setting drafts; editing or testing a backup connection no longer changes the default.
 
 - 修正设置页复选框勾号偏移，增加 API 接入点操作按钮与列表的间距，并统一 API Key 输入框及相邻按钮的高度。 / Center settings checkmarks, separate endpoint actions from the selector, and align the API key field and its adjacent button with the other form controls.

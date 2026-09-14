@@ -441,15 +441,20 @@
     <Style TargetType="ContextMenu">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HasDropShadow" Value="False"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
-                    <Border Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="11" Padding="5">
-                        <Border.Effect>
-                            <DropShadowEffect Color="#334762" BlurRadius="22" ShadowDepth="5" Opacity=".22"/>
-                        </Border.Effect>
-                        <ItemsPresenter/>
-                    </Border>
+                    <Grid Background="Transparent" SnapsToDevicePixels="True">
+                        <!-- Effect bounds do not enlarge the native popup; reserve its full shadow area. -->
+                        <Border x:Name="MenuShadow" Margin="28" Background="White" CornerRadius="11" IsHitTestVisible="False">
+                            <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="22" ShadowDepth="5" Opacity=".22"/></Border.Effect>
+                        </Border>
+                        <Border x:Name="MenuSurface" Margin="28" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="11" Padding="5">
+                            <ItemsPresenter/>
+                        </Border>
+                    </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

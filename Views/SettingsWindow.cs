@@ -118,7 +118,7 @@ public sealed partial class SettingsWindow : Window
         Width = 760;
         // Fit an expanded connection at typical desktop sizes; smaller
         // work areas retain the page's existing bounded scroll viewer.
-        Height = Math.Min(690, SystemParameters.WorkArea.Height - 40);
+        Height = Math.Min(574, SystemParameters.WorkArea.Height - 40);
         MinWidth = 600;
         MinHeight = 400;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;

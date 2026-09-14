@@ -99,6 +99,10 @@ internal static class Program
         }
         MarkReplayWindow(overlay,args.Contains("--verify-prompt-reveal-focus")?"对话条弹出焦点验收 · 完成后自动关闭":"自动化验收窗口 · 非当前软件设置");
         overlay.ShowInTaskbar=true;
+        if(args.Contains("--verify-annotation-clipboard"))
+        {
+            AnnotationClipboardReplay.Run(app,overlay);app.Run();return;
+        }
         if(args.Contains("--verify-hermes-reply-images"))
         {
             HermesReplyImagesReplay.Run(app,overlay,args.Contains("--live-hermes-reply"));app.Run(overlay);return;
