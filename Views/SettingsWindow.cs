@@ -206,9 +206,10 @@ public sealed partial class SettingsWindow : Window
         {
             var handle=new System.Windows.Interop.WindowInteropHelper(this).Handle;
             NativeMethods.TryUseSystemRoundedCorners(handle);
-            _captureProtectionAvailable=NativeMethods.ExcludeFromCapture(handle);
+            // Settings are intentionally screenshotable so UI issues can be
+            // reported. Sensitive values remain masked by the PasswordBox.
+            _captureProtectionAvailable=NativeMethods.SetWindowCaptureVisibleForDiagnostics(handle);
             if(_captureProtectionAvailable==true){LoadDisplayedApiKey();return;}
-            try{new PrivacyLogger().Error("SettingsCaptureProtection",new InvalidOperationException("设置窗口无法启用防捕获"));}catch{}
             HideSensitiveEditorsAfterCaptureProtectionFailure();
         };
         Closed += (_, _) =>

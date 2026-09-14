@@ -60,7 +60,7 @@ internal static class NativeMethods
         return previous!=IntPtr.Zero||Marshal.GetLastPInvokeError()==0;
     }
 
-    internal static bool ExcludeFromCapture(IntPtr windowHandle,bool requireProtection=false)
+      internal static bool ExcludeFromCapture(IntPtr windowHandle,bool requireProtection=false)
     {
 #if DEBUG
         // Visual QA needs to observe the real overlay hierarchy. This escape hatch is
@@ -69,7 +69,10 @@ internal static class NativeMethods
             return SetWindowDisplayAffinity(windowHandle,0);
 #endif
         return SetWindowDisplayAffinity(windowHandle, WdaExcludeFromCapture)&&(!requireProtection||IsExcludedFromCapture(windowHandle));
-    }
+      }
+
+      internal static bool SetWindowCaptureVisibleForDiagnostics(IntPtr windowHandle)
+          =>windowHandle!=IntPtr.Zero&&SetWindowDisplayAffinity(windowHandle,0);
 
     // Only screenshot presentation windows may opt into sharing. Settings and
     // credentials keep using ExcludeFromCapture independently of this setting.
