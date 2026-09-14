@@ -4,6 +4,9 @@
 
 ## 未发布 / Unreleased
 
+- 自动吸附窗口后可截取应用内容快照，读取应用提供的屏幕外文本，生成长图后自动置顶并引用；手动拖选保留滚动长截图。 / Automatically selected windows support content snapshots with available off-screen text, followed by pinning and referencing; manually selected regions retain scrolling capture.
+- 长截图取消固定 24 段限制，改用增量拼接，仅保留合成图与最新匹配帧，按实际图像容量控制内存。 / Remove the fixed 24-segment limit and merge incrementally, retaining the composite and latest matching frame within the image capacity budget.
+
 ## 0.4.5 — 回复解析与贴图层级 / Reply parsing and pinned windows
 
 - 修复刚置顶的贴图被当前截图层遮挡；贴图保持在上方，之后开启的截图层位于已有贴图下方。 / Keep newly pinned images above the current capture overlay and later capture overlays below existing pins.

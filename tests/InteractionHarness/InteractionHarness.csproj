@@ -10,4 +10,13 @@
   </PropertyGroup>
   <ItemGroup><Resource Include="../../Assets/MewuAI.Icon.png" Link="Assets/MewuAI.Icon.png" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../mewu_ai_Assistant.csproj" /></ItemGroup>
+  <ItemGroup>
+    <!-- Use the already locked WebView2 SDK for the synthetic webpage replay. -->
+    <Reference Include="Microsoft.Web.WebView2.Wpf">
+      <HintPath>$(NuGetPackageRoot)\microsoft.web.webview2\1.0.2651.64\lib_manual\netcoreapp3.0\Microsoft.Web.WebView2.Wpf.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.Core">
+      <HintPath>$(NuGetPackageRoot)\microsoft.web.webview2\1.0.2651.64\lib_manual\netcoreapp3.0\Microsoft.Web.WebView2.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

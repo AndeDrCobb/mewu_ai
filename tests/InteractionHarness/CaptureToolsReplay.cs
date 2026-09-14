@@ -54,18 +54,18 @@ internal static class CaptureToolsReplay
                 var expected=ScreenCaptureService.Crop(frame.Image,pixels);
                 if(host.Settings.TeachingMode)Require(!(bool)Invoke("IsTeachingAcquisitionClear",item)!,"Teaching capture was considered safe without a native hole");
                 Click("LongCaptureButton");
-                await Until(()=>(bool)Get("_longCaptureMode")&&((IList)Get("_longCaptureFrames")).Count>0,"Long screenshot did not start");
+                await Until(()=>(bool)Get("_longCaptureMode")&&Get("_longCaptureAccumulator") is not null,"Long screenshot did not start");
                 checks.Add("long-capture-button-starts-live-session");
                 if(host.Settings.TeachingMode)
                 {
                     Require((bool)Native("IsVisibleToCapture",new WindowInteropHelper(overlay).Handle),"Teaching sharing was disabled during long capture");
                     Require((bool)Invoke("IsTeachingAcquisitionClear",item)!,"Long capture native hole covers some acquired pixels");
-                    ComparePixels(expected,(BitmapSource)((IList)Get("_longCaptureFrames"))[0]!,"Long capture contains overlay pixels");
+                    ComparePixels(expected,(BitmapSource)Get("_longCaptureComposite"),"Long capture contains overlay pixels");
                     checks.Add("teaching-sharing-visible-and-long-capture-pixels-clean");
                     Invoke("RememberLongCaptureWheelDirection",-120);scroll.ScrollToVerticalOffset(80);background.UpdateLayout();
                     await Until(()=>scroll.VerticalOffset>=79,"Fixture did not scroll");
                     Invoke("ScheduleLongCaptureSample",true);
-                    await Until(()=>((IList)Get("_longCaptureFrames")).Count>1,"Teaching scrolling capture did not append content");
+                    await Until(()=>((BitmapSource)Get("_longCaptureComposite")).PixelHeight>expected.PixelHeight,"Teaching scrolling capture did not append content");
                     Require(((BitmapSource)Get("_longCaptureComposite")).PixelHeight>expected.PixelHeight,"Scrolling result did not grow");
                     checks.Add("teaching-scrolling-capture-appends-content");
                 }
@@ -121,7 +121,7 @@ internal static class CaptureToolsReplay
                     var full=Invoke("CreateSelection",false)!;full.GetType().GetField("Bounds")!.SetValue(full,monitor);
                     ((IList)Get("_selections")).Add(full);Invoke("Select",0);
                     Invoke("CaptureLongScreenshot",overlay,new RoutedEventArgs());
-                    await Until(()=>(bool)Get("_longCaptureMode")&&((IList)Get("_longCaptureFrames")).Count>0,"Full screen long capture did not start");
+                    await Until(()=>(bool)Get("_longCaptureMode")&&Get("_longCaptureAccumulator") is not null,"Full screen long capture did not start");
                     Require(((FrameworkElement)overlay.FindName("LongCaptureBar")).Visibility!=Visibility.Visible,"Full screen capture still shows overlapping controls");
                     Require((bool)Invoke("IsTeachingAcquisitionClear",full)!,"Full screen region is not clear");
                     Require(PostMessage(new WindowInteropHelper(overlay).Handle,0x312,new IntPtr(0x6D38),IntPtr.Zero),"Full screen F8 dispatch failed");

@@ -24,6 +24,8 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Contains("--snapshot-background")){ApplicationSnapshotReplay.RunBackground();return;}
+        if(args.Contains("--snapshot-web-background")){ApplicationSnapshotReplay.RunBackground(true);return;}
         if(args.Contains("--capture-input-foreground")){CaptureInputReplay.RunForegroundHelper();return;}
         var verifyCaptureTools=args.Contains("--verify-capture-tools");
         var verifyTeaching=args.Contains("--verify-teaching");
@@ -45,6 +47,10 @@ internal static class Program
             WindowIssuesReplay.Run(app,host);return;
         }
         host.Settings.TeachingMode=teaching;
+        if(args.Contains("--verify-application-snapshot")||args.Contains("--verify-application-snapshot-web"))
+        {
+            ApplicationSnapshotReplay.Run(app,host,args.Contains("--verify-application-snapshot-web"));return;
+        }
         if(args.Contains("--verify-license-notices"))
         {
             LicenseNoticesReplay.Run(app,host);return;

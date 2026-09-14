@@ -18,6 +18,10 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        if(e.Args.Length==1&&e.Args[0]==ApplicationSnapshotProcess.Argument)
+        {
+            Shutdown(await ApplicationSnapshotProcess.RunWorkerAsync());return;
+        }
         // This isolated worker has no windows, configuration, credentials,
         // single-instance side effects, diagnostic marker or log rotation.
         if(e.Args.Length==1&&e.Args[0]==TeachingPdfProcess.Argument)
