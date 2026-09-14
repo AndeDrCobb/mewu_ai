@@ -399,6 +399,7 @@ public partial class CaptureOverlayWindow : Window
         _recordingTimer.Tick+=(_,_)=>RecordingTick();
         _longCaptureInputTimer.Tick+=(_,_)=>UpdateLongCaptureInputRouting();
         Activated+=OnActivated;
+        PreviewKeyUp+=DrawingModifierKeyUp;
         Closed+=OnClosed;Closing+=ApplicationSnapshotClosing;
         _inactiveEscapeTimer.Tick+=CheckInactiveEscape;
     }
@@ -1460,17 +1461,15 @@ public partial class CaptureOverlayWindow : Window
     private void UndoOverlayOperation()
     {
         if(!_overlayHistory.TryUndo(out var snapshot,out var label)){PromptStatus.Text="没有可撤销的截图操作";return;}
-        var hadAnnotations=Active is { } previous&&HasAnyAnnotations(previous);
+        CancelAnnotatedImageCopy();
         ApplyOverlaySnapshot(snapshot);PromptStatus.Text=$"已撤销：{label}";
-        if(Active is { } current&&(hadAnnotations||HasAnyAnnotations(current)))QueueAnnotatedImageCopy(current);
     }
 
     private void RedoOverlayOperation()
     {
         if(!_overlayHistory.TryRedo(out var snapshot,out var label)){PromptStatus.Text="没有可重做的截图操作";return;}
-        var hadAnnotations=Active is { } previous&&HasAnyAnnotations(previous);
+        CancelAnnotatedImageCopy();
         ApplyOverlaySnapshot(snapshot);PromptStatus.Text=$"已重做：{label}";
-        if(Active is { } current&&(hadAnnotations||HasAnyAnnotations(current)))QueueAnnotatedImageCopy(current);
     }
 
     private void UpdateSelection(SelectionItem item)
@@ -2953,6 +2952,7 @@ public partial class CaptureOverlayWindow : Window
     private void Draw(object s,RoutedEventArgs e)=>EnterDrawingMode();
     private void EnterDrawingMode()
     {
+        CancelAnnotatedImageCopy();
         if(RejectIfOverlayOperationBusy()||Active is not {IsImplicit:false} item)return;_drawingOperationBefore=CaptureOverlaySnapshot();_drawingOperationChanged=false;_drawingMode=true;Toolbar.Visibility=Visibility.Collapsed;HideHandles();SizeText.Visibility=PointerInspector.Visibility=Visibility.Collapsed;item.Markup.Visibility=Visibility.Visible;item.Markup.IsHitTestVisible=true;EnsureDrawingControls();ApplyCurrentDrawingAttributes(item);SetDrawTool(DrawTool.Freehand);DrawingToolbar.Visibility=Visibility.Visible;PositionFloatingBar(DrawingToolbar,item);SetPromptBarHidden(true);PromptStatus.Text=item.VideoPath is null?"原位标注中 · 颜色统一作用于画笔、形状、文字和序号":"视频原位标注中 · 手工标注将贯穿整个视频";
     }
     private void ExitDrawingMode()
@@ -2975,7 +2975,6 @@ public partial class CaptureOverlayWindow : Window
         // also leaves PreviewKeyDown without a route. Give focus back to the
         // full-screen root so the next Esc can always close the overlay.
         if(IsActive&&!_closed)Root.Focus();
-        TryFlushAnnotatedImageCopy();
     }
     private void FinishInterruptedDrawingMode()
     {
@@ -3052,7 +3051,14 @@ public partial class CaptureOverlayWindow : Window
         item.DrawingOrder.Add(action);MarkDrawingChanged(item);
     }
     private void DrawClear(object s,RoutedEventArgs e){CancelMosaicDrawingPreview();if(Active is { } item&&(item.Markup.Strokes.Count>0||item.DrawingElements.Count>0)){ClearDrawingObjectSelection();item.Markup.Strokes.Clear();item.Markup.Children.Clear();item.DrawingElements.Clear();item.DrawingOrder.Clear();item.DrawingRedo.Clear();item.NextDrawingNumber=1;MarkDrawingChanged(item);}}
-    private void DrawDone(object s,RoutedEventArgs e)=>ExitDrawingMode();
+    private void DrawDone(object s,RoutedEventArgs e)
+    {
+        if(!_drawingMode)return;
+        var item=Active;
+        var copy=item is not null&&(_drawingOperationChanged||HasAnyAnnotations(item));
+        ExitDrawingMode();
+        if(copy&&item is not null){QueueAnnotatedImageCopy(item);TryFlushAnnotatedImageCopy();}
+    }
     private void MarkupDown(object sender,MouseButtonEventArgs e)
     {
         if(!_drawingMode||sender is not InkCanvas canvas||Active is not { } item||!ReferenceEquals(canvas,item.Markup))return;var point=e.GetPosition(canvas);
@@ -3081,7 +3087,7 @@ public partial class CaptureOverlayWindow : Window
         if(_drawTool==DrawTool.Eraser){var point=e.GetPosition(canvas);if(_lastEraserPoint is not { } previous||(point-previous).Length>=12){EraseDrawingObjectsAt(item,point);_lastEraserPoint=point;}e.Handled=true;return;}
         if(_drawTool is DrawTool.Freehand or DrawTool.Text or DrawTool.Number)return;
         if(_drawTool==DrawTool.Mosaic){UpdateMosaicDrawingPreview(item,e.GetPosition(canvas));e.Handled=true;return;}
-        if(_drawPreview is not null)canvas.Strokes.Remove(_drawPreview);_drawPreview=CreateShapeStroke(canvas,_drawStart,e.GetPosition(canvas),_drawTool,Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));canvas.Strokes.Add(_drawPreview);e.Handled=true;
+        UpdateShapeDrawingPreview(canvas,e.GetPosition(canvas),Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));e.Handled=true;
     }
     private void MarkupUp(object sender,MouseButtonEventArgs e)
     {
@@ -3153,19 +3159,27 @@ public partial class CaptureOverlayWindow : Window
     }
 
     private void ResizeSelectedDrawingObject(SelectionItem item,Point point,InkCanvas canvas)
+        =>ResizeSelectedDrawingObjectWithConstraint(item,point,canvas,Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+
+    private void ResizeSelectedDrawingObjectWithConstraint(SelectionItem item,Point point,InkCanvas canvas,bool constrain)
     {
+        var requestedPoint=point;
         point=new Point(Math.Clamp(point.X,0,Math.Max(0,canvas.ActualWidth)),Math.Clamp(point.Y,0,Math.Max(0,canvas.ActualHeight)));
         if((point-_drawingMovePointerStart).Length<.5&&!_drawingObjectMoving)return;
         _drawingObjectMoving=true;
         if(_selectedDrawingStroke is { } arrow&&EditableShapeStroke.HasEditableEndpoints(arrow)&&_drawingMoveOriginalStroke is { } arrowBefore)
         {
             var a=new Point(arrowBefore.Points[0].X,arrowBefore.Points[0].Y);var b=new Point(arrowBefore.Points[1].X,arrowBefore.Points[1].Y);
+            if(constrain)point=DrawingAnnotationGeometry.ConstrainLineEnd(_drawingResizeHandle==0?b:a,requestedPoint,new Size(canvas.ActualWidth,canvas.ActualHeight));
             if(_drawingResizeHandle==0)a=point;else b=point;
             arrow.StylusPoints=EditableShapeStroke.Create(a,b,EditableShapeStroke.IsLine(arrow)?"line":"arrow",arrow.DrawingAttributes).StylusPoints;
         }
         else
         {
-            var resized=DrawingAnnotationGeometry.ResizeCorner(_drawingResizeOriginalBounds,_drawingResizeHandle,point,new Size(canvas.ActualWidth,canvas.ActualHeight));
+            var lockSquare=constrain&&_selectedDrawingStroke is { } shape&&(EditableShapeStroke.IsRectangle(shape)||EditableShapeStroke.IsEllipse(shape));
+            var resized=lockSquare
+                ?DrawingAnnotationGeometry.ResizeSquareCorner(_drawingResizeOriginalBounds,_drawingResizeHandle,point,new Size(canvas.ActualWidth,canvas.ActualHeight))
+                :DrawingAnnotationGeometry.ResizeCorner(_drawingResizeOriginalBounds,_drawingResizeHandle,point,new Size(canvas.ActualWidth,canvas.ActualHeight));
             if(_selectedDrawingStroke is { } stroke&&_drawingMoveOriginalStroke is { } before)stroke.StylusPoints=EditableShapeStroke.Resize(before.Points,resized);
             else if(_drawingMoveOriginalElement is { } original)
             {
@@ -3311,7 +3325,12 @@ public partial class CaptureOverlayWindow : Window
     private void AddStrokeWithoutHistory(SelectionItem item,Stroke stroke){_restoringDrawingAction=true;try{item.Markup.Strokes.Add(stroke);}finally{_restoringDrawingAction=false;}}
     private static Stroke CreateShapeStroke(InkCanvas canvas,Point a,Point b,DrawTool tool,bool constrain)
     {
-        if(tool==DrawTool.Ellipse&&constrain)b=DrawingAnnotationGeometry.ConstrainEllipseEndToCircle(a,b,new Size(canvas.ActualWidth,canvas.ActualHeight));
+        if(constrain)
+        {
+            var size=new Size(canvas.ActualWidth,canvas.ActualHeight);
+            if(tool is DrawTool.Line or DrawTool.Arrow)b=DrawingAnnotationGeometry.ConstrainLineEnd(a,b,size);
+            else if(tool is DrawTool.Rectangle or DrawTool.Ellipse)b=DrawingAnnotationGeometry.ConstrainShapeEndToSquare(a,b,size);
+        }
         return EditableShapeStroke.Create(a,b,tool switch{DrawTool.Line=>"line",DrawTool.Rectangle or DrawTool.Mosaic=>"rectangle",DrawTool.Ellipse=>"ellipse",_=>"arrow"},canvas.DefaultDrawingAttributes);
     }
     private void EnsureDrawingControls()
@@ -3912,6 +3931,7 @@ public partial class CaptureOverlayWindow : Window
             HandleEscape();
             e.Handled=true;return;
         }
+        if(e.Key is Key.LeftShift or Key.RightShift&&RefreshDrawingConstraint(true)){e.Handled=true;return;}
         if(IsTeachingControl(Keyboard.FocusedElement as DependencyObject))return;
         if(_longCaptureMode){e.Handled=true;return;}
         if(_drawingMode&&e.Key==Key.Enter&&

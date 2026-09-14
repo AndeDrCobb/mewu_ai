@@ -21,12 +21,11 @@ public partial class CaptureOverlayWindow
     {
         _drawingOperationChanged = true;
         item.NextDrawingNumber = NextAvailableDrawingNumber(item);
-        QueueAnnotatedImageCopy(item);
     }
 
     private void QueueAnnotatedImageCopy(SelectionItem item)
     {
-        if (_closed || item.IsImplicit || item.VideoPath is not null || !_selections.Contains(item)) return;
+        if (_closed || _drawingMode || item.IsImplicit || item.VideoPath is not null || !_selections.Contains(item)) return;
         if (!_annotationCopyInitialized)
         {
             _annotationCopyTimer.Tick += (_, _) => TryFlushAnnotatedImageCopy();

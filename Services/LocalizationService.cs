@@ -17,6 +17,8 @@ internal static class LocalizationService
     private static readonly Dictionary<string,string> English=new(StringComparer.Ordinal)
     {
         ["直线"]="Line",["直线标注工具"]="Line tool",
+        ["直线；按 Shift 锁定方向"]="Line; hold Shift to lock direction",["箭头；按 Shift 锁定方向"]="Arrow; hold Shift to lock direction",
+        ["矩形；按 Shift 绘制正方形"]="Rectangle; hold Shift for a square",
         ["拖动移动 · 工具条修改样式 · Delete 删除"]="Drag to move · Edit style in the toolbar · Delete to remove",
         ["文字使用荧光底色"]="Text highlight enabled",["文字使用普通颜色"]="Text highlight disabled",
         ["试卷与作业"]="Papers and assignments",

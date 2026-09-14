@@ -59,26 +59,32 @@ internal static class AnnotationClipboardReplay
                 var handDrawn = Render(overlay, a);
                 Require(CountColor(handDrawn, (r, g, blue) => r > 220 && g < 50 && blue < 50) > 250,
                     "Synthetic pen stroke was not visible in the real export");
-                await UntilClipboard(handDrawn, "Completing a pen stroke did not copy the annotated image");
-                checks.Add("completed-pen-stroke-auto-copies-rendered-pixels");
+                await Quiesce();
+                AssertClipboard(sentinel, "Completing a pen stroke copied before the Done checkmark");
+                checks.Add("completed-pen-stroke-keeps-clipboard-until-done");
 
                 Invoke(overlay, "DrawUndo", overlay, new RoutedEventArgs());
                 overlay.UpdateLayout();
                 var clean = Render(overlay, a, false, false, false);
-                await UntilClipboard(clean, "Undoing the final stroke left stale annotation pixels in the clipboard");
+                await Quiesce();
+                AssertClipboard(sentinel, "Drawing undo copied before the Done checkmark");
                 Require(markup.Strokes.Count == 0, "Drawing undo did not remove the stroke");
-                checks.Add("undo-final-stroke-copies-clean-image");
+                Require(EqualPixels(clean, Render(overlay, a)), "Drawing undo did not restore the clean image");
+                checks.Add("drawing-undo-keeps-clipboard-until-done");
                 Invoke(overlay, "DrawRedo", overlay, new RoutedEventArgs());
                 overlay.UpdateLayout();
-                await UntilClipboard(Render(overlay, a), "Redo did not update the clipboard");
-                checks.Add("redo-restores-copied-annotation");
+                await Quiesce();
+                AssertClipboard(sentinel, "Drawing redo copied before the Done checkmark");
+                Require(EqualPixels(handDrawn, Render(overlay, a)), "Drawing redo did not restore the pen annotation");
+                checks.Add("drawing-redo-keeps-clipboard-until-done");
 
                 Invoke(overlay, "AddNumberDrawingElement", a, new Point(245, 140));
                 overlay.UpdateLayout();
                 var numbered = Render(overlay, a);
                 Require(!Pixels(numbered).SequenceEqual(Pixels(handDrawn)), "Number annotation did not change the image");
-                await UntilClipboard(numbered, "Adding a number annotation did not copy it");
-                checks.Add("number-annotation-auto-copies");
+                await Quiesce();
+                AssertClipboard(sentinel, "Adding a number annotation copied before the Done checkmark");
+                checks.Add("number-annotation-keeps-clipboard-until-done");
 
                 Invoke(overlay, "AddTextDrawingElement", a, new Point(20, 130));
                 var editor = markup.Children.OfType<TextBox>().Single();
@@ -93,13 +99,31 @@ internal static class AnnotationClipboardReplay
                     (r, g, blue) => r is >= 90 and <= 135 && g is >= 100 and <= 145 && blue > 210) == 0,
                     "Committed text rendering contains the blue editor focus border");
                 Invoke(overlay, "TryFlushAnnotatedImageCopy");
-                AssertClipboard(textWithoutFocusBorder, "Copied text contained its editing focus border");
+                await Quiesce();
+                AssertClipboard(sentinel, "Text editing or an idle flush copied before the Done checkmark");
                 Require(editor.IsKeyboardFocused && ReferenceEquals(focusedBorder, editor.BorderBrush),
-                    "Automatic copy changed the editor focus or failed to restore its border");
-                checks.Add("text-edits-copy-without-focus-border-and-preserve-focus");
-                Invoke(overlay, "ExitDrawingMode");
+                    "Idle clipboard work changed the text editor focus or border");
+                checks.Add("text-edits-preserve-clipboard-and-editor-focus-until-done");
+                Invoke(overlay, "DrawDone", overlay, new RoutedEventArgs());
                 overlay.UpdateLayout();
-                await UntilClipboard(Render(overlay, a), "Finishing drawing did not leave the current image in the clipboard");
+                await UntilClipboard(textWithoutFocusBorder, "The Done checkmark did not copy the final annotations without the text editing border");
+                Require(!(bool)Get(overlay, "_drawingMode"), "The Done checkmark did not finish drawing");
+                checks.Add("done-checkmark-copies-complete-manual-image-without-editor-decoration");
+
+                Clipboard.SetImage(sentinel);
+                Invoke(overlay, "QueueAnnotatedImageCopy", a);
+                Invoke(overlay, "UndoOverlayOperation");
+                overlay.UpdateLayout();
+                await Quiesce();
+                AssertClipboard(sentinel, "Outer undo copied or allowed an older annotation queue to copy");
+                Require(EqualPixels(clean, Render(overlay, a)), "Outer undo did not restore the pre-annotation image");
+                Invoke(overlay, "QueueAnnotatedImageCopy", a);
+                Invoke(overlay, "RedoOverlayOperation");
+                overlay.UpdateLayout();
+                await Quiesce();
+                AssertClipboard(sentinel, "Outer redo copied or allowed an older annotation queue to copy");
+                Require(EqualPixels(textWithoutFocusBorder, Render(overlay, a)), "Outer redo did not restore the completed annotations");
+                checks.Add("outer-undo-redo-preserve-clipboard-and-revoke-stale-queue");
 
                 ((IList)Get(overlay, "_lastSentSelections")).Add(a);
                 var handle = Property<string>(a, "ReferenceHandle");
@@ -123,18 +147,43 @@ internal static class AnnotationClipboardReplay
                 checks.Add("ai-mapping-auto-copies-ai-and-manual-layers");
 
                 Invoke(overlay, "Select", 1);
+                Clipboard.SetImage(sentinel);
+                Invoke(overlay, "QueueAnnotatedImageCopy", a);
                 Invoke(overlay, "EnterDrawingMode");
+                await Quiesce();
+                AssertClipboard(sentinel, "Entering manual annotation allowed an older image queue to copy");
+                checks.Add("entering-manual-drawing-revokes-older-copy-queue");
                 Invoke(overlay, "AddNumberDrawingElement", b, new Point(100, 80));
                 overlay.UpdateLayout();
-                Invoke(overlay, "TryFlushAnnotatedImageCopy");
+                await Quiesce();
+                AssertClipboard(sentinel, "Editing another region copied before the Done checkmark");
+                Invoke(overlay, "ExitDrawingMode");
+                await Quiesce();
+                AssertClipboard(sentinel, "Leaving drawing without the Done checkmark copied an image");
+                checks.Add("exit-drawing-without-done-preserves-clipboard");
+
+                Invoke(overlay, "EnterDrawingMode");
+                Invoke(overlay, "AddNumberDrawingElement", b, new Point(180, 100));
+                Invoke(overlay, "HandleEscape");
+                Require(!(bool)Get(overlay, "_drawingMode"), "Escape did not leave drawing mode");
+                await Quiesce();
+                AssertClipboard(sentinel, "Escape copied an image instead of preserving the clipboard");
+                checks.Add("escape-from-drawing-preserves-clipboard");
+
+                Invoke(overlay, "EnterDrawingMode");
                 var lastImage = Render(overlay, b);
+                Invoke(overlay, "DrawDone", overlay, new RoutedEventArgs());
+                await UntilClipboard(lastImage, "Done did not copy the currently edited region after reopening its annotations");
+                checks.Add("done-copies-current-region-including-preserved-annotations");
+
                 Clipboard.SetImage(sentinel);
-                // Both queue operations happen in one dispatcher turn. Neither may copy early.
+                // AI completion can enqueue multiple changed regions in one dispatcher
+                // turn. Manual edits above never call this background queue themselves.
                 Invoke(overlay, "QueueAnnotatedImageCopy", a);
                 Invoke(overlay, "QueueAnnotatedImageCopy", b);
                 AssertClipboard(sentinel, "Debounced work copied synchronously instead of coalescing");
                 Invoke(overlay, "TryFlushAnnotatedImageCopy");
-                AssertClipboard(lastImage, "Rapid annotation changes copied the old region instead of the latest one");
+                AssertClipboard(lastImage, "Queued completion results copied the old region instead of the latest one");
                 await Quiesce();
                 AssertClipboard(lastImage, "An older queued annotation overwrote the most recent region");
                 checks.Add("rapid-queues-copy-only-the-latest-region");
@@ -147,8 +196,6 @@ internal static class AnnotationClipboardReplay
                     "An old annotation queue overwrote a newer explicit clipboard copy");
                 checks.Add("new-explicit-copy-cancels-stale-annotation-queue");
 
-                Invoke(overlay, "ExitDrawingMode");
-                Invoke(overlay, "TryFlushAnnotatedImageCopy");
                 Clipboard.SetImage(sentinel);
                 SetPublic(b, "VideoPath", "synthetic-not-opened.mp4");
                 try

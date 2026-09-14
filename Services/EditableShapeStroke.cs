@@ -11,6 +11,8 @@ internal static class EditableShapeStroke
     private static readonly Guid KindKey=new("0dcb4b2d-6ed6-455b-a75c-64c574c7af4e");
     internal static bool IsArrow(Stroke stroke)=>stroke.ContainsPropertyData(KindKey)&&Equals(stroke.GetPropertyData(KindKey),"arrow");
     internal static bool IsLine(Stroke stroke)=>stroke.ContainsPropertyData(KindKey)&&Equals(stroke.GetPropertyData(KindKey),"line");
+    internal static bool IsRectangle(Stroke stroke)=>stroke.ContainsPropertyData(KindKey)&&Equals(stroke.GetPropertyData(KindKey),"rectangle");
+    internal static bool IsEllipse(Stroke stroke)=>stroke.ContainsPropertyData(KindKey)&&Equals(stroke.GetPropertyData(KindKey),"ellipse");
     internal static bool HasEditableEndpoints(Stroke stroke)=>IsLine(stroke)||IsArrow(stroke);
 
     internal static Stroke Create(Point a,Point b,string kind,DrawingAttributes attributes)

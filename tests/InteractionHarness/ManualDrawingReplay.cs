@@ -216,6 +216,7 @@ internal static class ManualDrawingReplay
                 Invoke(overlay, "EnterDrawingMode");
 
                 VerifyLine(overlay, item, markup, checks);
+                VerifyShiftConstraints(overlay, item, markup, checks);
                 VerifyMosaic(overlay, item, markup, checks);
             }
             catch (Exception ex) { failure = ex.ToString(); Environment.ExitCode = 1; }
@@ -264,6 +265,160 @@ internal static class ManualDrawingReplay
         Redo(overlay);
         Require(PointOf(line.StylusPoints[0]) == moved && PointOf(line.StylusPoints[1]) == end, "Redo did not restore the changed line endpoint");
         checks.Add("line-endpoints-edit-independently-and-support-undo-redo");
+    }
+
+    private static void VerifyShiftConstraints(CaptureOverlayWindow overlay, object item, InkCanvas markup, List<string> checks)
+    {
+        var start = new Point(80, 80);
+        var toolType = Get(overlay, "_drawTool").GetType();
+        foreach (var toolName in new[] { "Line", "Arrow" })
+        {
+            var tool = Enum.Parse(toolType, toolName);
+            foreach (var (pointer, direction) in new[]
+            {
+                (new Point(300, 105), "horizontal"),
+                (new Point(100, 290), "vertical"),
+                (new Point(270, 225), "diagonal")
+            })
+            {
+                var locked = CreateShape(markup, start, pointer, tool, constrain: true);
+                Require(PointOf(locked.StylusPoints[0]) == start && !locked.DrawingAttributes.FitToCurve,
+                    $"Shift changed the {toolName} origin or enabled curve fitting");
+                Require(toolName != "Line" || locked.StylusPoints.Count == 2, "A constrained line acquired extra vertices");
+                RequireDirection(start, PointOf(locked.StylusPoints[1]), direction, toolName);
+                var free = CreateShape(markup, start, pointer, tool, constrain: false);
+                Require(PointOf(free.StylusPoints[0]) == start && PointOf(free.StylusPoints[1]) == pointer,
+                    $"Releasing Shift did not restore the free {toolName} endpoint");
+                Require(SamePoints(locked, CreateShape(markup, start, pointer, tool, constrain: true)),
+                    $"Pressing Shift again at the same pointer changed the {toolName} constraint");
+            }
+            checks.Add($"shift-{toolName.ToLowerInvariant()}-creation-snaps-horizontal-vertical-diagonal-and-releases");
+        }
+
+        foreach (var toolName in new[] { "Rectangle", "Ellipse" })
+        {
+            var tool = Enum.Parse(toolType, toolName);
+            var pointer = new Point(300, 180);
+            var locked = CreateShape(markup, start, pointer, tool, constrain: true);
+            var lockedBounds = ShapeBounds(locked);
+            Require(Near(lockedBounds.Width, lockedBounds.Height) && lockedBounds.Width > 100 &&
+                !locked.DrawingAttributes.FitToCurve, $"Shift did not make an equal-sided {toolName}");
+            Require(lockedBounds.Left >= 0 && lockedBounds.Top >= 0 && lockedBounds.Right <= markup.ActualWidth &&
+                lockedBounds.Bottom <= markup.ActualHeight, $"The constrained {toolName} escaped the image");
+            var freeBounds = ShapeBounds(CreateShape(markup, start, pointer, tool, constrain: false));
+            Require(Near(freeBounds.Width, 220) && Near(freeBounds.Height, 100),
+                $"Releasing Shift did not restore the free {toolName} dimensions");
+            Require(SamePoints(locked, CreateShape(markup, start, pointer, tool, constrain: true)),
+                $"Pressing Shift again changed the {toolName} dimensions without pointer movement");
+            checks.Add($"shift-{toolName.ToLowerInvariant()}-creation-has-equal-sides-and-restores-free-dimensions");
+        }
+
+        foreach (var toolName in new[] { "Line", "Arrow", "Rectangle", "Ellipse" })
+        {
+            Clear(overlay);
+            Invoke(overlay, "SetDrawColor", Colors.Red);
+            var tool = Enum.Parse(toolType, toolName);
+            Invoke(overlay, "SetDrawTool", tool);
+            var hasEndpoints = toolName is "Line" or "Arrow";
+            var originalPointer = hasEndpoints ? new Point(300, 105) : new Point(300, 180);
+            var stroke = CreateShape(markup, start, originalPointer, tool, constrain: true);
+            Set(overlay, "_drawStart", start);
+            Set(overlay, "_drawPreview", stroke);
+            markup.Strokes.Add(stroke);
+            Require(markup.CaptureMouse(), $"The {toolName} preview could not capture the synthetic drawing gesture");
+            Invoke(overlay, "MarkupUp", markup, new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+            { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent, Source = markup });
+            Require(markup.Strokes.Count == 1 && Property<IList>(item, "DrawingOrder").Count == 1,
+                $"Completing the constrained {toolName} did not create one undoable shape");
+            var initialPoints = stroke.Clone();
+            var initialPixels = Render(overlay, item);
+            Require(CountColor(initialPixels, Red) > 100, $"The constrained {toolName} is missing from exported pixels");
+            var handles = (IList)Get(overlay, "_drawingObjectHandles");
+            Require(handles.Count == (hasEndpoints ? 2 : 4), $"The {toolName} has incorrect resize handles");
+            var handle = (Point)handles[hasEndpoints ? 1 : 2]!;
+            Require((bool)Invoke(overlay, "TryBeginDrawingResize", item, handle, markup)!,
+                $"The constrained {toolName} resize handle could not be grabbed");
+            var pointer = hasEndpoints ? new Point(260, 210) : new Point(260, 190);
+
+            // A modifier transition must recompute from the gesture's original
+            // shape, even when the pointer has not moved between transitions.
+            Invoke(overlay, "ResizeSelectedDrawingObjectWithConstraint", item, pointer, markup, true);
+            RequireConstrainedResize(stroke, start, hasEndpoints, toolName);
+            var firstConstraint = stroke.Clone();
+            Invoke(overlay, "ResizeSelectedDrawingObjectWithConstraint", item, pointer, markup, false);
+            if (hasEndpoints)
+                Require(PointOf(stroke.StylusPoints[0]) == start && PointOf(stroke.StylusPoints[1]) == pointer,
+                    $"Releasing Shift while resizing {toolName} did not restore the free endpoint");
+            else
+            {
+                var freeBounds = ShapeBounds(stroke);
+                Require(Near(freeBounds.Left, start.X) && Near(freeBounds.Top, start.Y) &&
+                    Near(freeBounds.Width, pointer.X - start.X) && Near(freeBounds.Height, pointer.Y - start.Y),
+                    $"Releasing Shift while resizing {toolName} did not restore independent dimensions");
+            }
+            Invoke(overlay, "ResizeSelectedDrawingObjectWithConstraint", item, pointer, markup, true);
+            Require(SamePoints(stroke, firstConstraint), $"The second Shift press accumulated changes while resizing {toolName}");
+            Invoke(overlay, "CommitSelectedDrawingMove");
+            markup.ReleaseMouseCapture();
+            var finalPoints = stroke.Clone();
+            var finalPixels = Render(overlay, item);
+            Require(!SamePixels(initialPixels, finalPixels), $"Resizing the {toolName} changed no exported pixels");
+            Require(Property<IList>(item, "DrawingOrder").Count == 2,
+                $"Modifier transitions during one {toolName} drag created more than one resize action");
+            Undo(overlay);
+            Require(SamePoints(stroke, initialPoints) && SamePixels(Render(overlay, item), initialPixels),
+                $"Undo did not restore the original constrained {toolName} geometry and pixels");
+            Undo(overlay);
+            Require(markup.Strokes.Count == 0, $"The second undo did not remove the original {toolName}");
+            Redo(overlay);
+            Require(markup.Strokes.Count == 1 && SamePoints(stroke, initialPoints),
+                $"Redo did not restore the original constrained {toolName}");
+            Redo(overlay);
+            Require(SamePoints(stroke, finalPoints) && SamePixels(Render(overlay, item), finalPixels),
+                $"Redo did not restore the resized constrained {toolName} geometry and pixels");
+            checks.Add($"shift-{toolName.ToLowerInvariant()}-resize-toggles-at-fixed-pointer-and-undo-redo-restores-pixels");
+        }
+    }
+
+    private static Stroke CreateShape(InkCanvas markup, Point start, Point end, object tool, bool constrain)
+        => (Stroke)typeof(CaptureOverlayWindow).GetMethod("CreateShapeStroke", StaticPrivate)!
+            .Invoke(null, new[] { (object)markup, start, end, tool, constrain })!;
+
+    private static Rect ShapeBounds(Stroke stroke)
+        => new(new Point(stroke.StylusPoints.Min(point => point.X), stroke.StylusPoints.Min(point => point.Y)),
+            new Point(stroke.StylusPoints.Max(point => point.X), stroke.StylusPoints.Max(point => point.Y)));
+
+    private static bool SamePoints(Stroke first, Stroke second)
+        => first.StylusPoints.Count == second.StylusPoints.Count && first.StylusPoints.Zip(second.StylusPoints)
+            .All(pair => Near(pair.First.X, pair.Second.X) && Near(pair.First.Y, pair.Second.Y));
+
+    private static bool Near(double first, double second) => Math.Abs(first - second) < .000001;
+
+    private static void RequireDirection(Point start, Point end, string direction, string toolName)
+    {
+        var delta = end - start;
+        Require(delta.Length > 20 && (direction switch
+        {
+            "horizontal" => Near(delta.Y, 0),
+            "vertical" => Near(delta.X, 0),
+            _ => Near(Math.Abs(delta.X), Math.Abs(delta.Y))
+        }), $"Shift did not snap {toolName} to the {direction} direction");
+    }
+
+    private static void RequireConstrainedResize(Stroke stroke, Point fixedCorner, bool hasEndpoints, string toolName)
+    {
+        if (hasEndpoints)
+        {
+            Require(PointOf(stroke.StylusPoints[0]) == fixedCorner, $"Shift-resizing {toolName} moved the fixed endpoint");
+            RequireDirection(fixedCorner, PointOf(stroke.StylusPoints[1]), "diagonal", toolName);
+        }
+        else
+        {
+            var bounds = ShapeBounds(stroke);
+            Require(Near(bounds.Left, fixedCorner.X) && Near(bounds.Top, fixedCorner.Y) &&
+                Near(bounds.Width, bounds.Height) && bounds.Width > 100,
+                $"Shift-resizing {toolName} lost its fixed corner or equal sides");
+        }
     }
 
     private static void VerifyMosaic(CaptureOverlayWindow overlay, object item, InkCanvas markup, List<string> checks)
