@@ -24,6 +24,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Contains("--pass-through-target")){PointerPassThroughReplay.RunTarget();return;}
         if(args.Contains("--snapshot-background")){ApplicationSnapshotReplay.RunBackground();return;}
         if(args.Contains("--snapshot-graphics-background")){ApplicationSnapshotReplay.RunBackground(graphicsOnly:true);return;}
         if(args.Contains("--snapshot-web-background")){ApplicationSnapshotReplay.RunBackground(true);return;}
@@ -49,6 +50,7 @@ internal static class Program
             WindowIssuesReplay.Run(app,host);return;
         }
         host.Settings.TeachingMode=teaching;
+        if(args.Contains("--verify-pointer-pass-through")){PointerPassThroughReplay.Run(app,host);return;}
         if(args.FirstOrDefault(argument=>argument.StartsWith("--snapshot-window=",StringComparison.Ordinal)) is { } selectedWindow)
         {
             if(!long.TryParse(selectedWindow.AsSpan("--snapshot-window=".Length),out var handle)||handle<=0)throw new ArgumentException("Invalid selected window.");

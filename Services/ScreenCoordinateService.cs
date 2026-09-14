@@ -10,6 +10,14 @@ public static class ScreenCoordinateService
 {
     private const double DefaultDpi=96d;
 
+    internal static (int X,int Y) ToAbsoluteMousePoint(int x,int y,ScreenRect desktop)
+    {
+        if(desktop.IsEmpty)throw new ArgumentException("Virtual desktop is empty.",nameof(desktop));
+        // Pick the center of a physical pixel, including on negative monitors.
+        static int Axis(int value,int origin,int size)=>(int)Math.Clamp(((long)value-origin)*65536/size+32768/size,0,65535);
+        return (Axis(x,desktop.X,desktop.Width),Axis(y,desktop.Y,desktop.Height));
+    }
+
     /// <summary>Returns the device scale represented by a Win32 DPI value.</summary>
     public static double DpiScale(uint dpi)=>Math.Max(DefaultDpi,dpi)/DefaultDpi;
 

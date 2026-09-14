@@ -388,6 +388,7 @@ public partial class CaptureOverlayWindow : Window
                 PositionPromptBar();
             }));
             _overlayReady=true;
+            StartRightPassThrough();
             KeepOverlayBelowPinnedWindows();
             if(_conversationAiAvailable&&CaptureOverlayPolicy.ShouldStartAutomaticListening(_host.Settings.EnableVoiceInput,_host.Settings.AutomaticallyStartListening,_autoVoiceStarted,_closed)){_autoVoiceStarted=true;await ToggleVoiceAsync();}
         };
@@ -834,6 +835,7 @@ public partial class CaptureOverlayWindow : Window
         ReleaseTeachingLiveCapture();
         _toolbarHideTimer.Stop();
         _closed=true;
+        StopRightPassThrough();
         StopThinkingGlow();
         _inactiveEscapeTimer.Stop();
         _longCaptureInputTimer.Stop();
@@ -1258,6 +1260,7 @@ public partial class CaptureOverlayWindow : Window
     {
         _inactiveEscapeTimer.Stop();
         if(_closed||!_overlayReady)return;
+        if(_rightPassThroughVisual||_rightPassThrough?.IsActive==true)return;
         if(!IsKeyboardFocusWithin&&!_drawingModalOpen&&_systemFileDialogDepth==0)Root.Focus();
         if(_applicationSnapshotActive)return;
         if(_longCaptureMode){KeepOverlayBelowPinnedWindows();return;}
