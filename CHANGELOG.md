@@ -4,6 +4,7 @@
 
 ## 未发布 / Unreleased
 
+- 修复置顶长图放大时受窗口尺寸约束而变形的问题，窗口和图片同步等比例缩放；改进滚动拼接接缝，避免重复保留上一帧的底部边框。 / Fix pinned long images distorting at native window size limits, and join scrolling frames within their overlap to avoid repeating bottom borders.
 - 自动吸附窗口后可截取应用内容快照，读取应用提供的屏幕外文本，生成长图后自动置顶并引用；手动拖选保留滚动长截图。 / Automatically selected windows support content snapshots with available off-screen text, followed by pinning and referencing; manually selected regions retain scrolling capture.
 - 长截图取消固定 24 段限制，改用增量拼接，仅保留合成图与最新匹配帧，按实际图像容量控制内存。 / Remove the fixed 24-segment limit and merge incrementally, retaining the composite and latest matching frame within the image capacity budget.
 

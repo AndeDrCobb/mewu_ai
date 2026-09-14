@@ -43,8 +43,10 @@ internal sealed class ScrollingCaptureAccumulator
             if(origin<Top)CopyRows(frame,0,checked((int)(Top-origin)),output,0,stride);
             if(origin+frame.PixelHeight>bottom)
             {
-                var first=checked((int)(bottom-origin));
-                CopyRows(frame,first,frame.PixelHeight-first,output,checked((int)(bottom-nextTop)*stride),stride);
+                // Join inside the overlapping content, not at the old frame's
+                // bottom edge, which can contain a fixed border/footer.
+                var first=checked((int)(bottom-origin))/2;
+                CopyRows(frame,first,frame.PixelHeight-first,output,checked((int)(origin+first-nextTop)*stride),stride);
             }
             cancellationToken.ThrowIfCancellationRequested();
             var image=BitmapSource.Create(width,(int)height,Composite.DpiX,Composite.DpiY,PixelFormats.Bgra32,null,output,stride);

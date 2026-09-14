@@ -35,7 +35,7 @@ public sealed class PinnedImageWindow : Window
     public PinnedImageWindow(BitmapSource image,ScreenRect? originalRegion=null,bool teachingMode=false)
     {
         _originalImage=_image=image;_originalRegion=originalRegion;_initialContentWidthPixels=Math.Min(image.PixelWidth,900);_drag=new PinnedWindowDragController(this);Title="喵呜AI 贴图";WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.CanResize;Topmost=true;ShowActivated=false;ShowInTaskbar=NativeMethods.VisualQaCaptureEnabled;Background=Brushes.Transparent;AllowsTransparency=true;UseLayoutRounding=true;SnapsToDevicePixels=true;
-        _imageView=new Image{Source=image,Stretch=Stretch.Fill,SnapsToDevicePixels=true};
+        _imageView=new Image{Source=image,Stretch=Stretch.Uniform,SnapsToDevicePixels=true};
         _frame=new Border{Background=Brushes.White,CornerRadius=new CornerRadius(10),BorderBrush=new SolidColorBrush(Color.FromArgb(110,189,208,226)),BorderThickness=new Thickness(1),Effect=new DropShadowEffect{Color=Color.FromRgb(42,55,72),BlurRadius=22,ShadowDepth=4,Opacity=.3},Child=_imageView};
         _captureRegistration=PinnedImageCaptureRegistry.Register(CreateCaptureSnapshot);
         _captureRoot.Children.Add(_frame);Content=_captureRoot;Width=_initialContentWidthPixels+ShadowPixels*2;Height=_initialContentWidthPixels*(double)image.PixelHeight/Math.Max(1,image.PixelWidth)+ShadowPixels*2;
@@ -43,6 +43,7 @@ public sealed class PinnedImageWindow : Window
         SourceInitialized+=(_,_)=>
         {
             var handle=new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            PinnedWindowSizeHook.Attach(handle);
             if(!NativeMethods.ApplyPresentationCaptureVisibility(handle,teachingMode))
             {
                 new PrivacyLogger().Error("PinnedImageCaptureProtection",new InvalidOperationException("无法应用贴图共享/防捕获设置，已阻止显示贴图"));
@@ -50,6 +51,7 @@ public sealed class PinnedImageWindow : Window
                 return;
             }
             var dpi=Math.Max(96u,NativeMethods.GetDpiForWindow(handle));
+            MaxWidth=MaxHeight=ScreenCoordinateService.PixelsToDip(PinnedWindowZoomPolicy.MaxWindowDimension,dpi);
             if(_originalRegion is { } region)PlaceAtOriginalSize(handle,region);
             else
             {
@@ -85,7 +87,7 @@ public sealed class PinnedImageWindow : Window
 
     private void OnDpiChanged(object sender,DpiChangedEventArgs e)
     {
-        var handle=new System.Windows.Interop.WindowInteropHelper(this).Handle;if(handle==IntPtr.Zero)return;ApplyShadowPadding(handle);UpdateHeightForAspectRatio();
+        var handle=new System.Windows.Interop.WindowInteropHelper(this).Handle;if(handle==IntPtr.Zero)return;MaxWidth=MaxHeight=ScreenCoordinateService.PixelsToDip(PinnedWindowZoomPolicy.MaxWindowDimension,NativeMethods.GetDpiForWindow(handle));ApplyShadowPadding(handle);UpdateHeightForAspectRatio();
     }
 
     private void KeepAspectRatio(object? sender,SizeChangedEventArgs e)
@@ -95,7 +97,7 @@ public sealed class PinnedImageWindow : Window
 
     private void UpdateHeightForAspectRatio()
     {
-        if(_adjustingSize)return;var padding=_frame.Margin.Left*2;var contentWidth=Math.Max(1,ActualWidth-padding);var expected=contentWidth*_image.PixelHeight/_image.PixelWidth+padding;var maximumHeight=PinnedWindowZoomPolicy.GetMaximumHeight(_image.PixelWidth,_image.PixelHeight,padding);_adjustingSize=true;try{if(expected>maximumHeight){Height=maximumHeight;Width=(maximumHeight-padding)*_image.PixelWidth/_image.PixelHeight+padding;}else if(Math.Abs(ActualHeight-expected)>=1)Height=expected;}finally{_adjustingSize=false;}
+        if(_adjustingSize)return;var padding=_frame.Margin.Left*2+_frame.BorderThickness.Left*2;var contentWidth=Math.Max(1,ActualWidth-padding);var expected=contentWidth*_image.PixelHeight/_image.PixelWidth+padding;var maximumHeight=Math.Min(MaxHeight,PinnedWindowZoomPolicy.GetMaximumHeight(_image.PixelWidth,_image.PixelHeight,padding));_adjustingSize=true;try{if(expected>maximumHeight){Height=maximumHeight;Width=(maximumHeight-padding)*_image.PixelWidth/_image.PixelHeight+padding;}else if(Math.Abs(ActualHeight-expected)>=1)Height=expected;}finally{_adjustingSize=false;}
     }
 
     private void OnMouseLeftButtonDown(object sender,MouseButtonEventArgs e)
@@ -125,7 +127,10 @@ public sealed class PinnedImageWindow : Window
 
     private void OnMouseWheel(object sender,MouseWheelEventArgs e)
     {
-        var factor=e.Delta>0?1.08:.92;var padding=_frame.Margin.Left*2;var minimumWidth=padding+1;var maximumWidth=PinnedWindowZoomPolicy.GetMaximumWidth(_image.PixelWidth,_image.PixelHeight,padding);Width=Math.Clamp(Width*factor,minimumWidth,maximumWidth);e.Handled=true;
+        var factor=e.Delta>0?1.08:1/1.08;var padding=_frame.Margin.Left*2+_frame.BorderThickness.Left*2;
+        var maximumWidth=Math.Min(MaxWidth,Math.Min(PinnedWindowZoomPolicy.GetMaximumWidth(_image.PixelWidth,_image.PixelHeight,padding),(MaxHeight-padding)*_image.PixelWidth/_image.PixelHeight+padding));
+        var width=Math.Clamp(Math.Max(1,ActualWidth-padding)*factor+padding,padding+1,maximumWidth);
+        _adjustingSize=true;try{Width=width;Height=(width-padding)*_image.PixelHeight/_image.PixelWidth+padding;}finally{_adjustingSize=false;}e.Handled=true;
     }
 
     private ContextMenu BuildContextMenu()

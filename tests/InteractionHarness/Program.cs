@@ -42,6 +42,7 @@ internal static class Program
         var app=new Application { ShutdownMode=ShutdownMode.OnMainWindowClose };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source=new Uri("/MewuAI;component/Themes/LightTheme.xaml",UriKind.Relative) });
         var host=new AppHost(app);
+        if(args.Contains("--verify-pinned-zoom")){PinnedZoomReplay.Run(app);return;}
         if(args.Contains("--verify-window-issues"))
         {
             WindowIssuesReplay.Run(app,host);return;

@@ -33,6 +33,15 @@ public sealed class ScrollingCaptureAccumulatorTests
     }
 
     [Fact]
+    public void JoinReplacesTheOldViewportBorderWithOverlappingContent()
+    {
+        var pixels=Expected(16,40,0);Array.Clear(pixels,39*64,64);
+        var first=BitmapSource.Create(16,40,96,96,PixelFormats.Bgra32,null,pixels,64);first.Freeze();
+        var state=ScrollingCaptureAccumulator.Start(first).Append(Frame(20),20,TestContext.Current.CancellationToken)!;
+        AssertPixels(state.Composite,0);
+    }
+
+    [Fact]
     public void CancellationCannotChangePreviouslyAcceptedPixels()
     {
         var state=ScrollingCaptureAccumulator.Start(Frame(0));
