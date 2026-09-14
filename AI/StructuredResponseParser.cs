@@ -24,9 +24,14 @@ public static class StructuredResponseParser
             value = visualPayload;
 
         if (!TryGetStructuredPayload(value, out var json))
+        {
+            if (expectStructuredResponse && LooksLikeBrokenStructuredPayload(value) &&
+                TryExtractTopLevelAnswer(value, out var recoveredAnswer))
+                return new(recoveredAnswer, [], allReasoning);
             return expectStructuredResponse&&LooksLikeBrokenStructuredPayload(value)
                 ?new(string.Empty,[],allReasoning)
                 :new(value, [], allReasoning);
+        }
 
         try
         {
@@ -142,6 +147,29 @@ public static class StructuredResponseParser
         if(!trimmed.StartsWith("json",StringComparison.OrdinalIgnoreCase))return false;
         var remainder=trimmed[4..].TrimStart();
         return remainder.StartsWith('{')||remainder.StartsWith('[');
+    }
+
+    // Keep a useful final answer visible when a provider returns the expected
+    // root object but the annotation tail is malformed.  The old behavior
+    // discarded the whole response and made the UI report "reasoning only".
+    // Restrict recovery to the top-level answer property so nested examples
+    // are never promoted to the displayed answer.
+    private static bool TryExtractTopLevelAnswer(string value, out string answer)
+    {
+        answer = string.Empty;
+        if (!TryFindRootAnswerValue(value.AsSpan(), out var start)) return false;
+        for (var index = start; index < value.Length; index++)
+        {
+            if (value[index] == '\\') { index++; continue; }
+            if (value[index] != '"') continue;
+            var next = SkipWhitespace(value, index + 1);
+            if (next < value.Length && value[next] is not (',' or '}' or ']')) continue;
+            if (!TryDecodeJsonStringLoosely(value.AsSpan(start, index - start), out var decoded) ||
+                string.IsNullOrWhiteSpace(decoded)) continue;
+            answer = decoded;
+            return true;
+        }
+        return false;
     }
 
     private static IReadOnlyList<AiAnnotation> ParseAnnotations(JsonElement root)

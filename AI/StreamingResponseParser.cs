@@ -40,6 +40,14 @@ public static class StreamingResponseParser
     {
         if(value.ValueKind!=JsonValueKind.Object||!value.TryGetProperty("content",out var content))return (string.Empty,string.Empty);
         if(content.ValueKind==JsonValueKind.String)return (content.GetString()??string.Empty,string.Empty);
+        if(content.ValueKind==JsonValueKind.Object)
+        {
+            // Some OpenAI-compatible gateways wrap the final text in an
+            // object instead of returning a bare string.
+            var objectText=ReadString(content,"text");
+            if(objectText.Length==0)objectText=ReadString(content,"content");
+            return (objectText,string.Empty);
+        }
         if(content.ValueKind!=JsonValueKind.Array)return (string.Empty,string.Empty);
 
         var text=new StringBuilder();
@@ -50,6 +58,8 @@ public static class StreamingResponseParser
             switch(ReadString(chunk,"type"))
             {
                 case "text":
+                case "output_text":
+                case "text_delta":
                     text.Append(ReadString(chunk,"text"));
                     break;
                 case "thinking":
@@ -59,6 +69,11 @@ public static class StreamingResponseParser
                     foreach(var thought in thoughts.EnumerateArray())
                         if(thought.ValueKind==JsonValueKind.Object&&ReadString(thought,"type")=="text")
                             reasoning.Append(ReadString(thought,"text"));
+                    break;
+                default:
+                    // A few gateways omit the type discriminator but still
+                    // provide a normal text field. Keep that text visible.
+                    text.Append(ReadString(chunk,"text"));
                     break;
             }
         }
