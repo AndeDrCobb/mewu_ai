@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 部分采纳 [PR #8](https://github.com/abnste/mewu_ai/pull/8)：DeepSeek 官方 API 现在会正确执行翻译等请求已有的关闭思考要求；普通问答继续沿用原有思考设置。 / Partially adopt [PR #8](https://github.com/abnste/mewu_ai/pull/8): honor requests to disable thinking on the official DeepSeek API, including translation, while preserving the existing reasoning settings for ordinary conversations.
+
 ## 0.4.7 — API 回复与设置稳定性 / API replies and settings stability
 
 - 修正视觉问答中完整代码块回答被误判为损坏 JSON、继而提示“只有思考”的问题；保留正常回答，继续拒绝真正截断的回复。 / Preserve complete fenced-code answers in visual conversations instead of mistaking them for broken JSON and reporting reasoning only. Genuinely interrupted responses are still rejected.

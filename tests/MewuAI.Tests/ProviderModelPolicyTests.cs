@@ -104,6 +104,61 @@ public sealed class ProviderModelPolicyTests
     }
 
     [Theory]
+    [InlineData("deepseek-flash", false, false)]
+    [InlineData("deepseek-flash", true, false)]
+    [InlineData("deepseek-flash", false, true)]
+    [InlineData("deepseek-flash", true, true)]
+    [InlineData("deepseek-v4-pro", false, false)]
+    [InlineData("deepseek-v4-pro", true, false)]
+    [InlineData("deepseek-v4-pro", false, true)]
+    [InlineData("deepseek-v4-pro", true, true)]
+    public async Task OfficialDeepSeekDisablesThinkingOnlyWhenRequested(string model, bool streaming, bool disableReasoning)
+    {
+        var response = streaming
+            ? "data: {\"choices\":[{\"delta\":{\"content\":\"OK\"},\"finish_reason\":\"stop\"}]}\n\n"
+            : "{\"choices\":[{\"message\":{\"content\":\"OK\"},\"finish_reason\":\"stop\"}]}";
+        var result = await Send(Settings("https://api.deepseek.com/v1", model), new AiRequest
+        {
+            Prompt = "test",
+            DisableReasoning = disableReasoning,
+            StreamingProgress = streaming ? new CollectProgress([]) : null
+        }, (http, body) =>
+        {
+            Assert.Equal(streaming, body.GetProperty("stream").GetBoolean());
+            Assert.Equal(disableReasoning, body.TryGetProperty("thinking", out var thinking));
+            if (disableReasoning) Assert.Equal("disabled", thinking.GetProperty("type").GetString());
+            Assert.False(body.TryGetProperty("reasoning_effort", out _));
+        }, response);
+        Assert.Equal("OK", result.Answer);
+    }
+
+    [Theory]
+    [InlineData("https://proxy.invalid/v1")]
+    [InlineData("https://api.deepseek.com.attacker.invalid/v1")]
+    [InlineData("https://api.deepseek.com:8443/v1")]
+    public async Task DeepSeekCompatibleEndpointsDoNotInheritOfficialThinkingParameters(string endpoint)
+    {
+        await Send(Settings(endpoint, "deepseek-flash"), new AiRequest { Prompt = "test", DisableReasoning = true }, (http, body) =>
+        {
+            Assert.False(body.TryGetProperty("thinking", out _));
+            Assert.False(body.TryGetProperty("reasoning_effort", out _));
+        });
+    }
+
+    [Theory]
+    [InlineData("gpt-6-astra")]
+    [InlineData("gpt-5.1")]
+    [InlineData("o3")]
+    public async Task OpenAiDoesNotAcquireAnUnsupportedUniversalReasoningEffort(string model)
+    {
+        await Send(Settings("https://api.openai.com/v1", model), new AiRequest { Prompt = "translate", DisableReasoning = true }, (http, body) =>
+        {
+            Assert.False(body.TryGetProperty("thinking", out _));
+            Assert.False(body.TryGetProperty("reasoning_effort", out _));
+        });
+    }
+
+    [Theory]
     [InlineData("https://api.openai.com/v1", "gpt-6-astra", "max_completion_tokens")]
     [InlineData("https://api.openai.com/v1", "o3", "max_completion_tokens")]
     [InlineData("https://proxy.invalid/v1", "custom", "max_tokens")]
