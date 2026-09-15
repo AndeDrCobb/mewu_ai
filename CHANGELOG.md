@@ -4,10 +4,11 @@
 
 ## 未发布 / Unreleased
 
-- 修复 [Issue #9](https://github.com/abnste/mewu_ai/issues/9) 中 API 模型目录在裸地址返回网页或错误 JSON 时可能使设置页崩溃的问题：现在会有限尝试 `/v1` 和 `/api/v1`，成功后把可用地址显示为未保存草稿，全部失败才提示错误。 / Fix [Issue #9](https://github.com/abnste/mewu_ai/issues/9): prevent settings crashes when a bare API address returns HTML or invalid JSON. Try bounded `/v1` and `/api/v1` candidates, show a successful correction as an unsaved draft, and report an error only after all candidates fail.
-- 改进 [Issue #9](https://github.com/abnste/mewu_ai/issues/9) 中 DeepSeek 思考流的状态反馈：思考增量期间明确显示仍在思考，只有终态没有正文时才显示“只返回思考内容”。 / Improve [Issue #9](https://github.com/abnste/mewu_ai/issues/9): show that DeepSeek reasoning is still in progress, and report reasoning-only failure only after a terminal response without an answer.
+## 0.4.8 — Issue #9 API 地址与 DeepSeek 状态 / Issue #9 endpoint recovery and DeepSeek states
 
-- 部分采纳 [PR #8](https://github.com/abnste/mewu_ai/pull/8)：DeepSeek 官方 API 现在会正确执行翻译等请求已有的关闭思考要求；普通问答继续沿用原有思考设置。 / Partially adopt [PR #8](https://github.com/abnste/mewu_ai/pull/8): honor requests to disable thinking on the official DeepSeek API, including translation, while preserving the existing reasoning settings for ordinary conversations.
+- 修复 [Issue #9](https://github.com/abnste/mewu_ai/issues/9) 中 API 模型目录在裸地址返回网页或错误 JSON 时设置页可能崩溃的问题。现在有限尝试原地址、`/v1` 和 `/api/v1`；成功后把可用地址显示为未保存草稿，保存后用于后续请求，全部失败才提示 API 错误。 / Fix [Issue #9](https://github.com/abnste/mewu_ai/issues/9): recover model catalogs when a bare endpoint returns HTML or invalid JSON. Try the original address, `/v1`, and `/api/v1` within a bounded sequence; show a successful endpoint as an unsaved draft for later requests, and report an API error only after all candidates fail.
+- 改进 [Issue #9](https://github.com/abnste/mewu_ai/issues/9) 中 DeepSeek 思考流的状态反馈：收到 `reasoning_content` 增量时显示仍在思考，只有终态没有正文时才显示思考-only 错误；不关闭思考、不降低输出预算。 / Improve [Issue #9](https://github.com/abnste/mewu_ai/issues/9) DeepSeek thinking-stream feedback: show that reasoning is still in progress when `reasoning_content` arrives, and report reasoning-only failure only after a terminal response without an answer; do not disable thinking or reduce output budgets.
+- 部分采纳 [PR #8](https://github.com/abnste/mewu_ai/pull/8) 的 DeepSeek 思考开关适配与回归测试。 / Partially adopt the DeepSeek thinking-toggle compatibility and regression coverage from [PR #8](https://github.com/abnste/mewu_ai/pull/8).
 
 ## 0.4.7 — API 回复与设置稳定性 / API replies and settings stability
 
