@@ -42,42 +42,51 @@ public static class StreamingResponseParser
         if(content.ValueKind==JsonValueKind.String)return (content.GetString()??string.Empty,string.Empty);
         if(content.ValueKind==JsonValueKind.Object)
         {
-            // Some OpenAI-compatible gateways wrap the final text in an
-            // object instead of returning a bare string.
-            var objectText=ReadString(content,"text");
-            if(objectText.Length==0)objectText=ReadString(content,"content");
-            return (objectText,string.Empty);
+            // A gateway may wrap an otherwise plain answer in a single object.
+            // Only an absent discriminator permits this compatibility path;
+            // unknown or malformed declared types must never become answer text.
+            if(!content.TryGetProperty("type",out _))
+            {
+                var objectText=ReadString(content,"text");
+                if(objectText.Length==0)objectText=ReadString(content,"content");
+                return (objectText,string.Empty);
+            }
+            var objectTextParts=new StringBuilder();
+            var objectReasoningParts=new StringBuilder();
+            AppendTypedContent(content,objectTextParts,objectReasoningParts);
+            return (objectTextParts.ToString(),objectReasoningParts.ToString());
         }
         if(content.ValueKind!=JsonValueKind.Array)return (string.Empty,string.Empty);
 
         var text=new StringBuilder();
         var reasoning=new StringBuilder();
         foreach(var chunk in content.EnumerateArray())
-        {
-            if(chunk.ValueKind!=JsonValueKind.Object)continue;
-            switch(ReadString(chunk,"type"))
-            {
-                case "text":
-                case "output_text":
-                case "text_delta":
-                    text.Append(ReadString(chunk,"text"));
-                    break;
-                case "thinking":
-                    // Mistral streams ThinkChunk.thinking as TextChunk[], including
-                    // a mixed thinking/text event when the final answer begins.
-                    if(!chunk.TryGetProperty("thinking",out var thoughts)||thoughts.ValueKind!=JsonValueKind.Array)break;
-                    foreach(var thought in thoughts.EnumerateArray())
-                        if(thought.ValueKind==JsonValueKind.Object&&ReadString(thought,"type")=="text")
-                            reasoning.Append(ReadString(thought,"text"));
-                    break;
-                default:
-                    // A few gateways omit the type discriminator but still
-                    // provide a normal text field. Keep that text visible.
-                    text.Append(ReadString(chunk,"text"));
-                    break;
-            }
-        }
+            AppendTypedContent(chunk,text,reasoning);
         return (text.ToString(),reasoning.ToString());
+    }
+
+    private static void AppendTypedContent(JsonElement chunk,StringBuilder text,StringBuilder reasoning)
+    {
+        if(chunk.ValueKind!=JsonValueKind.Object)return;
+        switch(ReadString(chunk,"type"))
+        {
+            case "text":
+            case "output_text":
+            case "text_delta":
+                // Text content blocks, including Claude's text_delta, use text.
+                // A Responses response.output_text.delta event is a different
+                // envelope and must not be inferred from a generic delta field.
+                text.Append(ReadString(chunk,"text"));
+                break;
+            case "thinking":
+                // Mistral streams ThinkChunk.thinking as TextChunk[], including
+                // a mixed thinking/text event when the final answer begins.
+                if(!chunk.TryGetProperty("thinking",out var thoughts)||thoughts.ValueKind!=JsonValueKind.Array)break;
+                foreach(var thought in thoughts.EnumerateArray())
+                    if(thought.ValueKind==JsonValueKind.Object&&ReadString(thought,"type")=="text")
+                        reasoning.Append(ReadString(thought,"text"));
+                break;
+        }
     }
 
     internal static string ReadReasoningDetails(JsonElement value)

@@ -24,14 +24,9 @@ public static class StructuredResponseParser
             value = visualPayload;
 
         if (!TryGetStructuredPayload(value, out var json))
-        {
-            if (expectStructuredResponse && LooksLikeBrokenStructuredPayload(value) &&
-                TryExtractTopLevelAnswer(value, out var recoveredAnswer))
-                return new(recoveredAnswer, [], allReasoning);
             return expectStructuredResponse&&LooksLikeBrokenStructuredPayload(value)
                 ?new(string.Empty,[],allReasoning)
                 :new(value, [], allReasoning);
-        }
 
         try
         {
@@ -53,6 +48,8 @@ public static class StructuredResponseParser
         {
             if (expectStructuredResponse && TryRecoverQuotedAnswer(json, allReasoning, out var recovered))
                 return recovered;
+            if (expectStructuredResponse && TryExtractTopLevelAnswer(json, out var recoveredAnswer))
+                return new(recoveredAnswer, [], allReasoning, AiAnnotationUpdateMode.Preserve);
             return TryExtractAnswerFromTruncatedStructuredResponse(json, out var answer) || (expectStructuredResponse && TryExtractLooseRootAnswer(json, out answer))
                 ? new(answer, [], allReasoning)
                 : expectStructuredResponse?new(string.Empty,[],allReasoning):new(value, [], allReasoning);
@@ -149,26 +146,48 @@ public static class StructuredResponseParser
         return remainder.StartsWith('{')||remainder.StartsWith('[');
     }
 
-    // Keep a useful final answer visible when a provider returns the expected
-    // root object but the annotation tail is malformed.  The old behavior
-    // discarded the whole response and made the UI report "reasoning only".
-    // Restrict recovery to the top-level answer property so nested examples
-    // are never promoted to the displayed answer.
+    // Read a complete, strictly valid root answer before a broken annotations
+    // value. Recovery belongs after JSON parsing fails, not after envelope
+    // detection fails: every root object already passes envelope detection.
+    // No guessed string boundary, nested answer or invalid prefix is accepted.
     private static bool TryExtractTopLevelAnswer(string value, out string answer)
     {
         answer = string.Empty;
-        if (!TryFindRootAnswerValue(value.AsSpan(), out var start)) return false;
-        for (var index = start; index < value.Length; index++)
+        if (value.Length > 1024 * 1024) return false;
+        var utf8 = Encoding.UTF8.GetBytes(value);
+        var reader = new Utf8JsonReader(utf8, isFinalBlock: true, state: default);
+        string? candidate = null;
+        var hasAnswer = false;
+        var readingAnnotations = false;
+        try
         {
-            if (value[index] == '\\') { index++; continue; }
-            if (value[index] != '"') continue;
-            var next = SkipWhitespace(value, index + 1);
-            if (next < value.Length && value[next] is not (',' or '}' or ']')) continue;
-            if (!TryDecodeJsonStringLoosely(value.AsSpan(start, index - start), out var decoded) ||
-                string.IsNullOrWhiteSpace(decoded)) continue;
-            answer = decoded;
-            return true;
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) return false;
+            while (reader.Read())
+            {
+                if (reader.TokenType != JsonTokenType.PropertyName || reader.CurrentDepth != 1) return false;
+                var isAnswer = reader.ValueTextEquals("answer");
+                readingAnnotations = reader.ValueTextEquals("annotations");
+                if (isAnswer && hasAnswer) return false;
+                if (!reader.Read()) return false;
+                if (isAnswer)
+                {
+                    hasAnswer = true;
+                    if (reader.TokenType != JsonTokenType.String) return false;
+                    candidate = reader.GetString();
+                }
+                else reader.Skip();
+                readingAnnotations = false;
+            }
         }
+        catch (JsonException)
+        {
+            if (readingAnnotations && !string.IsNullOrWhiteSpace(candidate))
+            {
+                answer = candidate;
+                return true;
+            }
+        }
+        finally { System.Security.Cryptography.CryptographicOperations.ZeroMemory(utf8); }
         return false;
     }
 

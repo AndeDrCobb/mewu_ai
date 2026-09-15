@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 补齐兼容 API 的分块与对象形式正文读取，严格区分正文、思考和未知内容类型；批注 JSON 尾部损坏时保留完整有效回答与已有标注，不将截断的网络回复当作完成。 / Read supported typed and object-form answers from compatible APIs while keeping reasoning and unknown content out of the answer. Preserve a complete valid answer and existing annotations when annotation JSON is malformed, without treating interrupted responses as complete.
+
 ## 0.4.6 — API 接入、标注编辑与应用快照 / API connections, annotation editing and app snapshots
 
 - 按 2026 年 9 月官方接口更新国内外 API 接入模板，添加服务商分组与搜索；完善模型目录格式、分页及对话模型筛选，适配新推理模型参数、图文能力和类型化流式回复。已有连接、密钥及默认选择保持原样。 / Update China and global API presets against September 2026 documentation, with grouped service search, model catalog pagination and chat filtering, current reasoning-model parameters, vision capabilities and typed streaming responses. Existing connections, keys and defaults are preserved.

@@ -137,6 +137,114 @@ public sealed class TypedStreamingResponseTests
         Assert.Equal(new AiStreamDelta("answer","check"),delta);
     }
 
+    [Theory]
+    [InlineData("""{"text":"answer"}""")]
+    [InlineData("""{"content":"answer"}""")]
+    [InlineData("""{"text":"","content":"answer"}""")]
+    [InlineData("""{"text":"answer","content":"duplicate"}""")]
+    public void SingleUntypedGatewayWrapperRetainsItsPlainAnswer(string contentJson)
+    {
+        var delta=ParseCompletedContent(contentJson);
+        Assert.Equal("answer",delta.Content);
+        Assert.Empty(delta.ReasoningContent);
+    }
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("output_text")]
+    [InlineData("text_delta")]
+    public void DeclaredTextBlocksReadTextForBothObjectAndArray(string type)
+    {
+        var chunk=JsonSerializer.Serialize(new {type,text=" answer ",content="not text",delta="not text"});
+        foreach(var contentJson in new[]{chunk,"["+chunk+"]"})
+        {
+            var delta=ParseCompletedContent(contentJson);
+            Assert.Equal(" answer ",delta.Content);
+            Assert.Empty(delta.ReasoningContent);
+        }
+    }
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("output_text")]
+    [InlineData("text_delta")]
+    public void DeclaredTextBlocksNeverFallBackToContentOrDelta(string type)
+    {
+        var chunk=JsonSerializer.Serialize(new {type,content="wrong field",delta="wrong field"});
+        foreach(var contentJson in new[]{chunk,"["+chunk+"]"})
+        {
+            var delta=ParseCompletedContent(contentJson);
+            Assert.Empty(delta.Content);
+            Assert.Empty(delta.ReasoningContent);
+        }
+    }
+
+    [Theory]
+    [InlineData("\"unknown\"")]
+    [InlineData("\"thinking\"")]
+    [InlineData("\"thinking_delta\"")]
+    [InlineData("\"reasoning\"")]
+    [InlineData("\"reasoning_text\"")]
+    [InlineData("\"tool_use\"")]
+    [InlineData("\"input_json_delta\"")]
+    [InlineData("\"image_url\"")]
+    [InlineData("\"response.output_text.delta\"")]
+    [InlineData("\"\"")]
+    [InlineData("null")]
+    [InlineData("42")]
+    [InlineData("true")]
+    public void UnknownOrMalformedDeclaredTypesNeverBecomePlainAnswers(string typeJson)
+    {
+        var chunk=$$"""{"type":{{typeJson}},"text":"must stay hidden","content":"must stay hidden"}""";
+        foreach(var contentJson in new[]{chunk,"["+chunk+",{\"type\":\"text\",\"text\":\"valid\"}]"})
+        {
+            var delta=ParseCompletedContent(contentJson);
+            Assert.Equal(contentJson[0]=='['?"valid":string.Empty,delta.Content);
+            Assert.Empty(delta.ReasoningContent);
+        }
+    }
+
+    [Fact]
+    public void ThinkingObjectDoesNotExposeTextAndPreservesOnlyTypedThinkingChildren()
+    {
+        const string contentJson="""
+            {"type":"thinking","text":"not an answer","content":"not an answer","thinking":[{"type":"text","text":"check"},{"type":"unknown","text":"hidden"},{"text":"hidden"}]}
+            """;
+        var delta=ParseCompletedContent(contentJson);
+        Assert.Empty(delta.Content);
+        Assert.Equal("check",delta.ReasoningContent);
+        Assert.False(delta.ReasoningIsCumulative);
+    }
+
+    [Theory]
+    [InlineData("reasoning_content")]
+    [InlineData("thinking_content")]
+    [InlineData("reasoning")]
+    public void ExplicitReasoningStillOverridesSingleThinkingObject(string field)
+    {
+        var body=new Dictionary<string,object>
+        {
+            [field]="authoritative",
+            ["content"]=new {type="thinking",text="not an answer",thinking=new[]{new {type="text",text="duplicate"}}},
+            ["reasoning_details"]=new[]{new {text="duplicate"}}
+        };
+        var line="data: "+JsonSerializer.Serialize(new {choices=new[]{new {delta=body,finish_reason="stop"}}});
+        Assert.True(StreamingResponseParser.TryParse(line,out var delta,out var done));
+        Assert.True(done);
+        Assert.Empty(delta.Content);
+        Assert.Equal("authoritative",delta.ReasoningContent);
+        Assert.False(delta.ReasoningIsCumulative);
+    }
+
+    private static AiStreamDelta ParseCompletedContent(string contentJson)
+    {
+        var line=$$"""data: {"choices":[{"delta":{"content":{{contentJson}}},"finish_reason":"stop"}]}""";
+        Assert.True(StreamingResponseParser.TryParse(line,out var delta,out var done,out var truncated));
+        Assert.True(done);
+        Assert.False(truncated);
+        return delta;
+    }
+
     private sealed class RecordingProgress(List<AiStreamDelta> values):IProgress<AiStreamDelta>
     {
         public void Report(AiStreamDelta value)=>values.Add(value);

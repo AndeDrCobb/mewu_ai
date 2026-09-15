@@ -183,7 +183,12 @@ public sealed class RecordingIntegrationTests
         var session=new RecordingSession(new AppSettings{RecordSystemAudio=false,RecordingFps=10,IncludeRecordingCursor=false},new ScreenRect(0,0,128,128),null);var done=new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);session.Completed+=path=>done.TrySetResult(path);session.Failed+=error=>done.TrySetException(new InvalidOperationException(error));
         try
         {
-            var token=TestContext.Current.CancellationToken;session.Start();await Task.Delay(400,token);session.Pause();var beforePause=session.Elapsed;await Task.Delay(500,token);var duringPause=session.Elapsed;session.Resume();await Task.Delay(400,token);var afterResume=session.Elapsed;session.Stop();await done.Task.WaitAsync(TimeSpan.FromSeconds(20),token);
+            var token=TestContext.Current.CancellationToken;
+            session.Start();
+            // Measure a pause only after the native recorder has started;
+            // startup on a busy runner can outlast the sample interval.
+            await session.RecordingReady.WaitAsync(TimeSpan.FromSeconds(25),token);
+            await Task.Delay(400,token);session.Pause();var beforePause=session.Elapsed;await Task.Delay(500,token);var duringPause=session.Elapsed;session.Resume();await Task.Delay(400,token);var afterResume=session.Elapsed;session.Stop();await done.Task.WaitAsync(TimeSpan.FromSeconds(20),token);
             Assert.True(beforePause>=TimeSpan.FromMilliseconds(200));Assert.InRange((duringPause-beforePause).TotalMilliseconds,0,100);Assert.True(afterResume-duringPause>=TimeSpan.FromMilliseconds(200));
         }
         finally
