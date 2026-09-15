@@ -25,6 +25,19 @@ internal sealed class ProviderModelCatalogService
         ProviderHeaderPolicy.EnsureValid(customHeaders);
         if (!string.IsNullOrWhiteSpace(apiKey) && customHeaders.Keys.Any(ProviderHeaderCredentialService.IsAuthentication))
             throw new InvalidOperationException(LocalizationService.T("API Key 与认证 Custom Header 不能同时发送", "Use either an API key or an authentication header, not both."));
+        AuthenticationHeaderValue? authorization = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(apiKey)) authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        }
+        catch (FormatException)
+        {
+            // Classify invalid editor input before networking. Never echo the
+            // credential or let a header-format exception escape a UI event.
+            throw new InvalidOperationException(LocalizationService.T(
+                "API Key 格式无效，请检查是否包含换行或空字符。",
+                "Invalid API key format. Check for line breaks or null characters."));
+        }
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(60));
         token = timeout.Token;
@@ -39,7 +52,7 @@ internal sealed class ProviderModelCatalogService
         {
             token.ThrowIfCancellationRequested();
             using var request = new HttpRequestMessage(HttpMethod.Get, GetPageUri(uri, kind, page, cursor));
-            if (!string.IsNullOrWhiteSpace(apiKey)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            if (authorization is not null) request.Headers.Authorization = authorization;
             foreach (var header in customHeaders)
                 if (!request.Headers.TryAddWithoutValidation(header.Key, header.Value))
                     throw new InvalidOperationException(LocalizationService.T("无法添加模型列表请求头", "Could not add a model-list request header."));

@@ -12,6 +12,22 @@ namespace MewuAI.Tests;
 public sealed class ProviderModelCatalogTests
 {
     [Theory]
+    [InlineData("synthetic\rkey")]
+    [InlineData("synthetic\nkey")]
+    [InlineData("synthetic\0key")]
+    public async Task InvalidKeyFormatIsReportedBeforeNetworkingWithoutExposingKey(string key)
+    {
+        var sent = false;
+        using var client = new HttpClient(new Handler(_ => { sent = true; return Json("{\"data\":[]}"); }));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new ProviderModelCatalogService(client).GetModelsAsync("https://api.example.invalid/v1", key,
+                new Dictionary<string, string>(), TestContext.Current.CancellationToken));
+        Assert.False(sent);
+        Assert.DoesNotContain("synthetic", error.ToString(), StringComparison.Ordinal);
+        Assert.Null(error.InnerException);
+    }
+
+    [Theory]
     [InlineData("https://api.minimaxi.com/v1", "MiniMax-M3")]
     [InlineData("https://api.openai.com/v1", "gpt-example")]
     [InlineData("https://ark.cn-beijing.volces.com/api/v3", "glm-5-3-flash")]

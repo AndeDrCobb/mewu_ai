@@ -140,10 +140,34 @@ public static class StructuredResponseParser
     private static bool LooksLikeBrokenStructuredPayload(string value)
     {
         var trimmed=value.TrimStart();
-        if(trimmed.StartsWith('{')||trimmed.StartsWith('[')||trimmed.StartsWith("```",StringComparison.Ordinal))return true;
+        if(trimmed.StartsWith('{')||trimmed.StartsWith('['))return true;
+        if(trimmed.StartsWith("```",StringComparison.Ordinal))
+        {
+            // Non-JSON code fences are ordinary Markdown, which the live
+            // preview already preserves. An unlabeled fence needs a complete
+            // closing line and a body that cannot be mistaken for visual JSON.
+            if(IsCompleteUnlabeledTextFence(trimmed))return false;
+            return trimmed.Length<=3||!char.IsAsciiLetter(trimmed[3])||
+                trimmed.AsSpan(3).StartsWith("json",StringComparison.OrdinalIgnoreCase)||LooksLikeJsonFence(trimmed);
+        }
         if(!trimmed.StartsWith("json",StringComparison.OrdinalIgnoreCase))return false;
         var remainder=trimmed[4..].TrimStart();
         return remainder.StartsWith('{')||remainder.StartsWith('[');
+    }
+
+    private static bool IsCompleteUnlabeledTextFence(string value)
+    {
+        if(!value.EndsWith("```",StringComparison.Ordinal))return false;
+        var openingEnd=value.IndexOf('\n',3);
+        var closingStart=value.Length-3;
+        if(openingEnd<0||openingEnd>=closingStart||!value.AsSpan(3,openingEnd-3).Trim().IsEmpty)return false;
+        var closingLineStart=value.LastIndexOf('\n',closingStart)+1;
+        if(closingLineStart<=openingEnd||!value.AsSpan(closingLineStart,closingStart-closingLineStart).Trim().IsEmpty)return false;
+        var body=value.AsSpan(openingEnd+1,closingLineStart-openingEnd-1).Trim();
+        return !body.IsEmpty&&body[0] is not ('{' or '[')&&
+            !body.StartsWith("```",StringComparison.Ordinal)&&
+            !body.StartsWith("json",StringComparison.OrdinalIgnoreCase)&&
+            !"json".AsSpan().StartsWith(body,StringComparison.OrdinalIgnoreCase);
     }
 
     // Read a complete, strictly valid root answer before a broken annotations

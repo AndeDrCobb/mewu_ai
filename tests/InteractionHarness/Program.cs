@@ -33,12 +33,13 @@ internal static class Program
         var verifyCaptureTools=args.Contains("--verify-capture-tools");
         var verifyColorPalette=args.Contains("--verify-color-palette");
         var verifyProviderTemplates=args.Contains("--verify-provider-templates");
+        var verifySettingsEditing=args.Contains("--verify-settings-editing");
         var verifyTeaching=args.Contains("--verify-teaching");
         var teaching=args.Contains("--teaching")||verifyTeaching;
 #if !DEBUG
-        if(!teaching&&!verifyCaptureTools&&!verifyColorPalette&&!verifyProviderTemplates)throw new InvalidOperationException("Release replay requires an explicit capture replay, palette or provider-template mode.");
+        if(!teaching&&!verifyCaptureTools&&!verifyColorPalette&&!verifyProviderTemplates&&!verifySettingsEditing)throw new InvalidOperationException("Release replay requires an explicit capture replay, palette, provider-template or settings-editing mode.");
 #else
-        Environment.SetEnvironmentVariable("MEWU_QA_CAPTURE_WINDOWS",teaching||verifyCaptureTools||verifyColorPalette||verifyProviderTemplates?null:"1");
+        Environment.SetEnvironmentVariable("MEWU_QA_CAPTURE_WINDOWS",teaching||verifyCaptureTools||verifyColorPalette||verifyProviderTemplates||verifySettingsEditing?null:"1");
 #endif
         var english=args.Contains("--english");
         typeof(AppHost).Assembly.GetType("mewu_ai_Assistant.Services.LocalizationService")!
@@ -49,6 +50,7 @@ internal static class Program
         if(verifyColorPalette){ColorPaletteReplay.Run(app);app.Run();return;}
         if(verifyProviderTemplates){ProviderTemplatesReplay.Run(app,english);app.Run();return;}
         var host=new AppHost(app);
+        if(verifySettingsEditing){SettingsEditingReplay.Run(app,host);return;}
         if(args.Contains("--verify-pinned-zoom")){PinnedZoomReplay.Run(app);return;}
         if(args.Contains("--verify-window-issues"))
         {

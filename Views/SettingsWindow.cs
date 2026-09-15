@@ -8,7 +8,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Media;
 using MessageBox=mewu_ai_Assistant.Services.LocalizedMessageBox;
-using System.Windows.Media.Media3D;
 using System.Windows.Shell;
 using mewu_ai_Assistant.AI;
 using mewu_ai_Assistant.Models;
@@ -116,13 +115,15 @@ public sealed partial class SettingsWindow : Window
             if(unavailable.Headers.Count>0)_unavailableSensitiveHeaders[unavailable.Provider]=unavailable.Headers;
         Title = "喵呜AI 设置";
         Width = 760;
-        // Fit an expanded connection at typical desktop sizes; smaller
-        // work areas retain the page's existing bounded scroll viewer.
+        // Keep the compact default; users can enlarge or maximize the window
+        // when editing longer connection settings.
         Height = Math.Min(574, SystemParameters.WorkArea.Height - 40);
         MinWidth = 600;
         MinHeight = 400;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        WindowStyle = WindowStyle.None;
+        // WindowChrome supplies the custom visuals. Keep the native frame
+        // style so Windows maximizes to the monitor's working area.
+        WindowStyle = WindowStyle.SingleBorderWindow;
         AllowsTransparency = false;
         Background = new SolidColorBrush(Color.FromRgb(245,247,252));
         Foreground = new SolidColorBrush(Color.FromRgb(23,32,51));
@@ -131,7 +132,7 @@ public sealed partial class SettingsWindow : Window
         TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
         WindowChrome.SetWindowChrome(this,new WindowChrome
         {
-            CaptionHeight=0,
+            CaptionHeight=HasConfigurationWarnings?62:42,
             ResizeBorderThickness=new Thickness(6),
             GlassFrameThickness=new Thickness(0),
             CornerRadius=new CornerRadius(0),
@@ -166,7 +167,6 @@ public sealed partial class SettingsWindow : Window
         var header = new Grid { Margin = new Thickness(20,0,12,0) };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.MouseLeftButtonDown += (_,e) => { if(e.ButtonState==System.Windows.Input.MouseButtonState.Pressed&&!IsInsideButton(e.OriginalSource)) DragMove(); };
         var titleStack=new StackPanel{Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Center};
         titleStack.Children.Add(new Border
         {
@@ -193,10 +193,9 @@ public sealed partial class SettingsWindow : Window
         titleStack.Children.Add(titleText);
         Grid.SetColumn(titleStack, 0);
         header.Children.Add(titleStack);
-        // Keep the settings chrome aligned with the compact shell used by
-        // the quick-question window; a full 42-DIP circle made the close
-        // affordance visually heavier than the title bar around it.
-        var close=ActionButton(string.Empty);close.Content=CloseIcon();close.ToolTip="关闭设置";System.Windows.Automation.AutomationProperties.SetName(close,"关闭设置窗口");close.Width=34;close.Height=34;close.MinWidth=34;close.MinHeight=34;close.Padding=new Thickness(0);close.SetResourceReference(StyleProperty,"RoundIconButton");close.HorizontalAlignment=HorizontalAlignment.Right;close.VerticalAlignment=VerticalAlignment.Center;Grid.SetColumn(close, 1);close.Click+=(_,_)=>Close();header.Children.Add(close);
+        var windowActions = CreateWindowActions();
+        Grid.SetColumn(windowActions, 1);
+        header.Children.Add(windowActions);
         Grid.SetRow(tabs,1);Grid.SetRow(save,2);
         grid.Children.Add(header);grid.Children.Add(tabs);
         grid.Children.Add(save);
@@ -277,22 +276,6 @@ public sealed partial class SettingsWindow : Window
     }
 
     private static int ReadNumericChoice(ComboBox box,int fallback)=>box.SelectedValue is int value?value:fallback;
-
-    private static bool IsInsideButton(object? source)
-    {
-        var current=source as DependencyObject;
-        while(current is not null)
-        {
-            if(current is ButtonBase)return true;
-            current=current switch
-            {
-                Visual or Visual3D=>VisualTreeHelper.GetParent(current),
-                FrameworkContentElement content=>content.Parent,
-                _=>LogicalTreeHelper.GetParent(current)
-            };
-        }
-        return false;
-    }
 
     private static System.Windows.Shapes.Path CloseIcon() => new()
     {
@@ -906,10 +889,11 @@ public sealed partial class SettingsWindow : Window
         {
             if (_captureProtectionAvailable != true) return;
             if (string.IsNullOrWhiteSpace(endpoint)) { _modelStatus.Text = LocalizationService.T("请填写 API 地址。", "Enter an API endpoint."); return; }
+            var endpointUri = ProviderEndpointPolicy.NormalizeBaseUri(endpoint);
             ValidateSensitiveHeaderAvailability(provider);
             var headers = ParseHeaders();
             var key = !string.IsNullOrWhiteSpace(_apiKey.Password) ? _apiKey.Password : _apiKeysMarkedForDeletion.Contains(provider.Id) ? null : new CredentialService().Read(provider.CredentialId);
-            if (string.IsNullOrWhiteSpace(key) && !headers.Keys.Any(ProviderHeaderCredentialService.IsAuthentication) && !ProviderEndpointPolicy.NormalizeBaseUri(endpoint).IsLoopback)
+            if (string.IsNullOrWhiteSpace(key) && !headers.Keys.Any(ProviderHeaderCredentialService.IsAuthentication) && !endpointUri.IsLoopback)
             { _modelStatus.Text = LocalizationService.T("输入此提供商的 API Key 后自动加载模型。", "Enter this provider's API key to load models automatically."); return; }
             _modelStatus.Text = LocalizationService.T("正在加载模型…", "Loading models…");
             var models = await new ProviderModelCatalogService().GetModelsAsync(endpoint, key ?? "", headers, operation.Token);
