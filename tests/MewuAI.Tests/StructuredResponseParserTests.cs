@@ -254,6 +254,7 @@ public sealed class StructuredResponseParserTests
     [Fact] public void Parse_PreservesProseContainingStructuredJson(){const string value="这是格式示例：{\"answer\":\"示例回答\",\"annotations\":[]}";Assert.Equal(value,StructuredResponseParser.Parse(value).Answer);}
     [Fact] public void Parse_PreservesCompleteStructuredJsonFollowedByProse(){const string value="{\"answer\":\"示例回答\",\"annotations\":[]} 这只是正文里的示例";Assert.Equal(value,StructuredResponseParser.Parse(value).Answer);}
     [Fact] public void Parse_DoesNotRecoverNestedAnswerField(){const string value="{\"payload\":{\"answer\":\"内层回答\"},\"annotations\":[";Assert.Equal(value,StructuredResponseParser.Parse(value).Answer);}
+    [Fact] public void Parse_VisualMalformedEnvelopeKeepsTopLevelAnswer(){const string value="{\"answer\":\"最终回答\",\"annotations\":[{\"x\":0.1";Assert.Equal("最终回答",StructuredResponseParser.Parse(value,expectStructuredResponse:true).Answer);}
     [Fact] public void Parse_DoesNotRecoverMalformedRootWithoutAnnotationsField(){const string value="{\"answer\":\"一只叫\"雪球\"的白兔\"";Assert.Equal(value,StructuredResponseParser.Parse(value).Answer);}
     [Fact] public void EmptyAnswerValidation_DistinguishesReasoningOnly(){Assert.Equal("AI 未返回有效正文，请重试",AiResultValidation.GetEmptyAnswerMessage(new(" ",[])));Assert.Equal("模型只返回了思考内容，未返回最终回答，请重试",AiResultValidation.GetEmptyAnswerMessage(new("",[],"推理")));Assert.Null(AiResultValidation.GetEmptyAnswerMessage(new("正文",[])));}
 }
