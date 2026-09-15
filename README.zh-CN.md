@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./Assets/MewuAI.Icon.png" width="88" alt="喵呜AI" />
-  <h1>喵呜AI</h1>
-  <p>Windows 截图工具，支持录屏、贴图、文字识别和 AI 标注。</p>
+  <h1>喵呜AI（MewuAI）— Windows AI 截图标注软件</h1>
+  <p>开源截图工具，支持 AI 原位标注、离线 OCR、截图翻译、长截图和录屏。</p>
   <p>
     <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.7"><img src="https://img.shields.io/badge/公测版-v0.4.7-7C6CF0?style=flat-square" alt="v0.4.7 公测版" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 及以上，x64" />
@@ -15,7 +15,18 @@
   <p><strong>简体中文</strong> · <a href="./README.md">English</a> · <a href="./CHANGELOG.md">更新日志</a> · <a href="https://github.com/abnste/mewu_ai/issues">问题反馈</a></p>
 </div>
 
-框选屏幕上的内容，让 AI 帮你翻译、讲解或标出重点。回答和标注直接显示在画面上，也可以连同截图一起保存。
+**喵呜AI（MewuAI）是一款 Windows 开源 AI 截图标注软件**。框选屏幕区域、引用截图并提问后，支持图片理解的 AI 模型可以讲解内容、圈出重点或生成箭头、高亮等标注。回答与标注直接显示在原屏幕位置，核对后可连同截图一起保存。
+
+| 产品速览 | 说明 |
+| --- | --- |
+| 支持系统 | Windows 10 2004 及以上，x64；简体中文和 English 界面 |
+| 核心操作 | 截图 → 引用区域 → 向 AI 提问 → 核对并保存标注 |
+| 离线能力 | 截图、手工标注、贴图、OCR 文字识别和录屏 |
+| AI 使用条件 | 连接自己的账号或 API；图片/视频能力及费用取决于所选服务 |
+| 官方来源 | [GitHub 源码仓库](https://github.com/abnste/mewu_ai) · [最新发行版](https://github.com/abnste/mewu_ai/releases/latest) |
+| 开源协议 | [MPL-2.0](./LICENSE)；第三方依赖遵循各自条款 |
+
+想了解“让 AI 在截图上圈出重点”“截图翻译并保留原位置”或“图片文字复制到 Excel”，请看[AI 截图标注使用指南](./docs/ai-screenshot-annotation.zh-CN.md)。
 
 <p align="center">
   <a href="./docs/images/mewuai-cover-web-zh.png"><img src="./docs/images/mewuai-cover-web-zh.png" width="100%" alt="喵呜AI 概念封面：在 Windows 桌面上截图、提问和原位标注" /></a>

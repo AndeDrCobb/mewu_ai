@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./Assets/MewuAI.Icon.png" width="88" alt="MewuAI" />
-  <h1>MewuAI</h1>
-  <p>A Windows screenshot tool with screen recording, pinned images, text recognition, and AI annotations.</p>
+  <h1>MewuAI — AI Screenshot Annotation for Windows</h1>
+  <p>Open-source screen capture with in-place AI annotations, offline OCR, screenshot translation, and screen recording.</p>
   <p>
     <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.7"><img src="https://img.shields.io/badge/Public_Beta-v0.4.7-7C6CF0?style=flat-square" alt="v0.4.7 public beta" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 or later, x64" />
@@ -15,7 +15,20 @@
   <p><a href="./README.zh-CN.md">简体中文</a> · <strong>English</strong> · <a href="./CHANGELOG.md">Changelog</a> · <a href="https://github.com/abnste/mewu_ai/issues">Report an issue</a></p>
 </div>
 
-Select something on your screen and ask AI to translate it, explain it, or highlight the important parts. Answers and annotations appear alongside the content, and you can save them with your screenshot.
+**MewuAI (喵呜AI)** is an open-source **AI screenshot annotation tool for Windows**. Select a screen region, reference it in your question, and ask a vision-capable AI model to explain the content or mark important details. Answers, arrows, highlights, and other annotations appear at the original screen positions; you can save the annotated screenshot.
+
+**喵呜AI（MewuAI）是一款 Windows 开源 AI 截图标注软件**，支持 AI 圈选重点、截图问答、离线 OCR、原位翻译、长截图和录屏。中文介绍见[中文首页](./README.zh-CN.md)和[AI 截图标注使用指南](./docs/ai-screenshot-annotation.zh-CN.md)。
+
+| At a glance | Details |
+| --- | --- |
+| Platform | Windows 10 2004 or later, x64; English and Simplified Chinese |
+| Core workflow | Capture → reference a region → ask AI → review and save annotations |
+| Works offline | Screenshots, manual markup, pinned images, OCR, and recording |
+| AI requirements | A connected account or API; image/video support and charges depend on the selected service |
+| Source and downloads | [Official repository](https://github.com/abnste/mewu_ai) · [Latest release](https://github.com/abnste/mewu_ai/releases/latest) |
+| License | [MPL-2.0](./LICENSE); third-party terms are listed separately |
+
+Read the [AI screenshot annotation guide](./docs/ai-screenshot-annotation.md) for examples, setup, privacy, and the difference between manual markup, OCR, and AI annotations.
 
 <p align="center">
   <a href="./docs/images/mewuai-cover-web-en.png"><img src="./docs/images/mewuai-cover-web-en.png" width="100%" alt="MewuAI concept cover: capture, ask and annotate on a Windows desktop" /></a>
