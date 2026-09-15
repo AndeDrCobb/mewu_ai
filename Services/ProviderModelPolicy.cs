@@ -152,6 +152,10 @@ internal static class ProviderModelPolicy
             body["thinking"] = new { type = "disabled" };
             body["reasoning_effort"] = "minimal";
         }
+        else if (request.DisableReasoning && IsOfficial(endpoint, "api.deepseek.com"))
+        {
+            body["thinking"] = new { type = "disabled" };
+        }
     }
 
     internal static bool NeedsAnthropicVersion(AiProviderSettings settings) =>
