@@ -86,6 +86,21 @@ public sealed class DeepSeekResponseIntegrationTests
         Assert.NotNull(AiResultValidation.GetEmptyAnswerMessage(result));
     }
 
+    [Fact]
+    public void DeepSeekReasoningDeltasAreInProgressUntilAnswerArrives()
+    {
+        Assert.Equal(AiResponseStreamState.Waiting,
+            AiResponseStreamStatePolicy.Classify(new AiStreamDelta("", "")));
+        Assert.Equal(AiResponseStreamState.Thinking,
+            AiResponseStreamStatePolicy.Classify(new AiStreamDelta("", Reasoning)));
+        Assert.Equal(AiResponseStreamState.Answering,
+            AiResponseStreamStatePolicy.Classify(new AiStreamDelta("最终回答", "")));
+        Assert.Equal(AiResultValidation.EmptyAnswerKind.ReasoningOnly,
+            AiResultValidation.ClassifyEmptyAnswer(new AiResult("", [], Reasoning)));
+        Assert.Equal(AiResultValidation.EmptyAnswerKind.NoContent,
+            AiResultValidation.ClassifyEmptyAnswer(new AiResult("", [])));
+    }
+
     public static TheoryData<string> InvalidStructuredAnswers => new()
     {
         "```json\n{not valid}\n```",

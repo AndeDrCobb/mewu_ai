@@ -896,15 +896,37 @@ public sealed partial class SettingsWindow : Window
             if (string.IsNullOrWhiteSpace(key) && !headers.Keys.Any(ProviderHeaderCredentialService.IsAuthentication) && !endpointUri.IsLoopback)
             { _modelStatus.Text = LocalizationService.T("输入此提供商的 API Key 后自动加载模型。", "Enter this provider's API key to load models automatically."); return; }
             _modelStatus.Text = LocalizationService.T("正在加载模型…", "Loading models…");
-            var models = await new ProviderModelCatalogService().GetModelsAsync(endpoint, key ?? "", headers, operation.Token);
+            var catalog = new ProviderModelCatalogService();
+            var models = await catalog.GetModelsAsync(endpoint, key ?? "", headers, operation.Token);
             if (!IsCurrent()) return;
+            var correctedEndpoint = catalog.LastSuccessfulBaseUrl?.TrimEnd('/');
+            var endpointWasCorrected = !string.IsNullOrWhiteSpace(correctedEndpoint) &&
+                !string.Equals(correctedEndpoint, endpoint, StringComparison.OrdinalIgnoreCase);
+            if (endpointWasCorrected)
+            {
+                // Make the bounded correction visible in the editable draft so
+                // the next send uses the working endpoint after the user saves.
+                _loadingProvider = true;
+                try { _baseUrl.Text = correctedEndpoint!; }
+                finally { _loadingProvider = false; }
+                CaptureApiDraft();
+                _modelLoadDebounce.Stop();
+            }
             var currentModel = _model.Text;
             PopulateModelSuggestions(currentModel, models);
             _modelStatus.Text = models.Count == 0
                 ? LocalizationService.T("未返回对话模型，可手动输入模型 ID。", "No chat models returned. Enter a model ID manually.")
-                : LocalizationService.T($"已从服务商加载 {models.Count} 个对话模型；可选择或手动输入。", $"Loaded {models.Count} chat models from the service. Choose one or enter an ID.");
+                : endpointWasCorrected
+                    ? LocalizationService.T($"地址已自动修正为 {correctedEndpoint}，加载了 {models.Count} 个对话模型；保存后生效。", $"The endpoint was corrected to {correctedEndpoint}; loaded {models.Count} chat models. Save to apply it.")
+                    : LocalizationService.T($"已从服务商加载 {models.Count} 个对话模型；可选择或手动输入。", $"Loaded {models.Count} chat models from the service. Choose one or enter an ID.");
         }
         catch (OperationCanceledException) { if (ReferenceEquals(_modelLoad, operation) && !_windowLifetime.IsCancellationRequested) _modelStatus.Text = LocalizationService.T("加载已取消或超时，可刷新重试或手动输入模型 ID。", "Loading canceled or timed out. Retry or enter a model ID."); }
+        catch (InvalidDataException) when (ReferenceEquals(_modelLoad, operation) && !operation.IsCancellationRequested)
+        {
+            _modelStatus.Text = LocalizationService.T(
+                "API 地址或模型列表格式无效；已尝试标准 /v1 和 /api/v1 后缀。请检查地址，或手动输入模型 ID。",
+                "The API endpoint or model list format is invalid. Standard /v1 and /api/v1 suffixes were tried. Check the endpoint or enter a model ID manually.");
+        }
         catch (Exception ex) when (ex is InvalidOperationException or JsonException or HttpRequestException or IOException)
         { if (IsCurrent()) _modelStatus.Text = ex is InvalidOperationException ? ex.Message : LocalizationService.T("加载模型失败，请检查地址、密钥和网络；可手动输入模型 ID。", "Could not load models. Check the endpoint, key and network, or enter a model ID."); }
         finally { if (ReferenceEquals(_modelLoad, operation)) _modelLoad = null; }

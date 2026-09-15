@@ -11,6 +11,58 @@ namespace MewuAI.Tests;
 
 public sealed class ProviderModelCatalogTests
 {
+    [Fact]
+    public void BareBaseUrlGetsOnlyBoundedOpenAiCompatibleCandidates()
+    {
+        var normalized = ProviderEndpointPolicy.NormalizeBaseUri("https://api.example.test");
+        Assert.Equal(["/", "/v1/", "/api/v1/"], ProviderModelCatalogService.GetEndpointCandidates(normalized).Select(uri => uri.AbsolutePath));
+
+        Assert.Equal(["/api/v1/"], ProviderModelCatalogService.GetEndpointCandidates(
+            ProviderEndpointPolicy.NormalizeBaseUri("https://api.example.test/api/v1")).Select(uri => uri.AbsolutePath));
+        Assert.Equal(["/compatible-mode/v1/"], ProviderModelCatalogService.GetEndpointCandidates(
+            ProviderEndpointPolicy.NormalizeBaseUri("https://dashscope.aliyuncs.com/compatible-mode/v1")).Select(uri => uri.AbsolutePath));
+        Assert.Equal(["/v2/"], ProviderModelCatalogService.GetEndpointCandidates(
+            ProviderEndpointPolicy.NormalizeBaseUri("https://api.example.test/v2")).Select(uri => uri.AbsolutePath));
+    }
+
+    [Fact]
+    public async Task BareBaseUrlRetriesV1AfterHtmlOrNonListResponse()
+    {
+        var paths = new List<string>();
+        using var client = new HttpClient(new Handler(request =>
+        {
+            paths.Add(request.RequestUri!.AbsolutePath);
+            return request.RequestUri.AbsolutePath == "/v1/models"
+                ? Json("{\"data\":[{\"id\":\"deepseek-chat\"}]}")
+                : RawJson("<html>not an API model list</html>");
+        }));
+
+        var catalog = new ProviderModelCatalogService(client);
+        var models = await catalog.GetModelsAsync(
+            "https://api.example.test", "synthetic-key", new Dictionary<string, string>(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["/models", "/v1/models"], paths);
+        Assert.Equal(["deepseek-chat"], models);
+        Assert.Equal("https://api.example.test/v1/", catalog.LastSuccessfulBaseUrl);
+    }
+
+    [Theory]
+    [InlineData("<html>gateway error</html>")]
+    [InlineData("{\"data\":null}")]
+    public async Task BareBaseUrlReportsInvalidListAfterAllCandidatesFail(string body)
+    {
+        var paths = new List<string>();
+        using var client = new HttpClient(new Handler(request =>
+        {
+            paths.Add(request.RequestUri!.AbsolutePath);
+            return RawJson(body);
+        }));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => new ProviderModelCatalogService(client).GetModelsAsync(
+            "https://api.example.test", "synthetic-key", new Dictionary<string, string>(), TestContext.Current.CancellationToken));
+        Assert.Equal(["/models", "/v1/models", "/api/v1/models"], paths);
+    }
+
     [Theory]
     [InlineData("synthetic\rkey")]
     [InlineData("synthetic\nkey")]
@@ -132,6 +184,7 @@ public sealed class ProviderModelCatalogTests
     }
 
     private static HttpResponseMessage Json(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+    private static HttpResponseMessage RawJson(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "text/html") };
     [Fact]
     public void MainstreamProviderTemplatesUseOfficialEndpointsAndKeepCustomEditing()
     {

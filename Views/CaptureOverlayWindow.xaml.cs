@@ -2175,6 +2175,8 @@ public partial class CaptureOverlayWindow : Window
                     // A table prefix can look valid while rows are still missing.
                     // Only the completed response becomes visible/copyable.
                     if(delta.ReasoningContent.Length>0)ShowReasoning(delta.ReasoningContent,request);
+                    if(AiResponseStreamStatePolicy.Classify(delta)==AiResponseStreamState.Thinking)
+                        PromptStatus.Text=LocalizationService.T("模型正在思考，尚未生成最终回答…按 Esc 可取消","The model is still thinking; no final answer yet… Press Esc to cancel");
                     if(tableRecognition)return;
                     if(delta.Content.Length==0)return;
                     streamedContent.Append(delta.Content);

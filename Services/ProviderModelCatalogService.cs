@@ -16,9 +16,72 @@ internal sealed class ProviderModelCatalogService
     internal const int MaximumModels = 4096;
     private static readonly HttpClient SharedClient = new(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { Timeout = Timeout.InfiniteTimeSpan };
     private readonly HttpClient _client;
+    internal string? LastSuccessfulBaseUrl { get; private set; }
     internal ProviderModelCatalogService(HttpClient? client = null) => _client = client ?? SharedClient;
 
     internal async Task<IReadOnlyList<string>> GetModelsAsync(string baseUrl, string apiKey,
+        IReadOnlyDictionary<string, string> customHeaders, CancellationToken token)
+    {
+        LastSuccessfulBaseUrl = null;
+        var uri = ProviderEndpointPolicy.NormalizeBaseUri(baseUrl);
+        var candidates = GetEndpointCandidates(uri);
+        Exception? last = null;
+        foreach (var candidate in candidates)
+        {
+            token.ThrowIfCancellationRequested();
+            try
+            {
+                var models = await GetModelsAtEndpointAsync(candidate.AbsoluteUri, apiKey, customHeaders, token).ConfigureAwait(false);
+                LastSuccessfulBaseUrl = candidate.AbsoluteUri;
+                return models;
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (IsEndpointCandidateFailure(ex) && candidate != candidates[^1])
+            {
+                // A bare host is commonly entered without the OpenAI-compatible
+                // path. Keep the original draft untouched and try only the
+                // bounded, same-host candidates selected above.
+                last = ex;
+            }
+            catch (Exception ex)
+            {
+                last = ex;
+                break;
+            }
+        }
+
+        throw last ?? InvalidList();
+    }
+
+    internal static IReadOnlyList<Uri> GetEndpointCandidates(Uri normalizedBaseUri)
+    {
+        if (normalizedBaseUri.AbsolutePath != "/" ||
+            (!normalizedBaseUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) &&
+             !normalizedBaseUri.IsLoopback))
+            return [normalizedBaseUri];
+
+        // Do not reinterpret an explicitly configured provider path. For a
+        // genuine bare OpenAI-compatible base, /v1 is conventional and
+        // /api/v1 is the only other common suffix worth trying automatically.
+        var candidates = new List<Uri> { normalizedBaseUri };
+        foreach (var path in new[] { "/v1/", "/api/v1/" })
+        {
+            var candidate = new UriBuilder(normalizedBaseUri) { Path = path }.Uri;
+            if (!candidates.Contains(candidate)) candidates.Add(candidate);
+        }
+        return candidates;
+    }
+
+    private static bool IsEndpointCandidateFailure(Exception exception) =>
+        exception is InvalidDataException or HttpRequestException ||
+        exception is InvalidOperationException invalidOperation &&
+        (invalidOperation.Message.Contains("HTTP ", StringComparison.Ordinal) ||
+         invalidOperation.Message.Contains("Could not load models", StringComparison.Ordinal));
+
+    private async Task<IReadOnlyList<string>> GetModelsAtEndpointAsync(string baseUrl, string apiKey,
         IReadOnlyDictionary<string, string> customHeaders, CancellationToken token)
     {
         var uri = ProviderEndpointPolicy.NormalizeBaseUri(baseUrl);
