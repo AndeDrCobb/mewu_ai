@@ -4,10 +4,14 @@
 
 ## 未发布 / Unreleased
 
+## 0.4.7 — API 回复与设置稳定性 / API replies and settings stability
+
 - 修正视觉问答中完整代码块回答被误判为损坏 JSON、继而提示“只有思考”的问题；保留正常回答，继续拒绝真正截断的回复。 / Preserve complete fenced-code answers in visual conversations instead of mistaking them for broken JSON and reporting reasoning only. Genuinely interrupted responses are still rejected.
 - API 设置在填写地址时先校验未完成输入，格式错误的密钥显示提示而不使自动模型加载崩溃；设置窗口增加最大化/还原按钮，支持双击标题栏切换，默认仍保持紧凑尺寸。 / Validate endpoint drafts before loading credentials and report malformed API keys without crashing automatic model loading. Add maximize/restore buttons and title-bar double-click support while keeping the compact default window size.
 
 - 补齐兼容 API 的分块与对象形式正文读取，严格区分正文、思考和未知内容类型；批注 JSON 尾部损坏时保留完整有效回答与已有标注，不将截断的网络回复当作完成。 / Read supported typed and object-form answers from compatible APIs while keeping reasoning and unknown content out of the answer. Preserve a complete valid answer and existing annotations when annotation JSON is malformed, without treating interrupted responses as complete.
+
+- [完整说明 / Full notes](./docs/release-notes-v0.4.7.md)
 
 ## 0.4.6 — API 接入、标注编辑与应用快照 / API connections, annotation editing and app snapshots
 

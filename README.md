@@ -3,14 +3,14 @@
   <h1>MewuAI</h1>
   <p>A Windows screenshot tool with screen recording, pinned images, text recognition, and AI annotations.</p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.6"><img src="https://img.shields.io/badge/Public_Beta-v0.4.6-7C6CF0?style=flat-square" alt="v0.4.6 public beta" /></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.7"><img src="https://img.shields.io/badge/Public_Beta-v0.4.7-7C6CF0?style=flat-square" alt="v0.4.7 public beta" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 or later, x64" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MPL--2.0-blue?style=flat-square" alt="MPL-2.0" /></a>
   </p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Setup-0.4.6-win-x64.exe"><strong>Download installer</strong></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.7/MewuAI-Setup-0.4.7-win-x64.exe"><strong>Download installer</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Portable-0.4.6-win-x64.zip">Portable ZIP</a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.7/MewuAI-Portable-0.4.7-win-x64.zip">Portable ZIP</a>
   </p>
   <p><a href="./README.zh-CN.md">简体中文</a> · <strong>English</strong> · <a href="./CHANGELOG.md">Changelog</a> · <a href="https://github.com/abnste/mewu_ai/issues">Report an issue</a></p>
 </div>
@@ -108,6 +108,8 @@ Original: [HKEAA 2025 HKDSE Mathematics Compulsory Part sample script](https://w
 While capturing, right-click or hold and drag on the canvas to click or drag in the application underneath. Hold <kbd>Ctrl</kbd> while right-clicking to pass through a real right-click. Existing captures remain in place when you release.
 
 **Settings → General** lets you change the capture shortcut and switch between English and Simplified Chinese. Press Delete in the shortcut field to disable it. Restart the app after changing its language.
+
+You can maximize Settings with its maximize button or by double-clicking the title bar; repeat to restore the compact window.
 
 ## AI connections
 

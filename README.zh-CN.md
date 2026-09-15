@@ -3,14 +3,14 @@
   <h1>喵呜AI</h1>
   <p>Windows 截图工具，支持录屏、贴图、文字识别和 AI 标注。</p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.6"><img src="https://img.shields.io/badge/公测版-v0.4.6-7C6CF0?style=flat-square" alt="v0.4.6 公测版" /></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.4.7"><img src="https://img.shields.io/badge/公测版-v0.4.7-7C6CF0?style=flat-square" alt="v0.4.7 公测版" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 及以上，x64" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MPL--2.0-blue?style=flat-square" alt="MPL-2.0" /></a>
   </p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Setup-0.4.6-win-x64.exe"><strong>下载安装版</strong></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.7/MewuAI-Setup-0.4.7-win-x64.exe"><strong>下载安装版</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.6/MewuAI-Portable-0.4.6-win-x64.zip">免安装版</a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.4.7/MewuAI-Portable-0.4.7-win-x64.zip">免安装版</a>
   </p>
   <p><strong>简体中文</strong> · <a href="./README.md">English</a> · <a href="./CHANGELOG.md">更新日志</a> · <a href="https://github.com/abnste/mewu_ai/issues">问题反馈</a></p>
 </div>
@@ -108,6 +108,8 @@
 截图时，在画布上右键点击或按住拖动，可以操作底层应用的左键；按住 <kbd>Ctrl</kbd> 再右键则传递真正的右键操作。松开后恢复截图界面，已有截图继续保留。
 
 在 **设置 → 常规** 中可以修改截图快捷键、切换简体中文或 English。在快捷键输入框按 Delete 可清空快捷键；更换界面语言后重启生效。
+
+设置窗口可点击最大化按钮或双击标题栏放大，再次操作即可还原为紧凑窗口。
 
 ## 支持的 AI
 
