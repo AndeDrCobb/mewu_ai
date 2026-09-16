@@ -44,6 +44,7 @@ public partial class CaptureOverlayWindow : Window
     private readonly AppHost _host;
     internal bool IsTeachingMode { get; }
     private bool _selectionPromptFocus;
+    private Point _selectionPromptFocusPointer;
     private CaptureFrame _frame;
     private int _desktopFrameVersion;
     private Rect _lastPositionedPromptMonitor=Rect.Empty;
@@ -1157,6 +1158,7 @@ public partial class CaptureOverlayWindow : Window
     private void OnMouseMove(object s,MouseEventArgs e){if(TeachingRepositionMove(e.GetPosition(Root)))return;if(IsTeachingControl(e.OriginalSource as DependencyObject)){Toolbar.Visibility=Visibility.Collapsed;return;}UpdatePointerInteraction(e.GetPosition(Root));}
     private void UpdatePointerInteraction(Point p)
     {
+        if(_selectionPromptFocus&&(p-_selectionPromptFocusPointer).Length>4)_selectionPromptFocus=false;
         _lastToolbarPointer=p;
         if(_recordingMode||_recordingCountdownActive||_drawingMode||_longCaptureMode){PointerInspector.Visibility=Visibility.Collapsed;return;}
         UpdatePointerInspector(p);
@@ -1226,6 +1228,7 @@ public partial class CaptureOverlayWindow : Window
         SetPromptBarHidden(false,true);
         QuickPrompt.CaretIndex=QuickPrompt.Text.Length;
         _selectionPromptFocus=ReferenceEquals(Keyboard.Focus(QuickPrompt),QuickPrompt);
+        _selectionPromptFocusPointer=Mouse.GetPosition(Root);
     }
 
     private void OnLostMouseCapture(object s,MouseEventArgs e){if(_teachingRepositionStart is not null)CancelTeachingReposition();FinishInterruptedPointerInteraction();}
@@ -1800,8 +1803,8 @@ public partial class CaptureOverlayWindow : Window
     private void SetPromptBarHidden(bool hidden,bool preserveToolbarPlacement=false)
     {
         if(!_conversationAiAvailable){_selectionPromptFocus=false;if(PromptBarHost.IsKeyboardFocusWithin)Root.Focus();PromptBarHost.Visibility=Visibility.Collapsed;PromptBarHost.IsHitTestVisible=false;return;}
-        // Hover must not take away the typing focus granted when a selection
-        // finishes. Explicit drawing/move/resize gestures still hide the bar.
+        // Preserve immediate typing after selection only while the pointer stays
+        // at its focus anchor. Deliberate movement releases this in UpdatePointerInteraction.
         if(hidden&&preserveToolbarPlacement&&_selectionPromptFocus&&QuickPrompt.IsKeyboardFocusWithin)return;
         if(hidden)_selectionPromptFocus=false;
         var changed=_promptBarHidden!=hidden;if(!changed)return;
@@ -3827,7 +3830,7 @@ public partial class CaptureOverlayWindow : Window
                 QuickPrompt.CaretIndex=QuickPrompt.Text.Length;
                 QuickPrompt.Select(QuickPrompt.Text.Length,0);
             }
-            if(protectFromHover&&QuickPrompt.IsKeyboardFocusWithin)_selectionPromptFocus=true;
+            if(protectFromHover&&QuickPrompt.IsKeyboardFocusWithin){_selectionPromptFocus=true;_selectionPromptFocusPointer=Mouse.GetPosition(Root);}
         }));
     }
 

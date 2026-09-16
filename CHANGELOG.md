@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修复更新接口限流时误请求不存在的校验文件而返回 404；无法获取可信校验值时明确提示重试，不绕过校验。框选后的输入焦点保护现在会在鼠标主动移动后解除，恢复选区与工具条悬浮收纳。 / Stop requesting invented checksum assets after GitHub rate limits; retain verification requirements and explain retry options. Release post-selection typing protection on deliberate pointer movement so selection and toolbar hover hide the composer again.
+
 - 修复新截图被旧贴图遮挡：旧贴图保持在本轮截图下方，本轮新贴图仍显示在上方；改善文字标注暂时失焦后的连续编辑与样式修改。 / Keep existing pins below a new capture while allowing newly created pins above it; preserve annotation editing and style selection across temporary window deactivation.
 
 - 基于 [PR #10 第【2】项](https://github.com/abnste/mewu_ai/pull/10) 中 shuziyuxingxing-stack 的 JSON 防护贡献，接入响应字段与类型校验；拒绝畸形流式终态，规范非流式错误，并修复本机代理缺字段及畸形 RPC 错误包的异常收尾。 / Integrate shuziyuxingxing-stack’s JSON guards from PR #10 item 2: validate response fields and types, reject malformed stream termination, report invalid non-streaming responses, and safely handle missing fields and malformed local-agent RPC errors.
