@@ -4,6 +4,10 @@
 
 ## 未发布 / Unreleased
 
+## 0.5.0 — 可拖动对话条与截图交互 / Floating composer and capture interactions
+
+发行说明 / Release notes: [0.5.0](https://github.com/abnste/mewu_ai/releases/tag/v0.5.0)
+
 - 移除隐藏拖动横条残留的空行，恢复对话条原高度；透明拖动区复用现有顶部边距。 / Remove the empty drag-grip row and restore the composer height, reusing its existing top padding for dragging.
 
 - 隐去对话条的可见拖动横条，保留顶部空白拖动区；拖动时显示原位虚线框，接近吸附范围时高亮，松手后消失。 / Hide the visible drag grip; show a non-interactive dashed docking target while dragging, highlighted within snap range.
