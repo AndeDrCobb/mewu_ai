@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 部分采纳 [PR #10](https://github.com/abnste/mewu_ai/pull/10)：Codex / WorkBuddy 支持手动选择本机可执行文件，设置窗口支持最小化；同时修复所选路径保存及环境 Provider 导入时的路径保留。PR 中放宽 Codex 认证类型的改动暂未采纳。 / Partially adopt [PR #10](https://github.com/abnste/mewu_ai/pull/10): allow manually selecting the local Codex / WorkBuddy executables and minimizing the settings window; also persist selected paths and retain them during environment-provider imports. The PR's relaxed Codex account-type validation is not adopted.
+
 ## 0.4.8 — Issue #9 API 地址与 DeepSeek 状态 / Issue #9 endpoint recovery and DeepSeek states
 
 - 修复 [Issue #9](https://github.com/abnste/mewu_ai/issues/9) 中 API 模型目录在裸地址返回网页或错误 JSON 时设置页可能崩溃的问题。现在有限尝试原地址、`/v1` 和 `/api/v1`；成功后把可用地址显示为未保存草稿，保存后用于后续请求，全部失败才提示 API 错误。 / Fix [Issue #9](https://github.com/abnste/mewu_ai/issues/9): recover model catalogs when a bare endpoint returns HTML or invalid JSON. Try the original address, `/v1`, and `/api/v1` within a bounded sequence; show a successful endpoint as an unsaved draft for later requests, and report an API error only after all candidates fail.
