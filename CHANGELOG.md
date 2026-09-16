@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 移除隐藏拖动横条残留的空行，恢复对话条原高度；透明拖动区复用现有顶部边距。 / Remove the empty drag-grip row and restore the composer height, reusing its existing top padding for dragging.
+
 - 隐去对话条的可见拖动横条，保留顶部空白拖动区；拖动时显示原位虚线框，接近吸附范围时高亮，松手后消失。 / Hide the visible drag grip; show a non-interactive dashed docking target while dragging, highlighted within snap range.
 
 - 对话条新增顶部拖动把手：越过拖动阈值后可在当前屏幕内固定摆放，不再自动收纳；拖回底部原位附近松手，以弹性动画吸附并恢复自动隐藏。 / Drag the composer handle past the detachment threshold to keep it visible at a floating position; release near its original bottom dock to spring back and restore auto-hide.

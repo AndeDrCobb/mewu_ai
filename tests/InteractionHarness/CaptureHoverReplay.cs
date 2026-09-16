@@ -32,6 +32,12 @@ internal static class CaptureHoverReplay
                 Invoke("SetPromptBarHidden",false,false);Invoke("PositionPromptBar");overlay.UpdateLayout();
                 var dockHost=(FrameworkElement)overlay.FindName("PromptBarHost");
                 var dockPoint=new Point(Canvas.GetLeft(dockHost),Canvas.GetTop(dockHost));
+                var originalHeight=dockHost.ActualHeight;
+                dragHandle.Visibility=Visibility.Collapsed;overlay.UpdateLayout();
+                Require(Math.Abs(dockHost.ActualHeight-originalHeight)<.1,"Invisible drag target adds a layout row");
+                dragHandle.Visibility=Visibility.Visible;overlay.UpdateLayout();
+                Require(System.Windows.Media.VisualTreeHelper.GetParent(dragHandle)==dockHost,"Drag target occupies the content stack");
+                checks.Add("invisible-drag-target-adds-no-height-or-content-row");
                 dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0,0){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragStartedEvent});
                 dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0,-20){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
                 Require(dockHint.Visibility==Visibility.Visible&&!dockHint.IsHitTestVisible,"Dock hint missing or intercepting input during drag");
