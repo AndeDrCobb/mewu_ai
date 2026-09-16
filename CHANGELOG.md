@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 对话条新增顶部拖动把手：越过拖动阈值后可在当前屏幕内固定摆放，不再自动收纳；拖回底部原位附近松手，以弹性动画吸附并恢复自动隐藏。 / Drag the composer handle past the detachment threshold to keep it visible at a floating position; release near its original bottom dock to spring back and restore auto-hide.
+
 - 修复更新接口限流时误请求不存在的校验文件而返回 404；无法获取可信校验值时明确提示重试，不绕过校验。框选后的输入焦点保护现在会在鼠标主动移动后解除，恢复选区与工具条悬浮收纳。 / Stop requesting invented checksum assets after GitHub rate limits; retain verification requirements and explain retry options. Release post-selection typing protection on deliberate pointer movement so selection and toolbar hover hide the composer again.
 
 - 修复新截图被旧贴图遮挡：旧贴图保持在本轮截图下方，本轮新贴图仍显示在上方；改善文字标注暂时失焦后的连续编辑与样式修改。 / Keep existing pins below a new capture while allowing newly created pins above it; preserve annotation editing and style selection across temporary window deactivation.

@@ -1158,6 +1158,7 @@ public partial class CaptureOverlayWindow : Window
     private void OnMouseMove(object s,MouseEventArgs e){if(TeachingRepositionMove(e.GetPosition(Root)))return;if(IsTeachingControl(e.OriginalSource as DependencyObject)){Toolbar.Visibility=Visibility.Collapsed;return;}UpdatePointerInteraction(e.GetPosition(Root));}
     private void UpdatePointerInteraction(Point p)
     {
+        if(_promptDragging||_promptDockAnimating)return;
         if(_selectionPromptFocus&&(p-_selectionPromptFocusPointer).Length>4)_selectionPromptFocus=false;
         _lastToolbarPointer=p;
         if(_recordingMode||_recordingCountdownActive||_drawingMode||_longCaptureMode){PointerInspector.Visibility=Visibility.Collapsed;return;}
@@ -1234,6 +1235,7 @@ public partial class CaptureOverlayWindow : Window
     private void OnLostMouseCapture(object s,MouseEventArgs e){if(_teachingRepositionStart is not null)CancelTeachingReposition();FinishInterruptedPointerInteraction();}
     private void OnDeactivated(object? s,EventArgs e)
     {
+        if(_promptDragging)PromptDragHandle.CancelDrag();
         FinishInterruptedPointerInteraction();
         if(_drawingMode&&!_drawingModalOpen)FinishInterruptedDrawingMode();
         if(!_closed){_inactiveEscapeHeld=IsEscapePressed();_inactiveEscapeTimer.Start();}
@@ -1533,7 +1535,7 @@ public partial class CaptureOverlayWindow : Window
         if(_closed||!ShouldShowSelectionToolbar(_lastToolbarPointer))Toolbar.Visibility=Visibility.Collapsed;
     }
     private bool CanRevealPromptAtScreenEdge(Point point)=>
-        _conversationAiAvailable&&PromptBarHost.Visibility==Visibility.Visible&&
+        !_promptDetached&&_conversationAiAvailable&&PromptBarHost.Visibility==Visibility.Visible&&
         CaptureOverlayPolicy.IsPointerInPromptRevealZone(point,GetPromptInteractionBounds(),PromptMonitorBounds());
     private bool ShouldShowSelectionToolbar(Point point)=>
         !_selecting&&!_moving&&!_drawingMode&&!_recordingMode&&!_recordingCountdownActive&&!_longCaptureMode&&
@@ -1670,6 +1672,7 @@ public partial class CaptureOverlayWindow : Window
         ?SelectionMonitor(item.Bounds):System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
     private Rect PromptMonitorBounds()
     {
+        if((_promptDetached||_promptDragging||_promptDockAnimating)&&!_promptDragMonitor.IsEmpty&&_promptDragMonitor.Width>0)return _promptDragMonitor;
         var bounds=PromptMonitor().WorkingArea;
         return ScreenCoordinateService.ToLocalDipRect(new ScreenRect(bounds.X,bounds.Y,bounds.Width,bounds.Height),_frame.OriginX,_frame.OriginY,Root.ActualWidth,Root.ActualHeight,_frame.Image.PixelWidth,_frame.Image.PixelHeight);
     }
@@ -1705,7 +1708,7 @@ public partial class CaptureOverlayWindow : Window
     {
         if(_thinkingGlowRequest is not null)PositionThinkingGlow();
         if(!_conversationAiAvailable){PromptBarHost.Visibility=Visibility.Collapsed;return;}
-        if(_positioningPromptBar||Root.ActualWidth<=0||Root.ActualHeight<=0)return;
+        if(_positioningPromptBar||_promptDragging||_promptDockAnimating||Root.ActualWidth<=0||Root.ActualHeight<=0)return;
         var monitor=PromptMonitorBounds();
         if(monitor.IsEmpty)return;
         _positioningPromptBar=true;
@@ -1728,6 +1731,7 @@ public partial class CaptureOverlayWindow : Window
             PromptBar.Measure(new Size(PromptBar.Width,PromptBar.MaxHeight));
             var bounds=CaptureOverlayPolicy.GetPromptBarBounds(monitor,PromptBar.DesiredSize.Height);
             if(bounds.IsEmpty)return;
+            if(_promptDetached)bounds=new Rect(ClampFloatingPrompt(new Point(Canvas.GetLeft(PromptBarHost),Canvas.GetTop(PromptBarHost)),monitor),bounds.Size);
             _lastPositionedPromptMonitor=monitor;
             Canvas.SetLeft(PromptBarHost,bounds.Left);
             Canvas.SetTop(PromptBarHost,bounds.Top);
@@ -1747,6 +1751,7 @@ public partial class CaptureOverlayWindow : Window
         {
             _promptBarLayoutPassQueued=false;
             if(_closed||!IsLoaded||PromptBarHost.Visibility!=Visibility.Visible)return;
+            if(_promptDragging||_promptDockAnimating)return;
             var monitor=PromptMonitorBounds();
             if(monitor.IsEmpty)return;
             var left=Canvas.GetLeft(PromptBarHost);
@@ -1756,6 +1761,7 @@ public partial class CaptureOverlayWindow : Window
             if(!double.IsFinite(left)||!double.IsFinite(top)||!double.IsFinite(width)||!double.IsFinite(height)||width<=0||height<=0)return;
             var candidate=new Rect(left,top,width,height);
             var fitted=CaptureOverlayPolicy.RefitPromptBarAfterArrange(monitor,candidate,height);
+            if(_promptDetached)fitted=new Rect(ClampFloatingPrompt(candidate.TopLeft,monitor),fitted.Size);
             PromptBar.Width=fitted.Width;
             if(fitted.Height<height-.25)PromptBar.MaxHeight=fitted.Height;
             Canvas.SetLeft(PromptBarHost,fitted.Left);
@@ -1802,6 +1808,7 @@ public partial class CaptureOverlayWindow : Window
     }
     private void SetPromptBarHidden(bool hidden,bool preserveToolbarPlacement=false)
     {
+        if(hidden&&(_promptDetached||_promptDragging||_promptDockAnimating))return;
         if(!_conversationAiAvailable){_selectionPromptFocus=false;if(PromptBarHost.IsKeyboardFocusWithin)Root.Focus();PromptBarHost.Visibility=Visibility.Collapsed;PromptBarHost.IsHitTestVisible=false;return;}
         // Preserve immediate typing after selection only while the pointer stays
         // at its focus anchor. Deliberate movement releases this in UpdatePointerInteraction.
@@ -3996,6 +4003,7 @@ public partial class CaptureOverlayWindow : Window
 
     private void HandleEscape()
     {
+        if(_promptDragging){PromptDragHandle.CancelDrag();return;}
         if(_applicationSnapshotActive){TryCancel(_overlayRequest);return;}
         if(ChannelPickerPopup.IsOpen){ChannelPickerPopup.IsOpen=false;ChannelButton.Focus();}
         else if(_longCaptureMode)CancelLongCaptureSession("已取消长截图");

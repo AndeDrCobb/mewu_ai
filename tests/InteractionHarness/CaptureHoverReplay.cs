@@ -27,6 +27,35 @@ internal static class CaptureHoverReplay
             try
             {
                 var root=(Canvas)overlay.FindName("Root");
+                var dragHandle=(System.Windows.Controls.Primitives.Thumb)overlay.FindName("PromptDragHandle");
+                Invoke("SetPromptBarHidden",false,false);Invoke("PositionPromptBar");overlay.UpdateLayout();
+                var dockHost=(FrameworkElement)overlay.FindName("PromptBarHost");
+                var dockPoint=new Point(Canvas.GetLeft(dockHost),Canvas.GetTop(dockHost));
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0,0){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragStartedEvent});
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0,-20){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
+                Require(!(bool)Get("_promptDetached"),"Small drag detached the composer");
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0,-120){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(0,-120,false){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragCompletedEvent});
+                Require((bool)Get("_promptDetached"),"Large drag did not detach the composer");
+                var floatingPoint=new Point(Canvas.GetLeft(dockHost),Canvas.GetTop(dockHost));
+                Invoke("SetPromptBarHidden",true,true);Invoke("PositionPromptBar");overlay.UpdateLayout();
+                Require(!(bool)Get("_promptBarHidden")&&Math.Abs(Canvas.GetTop(dockHost)-floatingPoint.Y)<1,"Floating composer hid or moved during layout");
+                checks.Add("drag-threshold-detaches-and-floating-composer-resists-hide-and-layout");
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0,0){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragStartedEvent});
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(30,-30){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(30,-30,true){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragCompletedEvent});
+                Require((bool)Get("_promptDetached")&&(new Point(Canvas.GetLeft(dockHost),Canvas.GetTop(dockHost))-floatingPoint).Length<1,"Canceled drag lost floating position");
+                checks.Add("canceled-floating-drag-restores-position");
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0,0){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragStartedEvent});
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(dockPoint.X-floatingPoint.X,dockPoint.Y-floatingPoint.Y){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
+                dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(0,0,false){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragCompletedEvent});
+                Require(!(bool)Get("_promptDetached"),"Dragging home did not redock");
+                var animationDeadline=DateTime.UtcNow+TimeSpan.FromSeconds(3);
+                while((bool)Get("_promptDockAnimating")&&DateTime.UtcNow<animationDeadline)await Task.Delay(30);
+                Require(!(bool)Get("_promptDockAnimating"),"Dock animation did not finish");
+                Set("_selectionPromptFocus",false);Invoke("SetPromptBarHidden",true,true);
+                Require((bool)Get("_promptBarHidden"),"Redocked composer no longer auto-hides");
+                checks.Add("drag-home-springs-back-and-restores-auto-hide");
                 var toolbar=(FrameworkElement)overlay.FindName("Toolbar");
                 var prompt=(FrameworkElement)overlay.FindName("PromptBarHost");
                 var a=Add(new Rect(100,150,360,180));var b=Add(new Rect(650,150,180,180));
