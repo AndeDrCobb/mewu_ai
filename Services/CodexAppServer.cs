@@ -179,6 +179,7 @@ internal sealed class CodexAppServer : IAsyncDisposable
         {
             await ReadMessagesAsync(_process.StandardOutput.BaseStream,async message=>
             {
+                JsonResponseGuard.Rpc(message);
                 if(message.TryGetProperty("method",out var methodValue))
                 {
                     if(message.TryGetProperty("id",out var serverId))
@@ -218,7 +219,13 @@ internal sealed class CodexAppServer : IAsyncDisposable
                 {
                     if(buffer[index]!=10)continue;
                     Append(index-start);
-                    if(line.Length>0){using var json=JsonDocument.Parse(line.GetBuffer().AsMemory(0,(int)line.Length));await receive(json.RootElement).ConfigureAwait(false);}
+                    if(line.Length>0)
+                    {
+                        using var json=JsonDocument.Parse(line.GetBuffer().AsMemory(0,(int)line.Length));
+                        JsonResponseGuard.Object(json.RootElement,"rpc");
+                        try{await receive(json.RootElement).ConfigureAwait(false);}
+                        catch(KeyNotFoundException){throw new InvalidDataException("响应缺少必要字段。");}
+                    }
                     CryptographicOperations.ZeroMemory(line.GetBuffer().AsSpan(0,(int)line.Length));line.SetLength(0);start=index+1;
                 }
                 Append(read-start);

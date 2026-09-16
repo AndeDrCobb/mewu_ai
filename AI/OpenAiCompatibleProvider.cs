@@ -161,9 +161,12 @@ public class OpenAiCompatibleProvider : IAiProvider
 
         var json=await ReadResponseBodyAsStringAsync(response.Content,token).ConfigureAwait(false);
         using var document=JsonDocument.Parse(json);
-        if(document.RootElement.GetProperty("choices")[0].TryGetProperty("finish_reason",out var finishReason)&&finishReason.ValueKind==JsonValueKind.String&&finishReason.GetString()=="length")
+        var choices=JsonResponseGuard.Array(JsonResponseGuard.Required(document.RootElement,"choices","response"),"response.choices");
+        if(choices.GetArrayLength()==0)throw new InvalidDataException("AI 响应没有回答选项。");
+        var choice=JsonResponseGuard.Object(choices[0],"response.choices[0]");
+        if(choice.TryGetProperty("finish_reason",out var finishReason)&&finishReason.ValueKind==JsonValueKind.String&&finishReason.GetString()=="length")
             throw new InvalidDataException("AI 回复达到输出长度限制，未收到完整内容，请缩小范围后重试");
-        var message=document.RootElement.GetProperty("choices")[0].GetProperty("message");
+        var message=JsonResponseGuard.Object(JsonResponseGuard.Required(choice,"message","response.choices[0]"),"response.choices[0].message");
         var (answerText,typedReasoning)=StreamingResponseParser.ReadContentParts(message);
         var reasoningText=ReadString(message,"reasoning_content");
         if(reasoningText.Length==0)reasoningText=ReadString(message,"thinking_content");

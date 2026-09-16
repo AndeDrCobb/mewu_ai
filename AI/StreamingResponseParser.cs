@@ -3,6 +3,7 @@
 using System.Text.Json;
 using System.Text;
 using mewu_ai_Assistant.Models;
+using mewu_ai_Assistant.Services;
 
 namespace mewu_ai_Assistant.AI;
 
@@ -18,10 +19,12 @@ public static class StreamingResponseParser
         var payload=line[5..].Trim();if(payload=="[DONE]"){done=true;return true;}
         try
         {
-            using var document=JsonDocument.Parse(payload);var choices=document.RootElement.GetProperty("choices");if(choices.GetArrayLength()==0)return true;
-            var choice=choices[0];done=choice.TryGetProperty("finish_reason",out var finish)&&finish.ValueKind==JsonValueKind.String&&!string.IsNullOrWhiteSpace(finish.GetString());
+            using var document=JsonDocument.Parse(payload);
+            var choices=JsonResponseGuard.Array(JsonResponseGuard.Required(document.RootElement,"choices","response"),"response.choices");if(choices.GetArrayLength()==0)return true;
+            var choice=JsonResponseGuard.Object(choices[0],"response.choices[0]");done=choice.TryGetProperty("finish_reason",out var finish)&&finish.ValueKind==JsonValueKind.String&&!string.IsNullOrWhiteSpace(finish.GetString());
             truncated=done&&string.Equals(finish.GetString(),"length",StringComparison.OrdinalIgnoreCase);
-            if(!choice.TryGetProperty("delta",out var value)||value.ValueKind!=JsonValueKind.Object)return done;
+            if(!choice.TryGetProperty("delta",out var value))return done;
+            JsonResponseGuard.Object(value,"response.choices[0].delta");
             var (content,typedReasoning)=ReadContentParts(value);var reasoning=ReadString(value,"reasoning_content");var cumulative=false;
             if(reasoning.Length==0)reasoning=ReadString(value,"thinking_content");
             if(reasoning.Length==0)reasoning=ReadString(value,"reasoning");
@@ -32,6 +35,7 @@ public static class StreamingResponseParser
         catch(JsonException){return false;}
         catch(KeyNotFoundException){return false;}
         catch(InvalidOperationException){return false;}
+        catch(InvalidDataException){done=false;truncated=false;return false;}
     }
 
     private static string ReadString(JsonElement value,string name)=>value.TryGetProperty(name,out var property)&&property.ValueKind==JsonValueKind.String?property.GetString()??string.Empty:string.Empty;
