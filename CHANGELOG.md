@@ -4,7 +4,7 @@
 
 ## 未发布 / Unreleased
 
-- 部分采纳 [PR #10](https://github.com/abnste/mewu_ai/pull/10)：Codex / WorkBuddy 支持手动选择本机可执行文件，设置窗口支持最小化；同时修复所选路径保存及环境 Provider 导入时的路径保留。PR 中放宽 Codex 认证类型的改动暂未采纳。 / Partially adopt [PR #10](https://github.com/abnste/mewu_ai/pull/10): allow manually selecting the local Codex / WorkBuddy executables and minimizing the settings window; also persist selected paths and retain them during environment-provider imports. The PR's relaxed Codex account-type validation is not adopted.
+- 采纳并补修 [PR #10](https://github.com/abnste/mewu_ai/pull/10)：Codex / WorkBuddy 支持手动选择本机可执行文件，设置窗口支持最小化；修复所选路径保存及环境 Provider 导入时的路径保留；Codex 可沿用本机 ChatGPT 或 API Key / CCSwitch 登录配置，不再强制覆盖为官方 OpenAI Provider。 / Adopt and complete [PR #10](https://github.com/abnste/mewu_ai/pull/10): allow manually selecting local Codex / WorkBuddy executables and minimizing the settings window; persist selected paths across saves and environment-provider imports; and let Codex inherit local ChatGPT or API-key / CCSwitch authentication instead of forcing the official OpenAI provider.
 
 ## 0.4.8 — Issue #9 API 地址与 DeepSeek 状态 / Issue #9 endpoint recovery and DeepSeek states
 

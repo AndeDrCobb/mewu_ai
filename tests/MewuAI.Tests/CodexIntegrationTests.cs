@@ -95,13 +95,15 @@ public sealed class CodexIntegrationTests
         Assert.False(stopped.Completion.IsCompleted);
     }
 
-    [Theory]
-    [InlineData("{\"account\":null}")]
-    [InlineData("{\"account\":{\"type\":\"apiKey\"}}")]
-    public void RefusesMissingLoginOrSeparateApiBilling(string value)=>Assert.Throws<InvalidOperationException>(()=>CodexAppServer.EnsureChatGptAccount(Json(value)));
+    [Fact]
+    public void RefusesMissingLogin()=>Assert.Throws<InvalidOperationException>(()=>CodexAppServer.EnsureChatGptAccount(Json("{\"account\":null}")));
 
     [Fact]
-    public void ExistingChatGptLoginIsAcceptedWithoutCredentials()=>CodexAppServer.EnsureChatGptAccount(Json("""{"account":{"type":"chatgpt"}}"""));
+    public void ChatGptAndApiKeyLoginsAreAcceptedWithoutLocalCredentials()
+    {
+        CodexAppServer.EnsureChatGptAccount(Json("""{"account":{"type":"chatgpt"}}"""));
+        CodexAppServer.EnsureChatGptAccount(Json("""{"account":{"type":"apiKey"}}"""));
+    }
 
     [Fact]
     public async Task RpcFramingHandlesSplitUtf8AndMultipleEvents()
