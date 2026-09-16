@@ -28,15 +28,20 @@ internal static class CaptureHoverReplay
             {
                 var root=(Canvas)overlay.FindName("Root");
                 var dragHandle=(System.Windows.Controls.Primitives.Thumb)overlay.FindName("PromptDragHandle");
+                var dockHint=(FrameworkElement)overlay.FindName("PromptDockHint");
                 Invoke("SetPromptBarHidden",false,false);Invoke("PositionPromptBar");overlay.UpdateLayout();
                 var dockHost=(FrameworkElement)overlay.FindName("PromptBarHost");
                 var dockPoint=new Point(Canvas.GetLeft(dockHost),Canvas.GetTop(dockHost));
                 dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0,0){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragStartedEvent});
                 dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0,-20){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
+                Require(dockHint.Visibility==Visibility.Visible&&!dockHint.IsHitTestVisible,"Dock hint missing or intercepting input during drag");
+                Require(Math.Abs(Canvas.GetLeft(dockHint)-dockPoint.X)<1&&Math.Abs(Canvas.GetTop(dockHint)-dockPoint.Y)<1,"Dock hint does not mark the real snap target");
                 Require(!(bool)Get("_promptDetached"),"Small drag detached the composer");
                 dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0,-120){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragDeltaEvent});
                 dragHandle.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(0,-120,false){RoutedEvent=System.Windows.Controls.Primitives.Thumb.DragCompletedEvent});
                 Require((bool)Get("_promptDetached"),"Large drag did not detach the composer");
+                Require(dockHint.Visibility==Visibility.Collapsed,"Dock hint remained after drag completion");
+                checks.Add("dock-hint-marks-snap-target-without-intercepting-input-and-clears-on-release");
                 var floatingPoint=new Point(Canvas.GetLeft(dockHost),Canvas.GetTop(dockHost));
                 Invoke("SetPromptBarHidden",true,true);Invoke("PositionPromptBar");overlay.UpdateLayout();
                 Require(!(bool)Get("_promptBarHidden")&&Math.Abs(Canvas.GetTop(dockHost)-floatingPoint.Y)<1,"Floating composer hid or moved during layout");

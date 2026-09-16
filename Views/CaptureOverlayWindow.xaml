@@ -116,6 +116,7 @@
     <Button ToolTip="停止并原位预览" AutomationProperties.Name="停止录屏并原位预览" Click="StopRecording" Style="{StaticResource ToolbarIconButton}"><Rectangle Width="12" Height="12" RadiusX="2" Fill="#DA4856"/></Button>
    </StackPanel>
   </Border>
+  <Rectangle x:Name="PromptDockHint" Visibility="Collapsed" IsHitTestVisible="False" RadiusX="20" RadiusY="20" Stroke="#AAB8CF" StrokeThickness="2" StrokeDashArray="5,4" Fill="#167B8AF4"/>
   <Grid x:Name="PromptBarHost" Opacity="0.99">
    <Border Background="#FFFFFFFF" CornerRadius="20" IsHitTestVisible="False">
     <Border.Effect><DropShadowEffect Color="#1D2B3F" BlurRadius="36" ShadowDepth="8" Opacity="0.30"/></Border.Effect>
@@ -128,7 +129,7 @@
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
      <StackPanel x:Name="HistorySection" Grid.Row="0">
       <Thumb x:Name="PromptDragHandle" Height="16" Cursor="SizeAll" Focusable="False" ToolTip="拖离底部以固定显示，拖回原位恢复自动隐藏" AutomationProperties.Name="拖动对话条" DragStarted="PromptDragStarted" DragDelta="PromptDragDelta" DragCompleted="PromptDragCompleted">
-       <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"><Border Width="36" Height="4" CornerRadius="2" Background="#A7B4C8" VerticalAlignment="Center" HorizontalAlignment="Center"/></Border></ControlTemplate></Thumb.Template>
+       <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
       </Thumb>
       <Button x:Name="HistoryToggle" AutomationProperties.Name="查看提问和历史对话" ToolTip="查看提问与历史" Style="{StaticResource HistoryToggleButton}" Click="ToggleHistory">
        <Path Width="8" Height="8" Stretch="Uniform" Stroke="#617188" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,4 L5.5,7.5 L9,4" RenderTransformOrigin="0.5,0.5"><Path.RenderTransform><RotateTransform x:Name="HistoryChevronRotation" Angle="180"/></Path.RenderTransform></Path>

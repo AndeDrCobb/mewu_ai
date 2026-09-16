@@ -26,6 +26,7 @@ public partial class CaptureOverlayWindow
         Canvas.SetLeft(PromptBarHost,origin.X);Canvas.SetTop(PromptBarHost,origin.Y);
         _promptDragMonitor=PromptMonitorBounds();_promptDragOrigin=origin;_promptDragOffset=new Vector();
         _promptDragWasDetached=_promptDetached;_promptDragging=true;
+        UpdatePromptDockHint();
         SetPromptBarHidden(false,true);HideToolbarImmediately();e.Handled=true;
     }
 
@@ -40,7 +41,18 @@ public partial class CaptureOverlayWindow
         // A docked bar resists small accidental drags before detaching.
         var offset=_promptDetached?_promptDragOffset:_promptDragOffset*.25;
         var point=ClampFloatingPrompt(_promptDragOrigin+offset,_promptDragMonitor);
-        Canvas.SetLeft(PromptBarHost,point.X);Canvas.SetTop(PromptBarHost,point.Y);e.Handled=true;
+        Canvas.SetLeft(PromptBarHost,point.X);Canvas.SetTop(PromptBarHost,point.Y);UpdatePromptDockHint();e.Handled=true;
+    }
+
+    private void UpdatePromptDockHint()
+    {
+        var dock=CaptureOverlayPolicy.GetPromptBarBounds(_promptDragMonitor,PromptBar.DesiredSize.Height);
+        if(dock.IsEmpty){PromptDockHint.Visibility=Visibility.Collapsed;return;}
+        Canvas.SetLeft(PromptDockHint,dock.Left);Canvas.SetTop(PromptDockHint,dock.Top);
+        PromptDockHint.Width=dock.Width;PromptDockHint.Height=dock.Height;
+        var current=new Point(Canvas.GetLeft(PromptBarHost),Canvas.GetTop(PromptBarHost));
+        PromptDockHint.Stroke=(current-dock.TopLeft).Length<=40?System.Windows.Media.Brushes.CornflowerBlue:System.Windows.Media.Brushes.LightSlateGray;
+        PromptDockHint.Visibility=Visibility.Visible;
     }
 
     private Point ClampFloatingPrompt(Point point,Rect monitor)
@@ -54,6 +66,7 @@ public partial class CaptureOverlayWindow
     {
         if(!_promptDragging)return;
         _promptDragging=false;
+        PromptDockHint.Visibility=Visibility.Collapsed;
         if(e.Canceled)_promptDetached=_promptDragWasDetached;
         var dock=CaptureOverlayPolicy.GetPromptBarBounds(_promptDragMonitor,PromptBar.DesiredSize.Height);
         var current=new Point(Canvas.GetLeft(PromptBarHost),Canvas.GetTop(PromptBarHost));
