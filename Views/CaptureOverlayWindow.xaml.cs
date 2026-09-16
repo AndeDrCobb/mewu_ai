@@ -301,6 +301,7 @@ public partial class CaptureOverlayWindow : Window
 
     public CaptureOverlayWindow(AppHost host)
     {
+        _pinsBeforeCapture=GetPinnedWindows().ToHashSet();
         _host=host;IsTeachingMode=host.Settings.TeachingMode;_frame=new ScreenCaptureService().CaptureDesktop(host.Settings.IncludeCaptureCursor);InitializeComponent();LocalizationService.SetExcludeFromLocalization(SelectionLayer,true);LocalizationService.SetExcludeFromLocalization(HistoryItems,true);LocalizationService.SetExcludeFromLocalization(ReferenceChips,true);AnswerText.MarkdownChanged+=(_,_)=>TableCopyButton.Visibility=AnswerText.ContainsTable?Visibility.Visible:Visibility.Collapsed;
         QuickPrompt.LostKeyboardFocus+=(_,_)=>_selectionPromptFocus=false;
         PromptBarHost.IsVisibleChanged+=(_,e)=>
@@ -1248,9 +1249,8 @@ public partial class CaptureOverlayWindow : Window
         // the screenshot. Keep the original clean frame until the modal has
         // completely unwound on the dispatcher.
         if(_systemFileDialogDepth>0){KeepOverlayBelowPinnedWindows();return;}
-        // Existing pins stay available above a later screenshot session.
-        // Reactivating the overlay must not bury them again.
-        RefreshDesktopFrameIncludingPinnedWindows();
+        // Editing must keep the original frozen pixels and selected text.
+        if(!_drawingMode)RefreshDesktopFrameIncludingPinnedWindows();
         KeepOverlayBelowPinnedWindows();
     }
 
@@ -1272,14 +1272,17 @@ public partial class CaptureOverlayWindow : Window
         Root.Focus();
     }
 
+    private readonly HashSet<Window> _pinsBeforeCapture;
     private void KeepOverlayBelowPinnedWindows()
     {
         if(_closed||!IsVisible)return;
         var handle=new WindowInteropHelper(this).Handle;
         if(handle==IntPtr.Zero)return;
-        var pins=GetPinnedWindows().Where(window=>window.IsVisible&&window.Topmost)
+        var pins=GetPinnedWindows().Where(window=>window.IsVisible&&window.Topmost&&!_pinsBeforeCapture.Contains(window))
             .Select(window=>new WindowInteropHelper(window).Handle).Where(hwnd=>hwnd!=IntPtr.Zero).ToHashSet();
-        if(pins.Count==0)return;
+        const uint NoMove=0x0001,NoSize=0x0002,NoActivate=0x0010;
+        // Only pins created during this capture may remain above it.
+        if(pins.Count==0){NativeMethods.SetWindowPos(handle,new IntPtr(-1),0,0,0,0,NoMove|NoSize|NoActivate);return;}
         // Find the lowest live pin in actual native Z order, not creation order.
         // Only lower the capture surface; retain every pin's ordering and state.
         var lowestPin=IntPtr.Zero;
@@ -1290,8 +1293,20 @@ public partial class CaptureOverlayWindow : Window
             current=NativeMethods.GetWindow(current,2); // GW_HWNDNEXT
         }
         if(lowestPin==IntPtr.Zero)return;
-        const uint NoMove=0x0001,NoSize=0x0002,NoActivate=0x0010;
         NativeMethods.SetWindowPos(handle,lowestPin,0,0,0,0,NoMove|NoSize|NoActivate);
+        // An old pin may have been activated after a new pin was created.
+        // Keep the old pins below the overlay, preserving their native order.
+        var oldPins=_pinsBeforeCapture.Where(window=>window.IsVisible&&window.Topmost)
+            .Select(window=>new WindowInteropHelper(window).Handle).ToHashSet();
+        var ordered=new List<IntPtr>();
+        current=NativeMethods.GetWindow(handle,0);
+        for(var count=0;count<2048&&current!=IntPtr.Zero;count++)
+        {
+            if(oldPins.Remove(current))ordered.Add(current);
+            current=NativeMethods.GetWindow(current,2);
+        }
+        var after=handle;
+        foreach(var oldPin in ordered){NativeMethods.SetWindowPos(oldPin,after,0,0,0,0,NoMove|NoSize|NoActivate);after=oldPin;}
     }
 
 
@@ -2964,7 +2979,9 @@ public partial class CaptureOverlayWindow : Window
     }
     private void FinishInterruptedDrawingMode()
     {
-        ExitDrawingMode();
+        // Popup/other-window activation is not the user's Done action.
+        CommitSelectedDrawingMove();
+        if(Active is { } item&&item.Markup.IsMouseCaptureWithin)Mouse.Capture(null);
     }
     private void SetDrawTool(DrawTool tool)
     {
@@ -3113,7 +3130,7 @@ public partial class CaptureOverlayWindow : Window
         if(_drawTool!=DrawTool.Text)SetDrawTool(DrawTool.Text);
         var editor=FindDrawingElementVisual(item,text.Id) as TextBox;
         if(editor is null)return false;
-        editor.Focus();Keyboard.Focus(editor);var local=canvas.TranslatePoint(point,editor);var caret=editor.GetCharacterIndexFromPoint(local,true);if(caret>=0)editor.CaretIndex=caret;editor.SelectionLength=0;PromptStatus.Text="正在重新编辑文字 · 点击空白处可新增文本框";return true;
+        FocusDrawingText(item,editor);editor.Focus();Keyboard.Focus(editor);var local=canvas.TranslatePoint(point,editor);var caret=editor.GetCharacterIndexFromPoint(local,true);if(caret>=0)editor.CaretIndex=caret;editor.SelectionLength=0;PromptStatus.Text="正在重新编辑文字 · 点击空白处可新增文本框";return true;
     }
 
     private void MoveSelectedDrawingObject(SelectionItem item,Point point,InkCanvas canvas)

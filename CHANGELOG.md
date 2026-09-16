@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修复新截图被旧贴图遮挡：旧贴图保持在本轮截图下方，本轮新贴图仍显示在上方；改善文字标注暂时失焦后的连续编辑与样式修改。 / Keep existing pins below a new capture while allowing newly created pins above it; preserve annotation editing and style selection across temporary window deactivation.
+
 - 基于 [PR #10 第【2】项](https://github.com/abnste/mewu_ai/pull/10) 中 shuziyuxingxing-stack 的 JSON 防护贡献，接入响应字段与类型校验；拒绝畸形流式终态，规范非流式错误，并修复本机代理缺字段及畸形 RPC 错误包的异常收尾。 / Integrate shuziyuxingxing-stack’s JSON guards from PR #10 item 2: validate response fields and types, reject malformed stream termination, report invalid non-streaming responses, and safely handle missing fields and malformed local-agent RPC errors.
 
 - 采纳并补修 [PR #10](https://github.com/abnste/mewu_ai/pull/10)：Codex / WorkBuddy 支持手动选择本机可执行文件，设置窗口支持最小化；修复所选路径保存及环境 Provider 导入时的路径保留；Codex 可沿用本机 ChatGPT 或 API Key / CCSwitch 登录配置，不再强制覆盖为官方 OpenAI Provider。 / Adopt and complete [PR #10](https://github.com/abnste/mewu_ai/pull/10): allow manually selecting local Codex / WorkBuddy executables and minimizing the settings window; persist selected paths across saves and environment-provider imports; and let Codex inherit local ChatGPT or API-key / CCSwitch authentication instead of forcing the official OpenAI provider.
