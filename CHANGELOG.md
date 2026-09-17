@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 对话条新增显式「新会话」边界（[PR #10](https://github.com/abnste/mewu_ai/pull/10)，shuziyuxingxing-stack）：一键开启空白会话，请求处理中会提示并拒绝；磁盘对话历史继续在历史面板展示，但不再注入新请求的上下文。补修：本机 Hermes 渠道同步重置服务端持久会话并清理当前渠道的应用内会话记忆，避免切换渠道后旧上下文回流；切换渠道时按新作用域重载历史展示。 / Add an explicit new-conversation boundary to the composer ([PR #10](https://github.com/abnste/mewu_ai/pull/10), shuziyuxingxing-stack): start a blank conversation in one click, with a clear refusal while a request is running; persisted history stays visible in the panel but is no longer injected into new request context. Follow-up: the local Hermes channel now resets its server-side persistent session and clears the in-app per-channel memory so stale context cannot return after switching channels, and switching channels reloads the history panel for the new scope.
+
 ## 0.5.0 — 可拖动对话条与截图交互 / Floating composer and capture interactions
 
 发行说明 / Release notes: [0.5.0](https://github.com/abnste/mewu_ai/releases/tag/v0.5.0)

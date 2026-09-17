@@ -481,8 +481,10 @@ public partial class CaptureOverlayWindow : Window
         _host.RememberConversationChannel(selected.Id);
         _historyLoadVersion++;
         _history.Clear();_history.Add(new("system",VisualAnnotationProtocol.SystemInstruction));
+        _persistedHistory=[];
         LoadSessionHistory();
         RefreshHistoryPreview();
+        _=LoadPersistedHistoryAsync();
         PromptStatus.Text=$"已切换到 {selected.DisplayName}";
         UpdateChannelPickerItems();
     }
@@ -555,9 +557,10 @@ public partial class CaptureOverlayWindow : Window
             {
                 if(_closed||operation.IsCancellationRequested||version!=Volatile.Read(ref _historyLoadVersion))return;
                 var (provider,model)=GetHistoryScope();
-                // Persisted records are displayed/retained on disk, but must not
-                // be injected into a newly opened conversation context. Use the
-                // explicit "新会话" action to control context boundaries.
+                // Persisted records stay visible in the history panel but are
+                // not merged into the request context; the explicit 新会话
+                // action controls the conversation boundary.
+                _persistedHistory=entries.Where(entry=>string.Equals(entry.Provider,provider,StringComparison.Ordinal)&&string.Equals(entry.Model,model,StringComparison.Ordinal)).TakeLast(24).ToArray();
                 RefreshHistoryPreview();
             },DispatcherPriority.Background);
         }
@@ -610,6 +613,20 @@ public partial class CaptureOverlayWindow : Window
             PromptStatus.Text=LocalizationService.T("当前请求仍在处理中，请稍候。","The current request is still running. Please wait.");
             return;
         }
+        var selectedChannel=_conversationChannels.FirstOrDefault(item=>item.Id==_selectedConversationChannelId);
+        if(selectedChannel is {Kind:ConversationChannelKind.Hermes})
+        {
+            // Hermes keeps the conversation server-side per profile, so clearing
+            // the local list alone would silently continue the old session.
+            var hermesProvider=_host.CreateConversationProvider(HermesConversationKind.Screen,selectedChannel.Id,out _);
+            if(hermesProvider is IConversationSessionReset sessionReset&&!sessionReset.TryResetSession())
+            {
+                PromptStatus.Text=LocalizationService.T("当前请求仍在处理中，请稍候。","The current request is still running. Please wait.");
+                return;
+            }
+        }
+        var (historyProvider,historyModel)=GetHistoryScope();
+        _host.ClearSessionConversationHistory(historyProvider,historyModel);
         _history.Clear();
         _history.Add(new AiMessage("system",VisualAnnotationProtocol.SystemInstruction));
         _lastSubmittedPrompt=string.Empty;

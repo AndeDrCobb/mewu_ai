@@ -371,6 +371,12 @@ public sealed class AppHost : IDisposable
         try{_settingsService?.Save(Settings);}catch(Exception ex){try{new PrivacyLogger().Error("ConversationChannelSave",ex);}catch{}}
     }
 
+    internal void ClearSessionConversationHistory(string provider,string model)
+    {
+        lock(_sessionHistoryGate)
+            _sessionConversationHistory.RemoveAll(entry=>string.Equals(entry.Provider,provider,StringComparison.Ordinal)&&string.Equals(entry.Model,model,StringComparison.Ordinal));
+    }
+
     internal void ClearSessionConversationHistory()
     {
         lock(_sessionHistoryGate)_sessionConversationHistory.Clear();
