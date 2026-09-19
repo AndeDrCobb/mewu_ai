@@ -32,6 +32,7 @@ namespace mewu_ai_Assistant.Views;
 
 public partial class CaptureOverlayWindow : Window
 {
+    private static string L(string zh,string en)=>LocalizationService.T(zh,en);
     private const int ReasoningDisplayLimit=12_000;
     private const double PromptEdgeMargin=6;
     private const double PromptFloatingGap=8;
@@ -858,7 +859,6 @@ public partial class CaptureOverlayWindow : Window
 
     private void OnClosed(object? sender,EventArgs e)
     {
-        _teachingRequest?.Cancel();
         ReleaseTeachingLiveCapture();
         _toolbarHideTimer.Stop();
         _closed=true;
@@ -1189,8 +1189,6 @@ public partial class CaptureOverlayWindow : Window
 
     private void OnMouseDown(object s,MouseButtonEventArgs e)
     {
-        if(IsTeachingControl(e.OriginalSource as DependencyObject))return;
-        if(TeachingRepositionDown(e.GetPosition(Root))){e.Handled=true;return;}
         if(_recordingMode||_recordingCountdownActive||_drawingMode||_longCaptureMode)return;
         if(e.OriginalSource is Thumb||IsInside(e.OriginalSource as DependencyObject,PromptBar)||IsInside(e.OriginalSource as DependencyObject,Toolbar)||IsInside(e.OriginalSource as DependencyObject,DrawingToolbar)||IsInside(e.OriginalSource as DependencyObject,RecordingBar)||_selections.Any(item=>IsInside(e.OriginalSource as DependencyObject,item.TextSelection)))return;
         if(RejectIfOverlayOperationBusy())return;
@@ -1203,7 +1201,7 @@ public partial class CaptureOverlayWindow : Window
         Toolbar.Visibility=Visibility.Collapsed;SetPromptBarHidden(true);Root.CaptureMouse();e.Handled=true;
     }
 
-    private void OnMouseMove(object s,MouseEventArgs e){if(TeachingRepositionMove(e.GetPosition(Root)))return;if(IsTeachingControl(e.OriginalSource as DependencyObject)){Toolbar.Visibility=Visibility.Collapsed;return;}UpdatePointerInteraction(e.GetPosition(Root));}
+    private void OnMouseMove(object s,MouseEventArgs e){UpdatePointerInteraction(e.GetPosition(Root));}
     private void UpdatePointerInteraction(Point p)
     {
         if(_promptDragging||_promptDockAnimating)return;
@@ -1262,7 +1260,6 @@ public partial class CaptureOverlayWindow : Window
 
     private void OnMouseUp(object s,MouseButtonEventArgs e)
     {
-        if(TeachingRepositionUp(e.GetPosition(Root))){e.Handled=true;return;}
         if(_recordingMode||_drawingMode||_longCaptureMode)return;
         if(!_selecting&&!_moving)return;if(_pendingAutoSelection is { } automatic&&Active is { } automaticItem){automaticItem.Bounds=automatic;automaticItem.SnapshotTarget=_pendingSnapshotTarget;_pendingSnapshotTarget=null;_pendingAutoSelection=null;} _selecting=_moving=false;Root.ReleaseMouseCapture();
         if(Active is not { } item||!CaptureOverlayPolicy.IsUsableSelection(item.Bounds.Width,item.Bounds.Height)){RemoveActiveSelection(false);_pointerOperationBefore=null;_pointerOperationLabel="";if(Active is not null)ShowToolbar();SetPromptBarHidden(false);return;}
@@ -1280,7 +1277,7 @@ public partial class CaptureOverlayWindow : Window
         _selectionPromptFocusPointer=Mouse.GetPosition(Root);
     }
 
-    private void OnLostMouseCapture(object s,MouseEventArgs e){if(_teachingRepositionStart is not null)CancelTeachingReposition();FinishInterruptedPointerInteraction();}
+    private void OnLostMouseCapture(object s,MouseEventArgs e){FinishInterruptedPointerInteraction();}
     private void OnDeactivated(object? s,EventArgs e)
     {
         if(_promptDragging)PromptDragHandle.CancelDrag();
@@ -1522,7 +1519,7 @@ public partial class CaptureOverlayWindow : Window
         var r=Normalize(item.Bounds);item.Bounds=r;Canvas.SetLeft(item.Host,r.Left);Canvas.SetTop(item.Host,r.Top);item.Host.Width=r.Width;item.Host.Height=r.Height;item.Markup.Width=item.TextOverlays.Width=item.AiAnnotations.Width=item.TextSelection.Width=r.Width;item.Markup.Height=item.TextOverlays.Height=item.AiAnnotations.Height=item.TextSelection.Height=r.Height;
         var px=ToPixelRect(r);if(px.Width>0&&px.Height>0&&item.VideoPath is null)item.Image.Source=item.ImageCache.Get(_frame.Image,px,item.CapturedImageOverride);
         var active=ReferenceEquals(item,Active);var referenced=_references.Contains(item);item.Outline.BorderBrush=item.IsImplicit?Brushes.Transparent:active?Cyan:referenced?AnnotationPalette.Referenced:AnnotationPalette.Inactive;item.Outline.BorderThickness=new Thickness(active?1.8:1.2);item.Outline.Effect=active&&!item.IsImplicit?AnnotationPalette.SelectionGlow:null;item.Badge.Background=AnnotationPalette.Accent;item.Badge.Visibility=item.IsImplicit?Visibility.Collapsed:Visibility.Visible;
-        if(active&&!item.IsImplicit){SizeTextLabel.Text=item.VideoPath is null?$"{px.Width} × {px.Height}":$"视频 · {item.VideoDuration:mm\\:ss}";SizeText.Visibility=Visibility.Visible;Canvas.SetLeft(SizeText,r.Left);Canvas.SetTop(SizeText,Math.Max(0,r.Top-30));if(ReferenceEquals(item,_teachingPreview)){HideHandles();SizeText.Visibility=Visibility.Collapsed;}else PositionHandles(r);}else if(item.IsImplicit){HideHandles();SizeText.Visibility=Visibility.Collapsed;}
+        if(active&&!item.IsImplicit){SizeTextLabel.Text=item.VideoPath is null?$"{px.Width} × {px.Height}":$"视频 · {item.VideoDuration:mm\\:ss}";SizeText.Visibility=Visibility.Visible;Canvas.SetLeft(SizeText,r.Left);Canvas.SetTop(SizeText,Math.Max(0,r.Top-30));PositionHandles(r);}else if(item.IsImplicit){HideHandles();SizeText.Visibility=Visibility.Collapsed;}
     }
 
     private void Select(int index){_activeIndex=index;for(var i=0;i<_selections.Count;i++)UpdateSelection(_selections[i]);}
@@ -1624,7 +1621,7 @@ public partial class CaptureOverlayWindow : Window
     private Rect ClampSelection(Rect value){var width=Math.Min(value.Width,Root.ActualWidth);var height=Math.Min(value.Height,Root.ActualHeight);return new Rect(Math.Clamp(value.X,0,Math.Max(0,Root.ActualWidth-width)),Math.Clamp(value.Y,0,Math.Max(0,Root.ActualHeight-height)),width,height);}
     private async void UpdateSnapPreview(Point point)
     {
-        if(_closed||_teachingPage is not null||_selecting||_moving||_recordingMode||_recordingCountdownActive||_drawingMode||_longCaptureMode||IsInteractingWithPrompt(point)||PointerInToolbarInteractionZone(point))
+        if(_closed||_selecting||_moving||_recordingMode||_recordingCountdownActive||_drawingMode||_longCaptureMode||IsInteractingWithPrompt(point)||PointerInToolbarInteractionZone(point))
         {ResetSnapPreview();return;}
         _latestSnapProbePoint=point;_latestSnapProbePointValid=true;
         if(PointerOverSelection(point)){_latestSnapProbePointValid=false;CancelSnapProbe();SnapPreview.Visibility=Visibility.Collapsed;_snapCandidate=_stableSnapCandidate=Rect.Empty;return;}
@@ -1658,7 +1655,7 @@ public partial class CaptureOverlayWindow : Window
             var bounds=await Task.Run(()=>_windowSnap.FindTopmostTargetAt(screenX,screenY,handle),request.Token);
             if(_closed||request.IsCancellationRequested||!ReferenceEquals(_snapProbeRequest,request))return;
             var currentPointer=Mouse.GetPosition(Root);
-            if(_teachingPage is not null||_selecting||_moving||_recordingMode||_recordingCountdownActive||_drawingMode||_longCaptureMode||IsInteractingWithPrompt(currentPointer)||PointerInToolbarInteractionZone(currentPointer))
+            if(_selecting||_moving||_recordingMode||_recordingCountdownActive||_drawingMode||_longCaptureMode||IsInteractingWithPrompt(currentPointer)||PointerInToolbarInteractionZone(currentPointer))
             {ResetSnapPreview();return;}
             // Do not paint a result for a stale pointer location.  The latest
             // location is scheduled once this bounded probe is released.
@@ -2126,7 +2123,7 @@ public partial class CaptureOverlayWindow : Window
     }
     private void PositionHandles(Rect r){var list=new[]{Nw,N,Ne,W,E,Sw,S,Se};foreach(var t in list){t.Width=t.Height=10;t.Background=Cyan;t.Visibility=Visibility.Visible;}Set(Nw,r.Left,r.Top);Set(N,r.Left+r.Width/2,r.Top);Set(Ne,r.Right,r.Top);Set(W,r.Left,r.Top+r.Height/2);Set(E,r.Right,r.Top+r.Height/2);Set(Sw,r.Left,r.Bottom);Set(S,r.Left+r.Width/2,r.Bottom);Set(Se,r.Right,r.Bottom);static void Set(Thumb t,double x,double y){Canvas.SetLeft(t,x-5);Canvas.SetTop(t,y-5);}}
     private void HideHandles(){foreach(var t in new[]{Nw,N,Ne,W,E,Sw,S,Se})t.Visibility=Visibility.Collapsed;}
-    private void ResizeDelta(object sender,DragDeltaEventArgs e){if(RejectIfOverlayOperationBusy()||sender is not Thumb t||Active is not {IsImplicit:false} item||ReferenceEquals(item,_teachingPreview))return;_resizeOperationBefore??=CaptureOverlaySnapshot();SetPromptBarHidden(true);var d=t.Tag?.ToString()??"";var l=item.Bounds.Left;var top=item.Bounds.Top;var r=item.Bounds.Right;var b=item.Bounds.Bottom;if(d.Contains('W'))l=Math.Clamp(l+e.HorizontalChange,0,r-12);if(d.Contains('E'))r=Math.Clamp(r+e.HorizontalChange,l+12,Root.ActualWidth);if(d.Contains('N'))top=Math.Clamp(top+e.VerticalChange,0,b-12);if(d.Contains('S'))b=Math.Clamp(b+e.VerticalChange,top+12,Root.ActualHeight);var next=new Rect(new Point(l,top),new Point(r,b));var snapTarget=ProbeSnapRect(Mouse.GetPosition(Root),precise:false);if(!snapTarget.IsEmpty)next=SelectionSnapPolicy.SnapResize(next,d,snapTarget,9);if(CaptureOverlayPolicy.HasContentGeometryChanged(item.Bounds,next))InvalidateImageDerivedLayers(item);item.Bounds=next;UpdateSelection(item);ShowToolbar();e.Handled=true;}
+    private void ResizeDelta(object sender,DragDeltaEventArgs e){if(RejectIfOverlayOperationBusy()||sender is not Thumb t||Active is not {IsImplicit:false} item)return;_resizeOperationBefore??=CaptureOverlaySnapshot();SetPromptBarHidden(true);var d=t.Tag?.ToString()??"";var l=item.Bounds.Left;var top=item.Bounds.Top;var r=item.Bounds.Right;var b=item.Bounds.Bottom;if(d.Contains('W'))l=Math.Clamp(l+e.HorizontalChange,0,r-12);if(d.Contains('E'))r=Math.Clamp(r+e.HorizontalChange,l+12,Root.ActualWidth);if(d.Contains('N'))top=Math.Clamp(top+e.VerticalChange,0,b-12);if(d.Contains('S'))b=Math.Clamp(b+e.VerticalChange,top+12,Root.ActualHeight);var next=new Rect(new Point(l,top),new Point(r,b));var snapTarget=ProbeSnapRect(Mouse.GetPosition(Root),precise:false);if(!snapTarget.IsEmpty)next=SelectionSnapPolicy.SnapResize(next,d,snapTarget,9);if(CaptureOverlayPolicy.HasContentGeometryChanged(item.Bounds,next))InvalidateImageDerivedLayers(item);item.Bounds=next;UpdateSelection(item);ShowToolbar();e.Handled=true;}
     private void ResizeCompleted(object sender,DragCompletedEventArgs e){if(_resizeOperationBefore is { } before)RecordGeometryOperationIfChanged(before,"调整截图区域");_resizeOperationBefore=null;PositionPromptBar();if(Active is not null)ShowToolbar();SetPromptBarHidden(PointerOverSelection(Mouse.GetPosition(Root)));if(!e.Canceled)FocusPromptAfterSelection();e.Handled=true;}
 
     private void AddRegion(object s,RoutedEventArgs e){if(RejectIfOverlayOperationBusy())return;_forceNewSelection=true;Toolbar.Visibility=Visibility.Collapsed;HideHandles();PromptStatus.Text="拖动以添加另一个区域 · 可与现有区域重叠";SetPromptBarHidden(false);}
@@ -2229,6 +2226,37 @@ public partial class CaptureOverlayWindow : Window
             StartThinkingGlow(request);
             foreach(var video in targets.Select(item=>item.VideoPath).Where(path=>path is not null))attachmentLeases.Add(TempMediaRegistry.Shared.AcquireExistingFile(video!));
             attachments=await BuildAttachmentsAsync(targets,provider.Capabilities,request.Token);
+            if(!hasVideo&&targets.Count>0&&IsCodeLearningPrompt(prompt))
+            {
+                // Code screenshots often lose indentation when a vision model
+                // resizes them. Supply local OCR line geometry as untrusted
+                // evidence so the model can compare left edges instead of
+                // silently normalizing the student's code.
+                var layout=new System.Text.StringBuilder("\nLocal OCR layout evidence (untrusted; image remains authoritative):\n");
+                foreach(var (item,index) in targets.Select((item,index)=>(item,index)))
+                {
+                    try
+                    {
+                        var document=await new WindowsOcrService().RecognizeAsync(RenderSelectionImage(item,false,false,false),request.Token);
+                        layout.Append($"regionIndex={index} width={item.CapturedImageOverride?.PixelWidth??0}:\n");
+                        foreach(var line in document.Lines.Take(160))layout.Append($"left={line.X:F0} top={line.Y:F0} text={line.Text}\n");
+                        if(IsPythonLearningPrompt(prompt))
+                        {
+                            var lines=document.Lines.ToArray();
+                            for(var lineIndex=0;lineIndex+1<lines.Length;lineIndex++)
+                            {
+                                var header=lines[lineIndex];var body=lines[lineIndex+1];
+                                var headerText=header.Text.Replace(" ",string.Empty,StringComparison.Ordinal);
+                                var bodyText=body.Text.Replace(" ",string.Empty,StringComparison.Ordinal);
+                                if(headerText.Contains("for",StringComparison.OrdinalIgnoreCase)&&bodyText.Contains("+=",StringComparison.Ordinal)&&body.X<=header.X+Math.Max(18,header.Height*1.5))
+                                    layout.Append("LOCAL LAYOUT CHECK: the loop body appears at the same left edge as the for header; report a likely Python IndentationError and preserve the screenshot's original indentation.\n");
+                            }
+                        }
+                    }
+                    catch(Exception ex) when(ex is not OperationCanceledException){new PrivacyLogger().Info("CodeOcrHint",ex.GetType().Name);}
+                }
+                if(layout.Length>65)providerPrompt+=layout.ToString();
+            }
             foreach(var file in uploadedReferences)
             {
                 request.Token.ThrowIfCancellationRequested();
@@ -2322,6 +2350,13 @@ public partial class CaptureOverlayWindow : Window
         }
         return result;
     }
+
+    private static bool IsCodeLearningPrompt(string prompt)
+    {
+        return prompt.Contains("Python",StringComparison.OrdinalIgnoreCase)||prompt.Contains("Scratch",StringComparison.OrdinalIgnoreCase)||prompt.Contains("代码",StringComparison.Ordinal)||prompt.Contains("积木",StringComparison.Ordinal)||prompt.Contains("code",StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPythonLearningPrompt(string prompt)=>prompt.Contains("Python",StringComparison.OrdinalIgnoreCase)||prompt.Contains(".py",StringComparison.OrdinalIgnoreCase);
 
     private async Task<AnnotationMappingResult> MapAnnotationsAsync(IReadOnlyList<AiAnnotation> notes,CancellationToken token)
     {
@@ -3602,7 +3637,6 @@ public partial class CaptureOverlayWindow : Window
 
     private bool RejectIfOverlayOperationBusy()
     {
-        if(_teachingRequest is not null){PromptStatus.Text=LocalizationService.T("教学操作进行中，可在教学面板点击停止。","A teaching operation is running. Use Stop in the teaching panel.");return true;}
         if(_overlayRequest is not null){PromptStatus.Text=_overlayRequest.IsCancellationRequested?"正在取消当前操作…":"当前操作尚未完成 · 按 Esc 可取消";return true;}
         if(_request is not null){PromptStatus.Text=_request.IsCancellationRequested?"正在取消 AI 分析…":"AI 正在分析 · 按 Esc 可取消后再修改区域";return true;}
         return false;
@@ -3993,7 +4027,6 @@ public partial class CaptureOverlayWindow : Window
             e.Handled=true;return;
         }
         if(e.Key is Key.LeftShift or Key.RightShift&&RefreshDrawingConstraint(true)){e.Handled=true;return;}
-        if(IsTeachingControl(Keyboard.FocusedElement as DependencyObject))return;
         if(_longCaptureMode){e.Handled=true;return;}
         if(_drawingMode&&e.Key==Key.Enter&&
             (DrawingFontFamily.IsDropDownOpen||DrawingFontSize.IsDropDownOpen||
@@ -4021,7 +4054,7 @@ public partial class CaptureOverlayWindow : Window
                 PointerOverPromptBar(pointer),
                 _selections.Any(item=>!item.IsImplicit&&item.Bounds.Contains(pointer)));
             if(target==OverlayUndoTarget.Text)return;
-            if(_recordingCountdownActive||_recordingMode||_overlayRequest is not null||_request is not null||_teachingRequest is not null){PromptStatus.Text="当前操作完成后才能撤销或重做";e.Handled=true;return;}
+            if(_recordingCountdownActive||_recordingMode||_overlayRequest is not null||_request is not null){PromptStatus.Text="当前操作完成后才能撤销或重做";e.Handled=true;return;}
             if(_drawingMode){if(undo)DrawUndo(s,new());else DrawRedo(s,new());}
             else if(undo)UndoOverlayOperation();else RedoOverlayOperation();
             e.Handled=true;return;
