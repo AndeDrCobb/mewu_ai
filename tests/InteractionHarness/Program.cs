@@ -130,6 +130,10 @@ internal static class Program
         {
             AnswerMenuReplay.Run(app,overlay);app.Run(overlay);return;
         }
+        if(args.Contains("--verify-history-menu"))
+        {
+            HistoryMenuReplay.Run(app,overlay,english);app.Run(overlay);return;
+        }
         if(args.Contains("--verify-thinking-glow"))
         {
             ThinkingGlowReplay.Run(app,host,overlay);app.Run(overlay);return;

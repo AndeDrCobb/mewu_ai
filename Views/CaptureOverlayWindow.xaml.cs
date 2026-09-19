@@ -414,7 +414,7 @@ public partial class CaptureOverlayWindow : Window
         RecordingBar.Padding=new Thickness(8,6,8,6);
         PromptBar.Padding=new Thickness(6,2,6,6);
         PromptBar.CornerRadius=new CornerRadius(18);
-        HistoryPanel.MaxHeight=GetHistoryMaxHeight()+28;
+        HistoryPanel.MaxHeight=double.PositiveInfinity;
         HistoryScroll.MaxHeight=GetHistoryMaxHeight();
         ReferenceChipScroll.MaxHeight=CompactChipScrollMaxHeight;
         ReferenceChips.Margin=new Thickness(4,2,4,0);
@@ -717,9 +717,8 @@ public partial class CaptureOverlayWindow : Window
     {
         var monitor=PromptMonitorBounds();
         if(monitor.IsEmpty||!double.IsFinite(monitor.Height))return 104;
-        // History is an optional peek panel. Keep it compact so expanding the
-        // arrow does not push the composer far away from the screen edge;
-        // users can still scroll through all paired turns inside it.
+        // Only the history list scrolls; its heading and new-conversation
+        // action stay visible above it without enlarging the list budget.
         return Math.Clamp(monitor.Height*.14,84,112);
     }
 
@@ -1762,7 +1761,7 @@ public partial class CaptureOverlayWindow : Window
             var availableWidth=Math.Max(1,monitor.Width-CaptureOverlayPolicy.PromptSideMargin*2);
             PromptBar.Width=Math.Min(CaptureOverlayPolicy.PromptPreferredWidth,availableWidth);
             var historyMaxHeight=GetHistoryMaxHeight();
-            HistoryPanel.MaxHeight=historyMaxHeight+18;
+            HistoryPanel.MaxHeight=double.PositiveInfinity;
             HistoryScroll.MaxHeight=historyMaxHeight;
             // Remove a stale explicit height before measuring content that may
             // have gained reference chips or an answer since the last pass.

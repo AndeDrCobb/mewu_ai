@@ -16,6 +16,8 @@ internal static class LocalizationService
 {
     private static readonly Dictionary<string,string> English=new(StringComparer.Ordinal)
     {
+        ["新对话"]="New chat",["开始新对话"]="Start a new chat",["对话记录"]="Conversation history",
+        ["开始一个空白会话，不携带之前的对话上下文"]="Start a blank conversation without previous context",
         ["直线"]="Line",["直线标注工具"]="Line tool",
         ["外环选择颜色"]="Choose a hue on the ring",["色板调整深浅"]="Choose a shade on the color plane",
         ["色相环"]="Hue ring",["颜色深浅色板"]="Saturation and brightness palette",["十六进制颜色"]="Hex color",
