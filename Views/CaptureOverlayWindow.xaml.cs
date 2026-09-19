@@ -595,6 +595,12 @@ public partial class CaptureOverlayWindow : Window
     {
         _historyExpanded=!_historyExpanded;
         RefreshHistoryPreview();
+        if(_historyExpanded&&_promptDetached&&_conversationWorkspaceWindow is null)
+        {
+            DetachConversationWindow();
+            e.Handled=true;
+            return;
+        }
         if(_historyExpanded&&!_historyOpenedOnce)
         {
             HistoryScroll.UpdateLayout();

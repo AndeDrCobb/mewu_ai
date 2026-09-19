@@ -38,6 +38,13 @@ internal static class ConversationWorkspaceReplay
             Check(checks,"floating-widget-restores",workspace.IsVisible&&!widget.IsVisible);
             overlay.RedockConversationWindow();app.Dispatcher.Invoke(()=>{});
             Check(checks,"redock-restores-overlay",overlay.IsVisible&&hostElement.Parent==overlay.FindName("Root"));
+            typeof(CaptureOverlayWindow).GetField("_promptDetached",Private)!.SetValue(overlay,true);
+            typeof(CaptureOverlayWindow).GetField("_historyExpanded",Private)!.SetValue(overlay,false);
+            typeof(CaptureOverlayWindow).GetMethod("ToggleHistory",Private)!.Invoke(overlay,[null,new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)]);
+            app.Dispatcher.Invoke(()=>{});
+            var reordered=app.Windows.OfType<ConversationWorkspaceWindow>().SingleOrDefault()??throw new InvalidOperationException("History expansion did not upgrade a detached composer");
+            Check(checks,"expand-after-drag-upgrades-window",reordered.HasPromptBar(hostElement));
+            overlay.RedockConversationWindow();app.Dispatcher.Invoke(()=>{});
         }
         catch(Exception ex){failure=ex is TargetInvocationException tie?tie.InnerException?.Message??tie.Message:ex.Message;}
         finally
