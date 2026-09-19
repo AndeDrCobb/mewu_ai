@@ -134,6 +134,10 @@ internal static class Program
         {
             HistoryMenuReplay.Run(app,overlay,english);app.Run(overlay);return;
         }
+        if(args.Contains("--verify-conversation-workspace"))
+        {
+            ConversationWorkspaceReplay.Run(app,host,overlay);return;
+        }
         if(args.Contains("--verify-thinking-glow"))
         {
             ThinkingGlowReplay.Run(app,host,overlay);app.Run(overlay);return;

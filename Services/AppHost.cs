@@ -24,7 +24,7 @@ public sealed class AppHost : IDisposable
     // filtered by provider/model before they are exposed to another overlay.
     private readonly object _sessionHistoryGate=new();
     private readonly List<ConversationHistoryEntry> _sessionConversationHistory=[];
-    private GlobalHotkeyService? _hotkey; private Forms.NotifyIcon? _tray; private Forms.ContextMenuStrip? _trayMenu; private Icon? _ownedTrayIcon; private Font? _ownedTrayMenuFont; private MainWindow? _main; private SettingsWindow? _settingsWindow; private readonly List<Window> _auxiliaryWindows=[]; private bool _restoreMainAfterAuxiliary; private int _captureActive;
+    private GlobalHotkeyService? _hotkey; private Forms.NotifyIcon? _tray; private Forms.ContextMenuStrip? _trayMenu; private Icon? _ownedTrayIcon; private Font? _ownedTrayMenuFont; private MainWindow? _main; private SettingsWindow? _settingsWindow; private readonly List<Window> _auxiliaryWindows=[]; private bool _restoreMainAfterAuxiliary; private int _captureActive; private CaptureOverlayWindow? _activeCaptureOverlay;
     private int _disposed;
     public AppSettings Settings { get; private set; }=new(); public bool IsExiting { get; private set; }
     public bool IsCaptureActive => Volatile.Read(ref _captureActive) != 0;
@@ -99,9 +99,18 @@ public sealed class AppHost : IDisposable
             // while the launcher is still visible.  Hide it before the frame
             // is frozen so the assistant never captures its own launcher and
             // the overlay remains the single, clean surface the user sees.
+            var hiddenConversationWindows=new List<Window>();
             void HideLauncher()
             {
                 if (_main?.IsVisible == true){_main.Hide();NativeMethods.FlushComposition();}
+                foreach(var window in _app.Windows.OfType<ConversationWorkspaceWindow>().Where(window=>window.IsVisible).ToArray())
+                {
+                    hiddenConversationWindows.Add(window);window.Hide();
+                }
+                foreach(var widget in _app.Windows.OfType<ConversationFloatingWidget>().Where(window=>window.IsVisible).ToArray())
+                {
+                    hiddenConversationWindows.Add(widget);widget.Hide();
+                }
             }
             if(_app.Dispatcher.CheckAccess())HideLauncher();
             else await _app.Dispatcher.InvokeAsync(HideLauncher);
@@ -110,7 +119,8 @@ public sealed class AppHost : IDisposable
             void ShowCapture()
             {
                 token.ThrowIfCancellationRequested();
-                var overlay=new CaptureOverlayWindow(this);overlay.Closed+=(_,_)=>{Interlocked.Exchange(ref _captureActive,0);CrashDiagnosticsService.MarkOperation("空闲");};overlay.Show();overlay.Activate();
+                var overlay=new CaptureOverlayWindow(this);_activeCaptureOverlay=overlay;overlay.Closed+=(_,_)=>OnCaptureOverlayClosed(overlay);overlay.Show();overlay.Activate();
+                foreach(var window in hiddenConversationWindows)try{window.Show();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowRestore",ex);}catch{}}
             }
             // Hotkeys already arrive on the UI thread. Freeze that moment
             // directly; don't queue two extra turns before taking the frame.
@@ -123,6 +133,14 @@ public sealed class AppHost : IDisposable
             Interlocked.Exchange(ref _captureActive,0);new PrivacyLogger().Error("Capture",ex);
             CrashDiagnosticsService.MarkOperation("截图启动失败后空闲");
             if(!token.IsCancellationRequested&&!IsExiting)try{Notify("无法开始截图，请重试");}catch{}
+        }
+        finally
+        {
+            // If the capture was cancelled or failed before an overlay could
+            // be shown, do not leave minimized conversation widgets hidden.
+            if(_activeCaptureOverlay is null)
+                foreach(var window in _app.Windows.OfType<Window>().Where(window=>(window is ConversationWorkspaceWindow or ConversationFloatingWidget)&&!window.IsVisible).ToArray())
+                    try{window.Show();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowRestoreAfterCaptureFailure",ex);}catch{}}
         }
     }
     private MainWindow CreateMainWindow()
@@ -381,6 +399,34 @@ public sealed class AppHost : IDisposable
         lock(_sessionHistoryGate)_sessionConversationHistory.Clear();
     }
 
+    private void OnCaptureOverlayClosed(CaptureOverlayWindow overlay)
+    {
+        if(ReferenceEquals(_activeCaptureOverlay,overlay))
+        {
+            _activeCaptureOverlay=null;
+            Interlocked.Exchange(ref _captureActive,0);
+            CrashDiagnosticsService.MarkOperation("空闲");
+        }
+    }
+
+    internal void ReleaseCaptureForDetachedOverlay(CaptureOverlayWindow overlay)
+    {
+        if(ReferenceEquals(_activeCaptureOverlay,overlay))
+        {
+            _activeCaptureOverlay=null;
+            Interlocked.Exchange(ref _captureActive,0);
+        }
+    }
+
+    internal bool TryReacquireCaptureForOverlay(CaptureOverlayWindow overlay)
+    {
+        if(IsExiting||Volatile.Read(ref _disposed)!=0)return false;
+        if(ReferenceEquals(_activeCaptureOverlay,overlay))return true;
+        if(Interlocked.CompareExchange(ref _captureActive,1,0)!=0)return false;
+        _activeCaptureOverlay=overlay;
+        return true;
+    }
+
     /// <summary>
     /// Presents one auxiliary surface at a time. Keeping the launcher and
     /// other editor surfaces hidden while a child is open prevents transparent
@@ -465,7 +511,10 @@ public sealed class AppHost : IDisposable
     {
         if(Interlocked.Exchange(ref _disposed,1)!=0)return;
         var shouldCleanupTemp=_single.IsPrimary;
-        IsExiting=true;_lifetime.Cancel();Interlocked.Exchange(ref _captureActive,0);
+        IsExiting=true;_lifetime.Cancel();Interlocked.Exchange(ref _captureActive,0);_activeCaptureOverlay=null;
+        foreach(var overlay in _app.Windows.OfType<CaptureOverlayWindow>().ToArray())try{overlay.Close();}catch(Exception ex){try{new PrivacyLogger().Error("CaptureOverlayCloseOnExit",ex);}catch{}}
+        foreach(var window in _app.Windows.OfType<ConversationWorkspaceWindow>().ToArray())try{window.CloseForOwnerExit();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowCloseOnExit",ex);}catch{}}
+        foreach(var widget in _app.Windows.OfType<ConversationFloatingWidget>().ToArray())try{widget.CloseForOwnerExit();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWidgetCloseOnExit",ex);}catch{}}
         // Drain speech first, then stop the runtime and only afterwards clean
         // temporary media. This prevents deleting an audio file still opened
         // by WPF or disposing Hermes while synthesis is still in flight.

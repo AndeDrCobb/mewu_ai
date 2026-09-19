@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 展开对话历史后将对话条拖出，可升级为独立可缩放的截图会话窗口；窗口保留冻结画面、选区画布和聊天上下文，支持最小化为多个独立悬浮按钮、点击恢复、吸附回原对话条。创建新截图时会暂时避开已有会话窗口，不会改写或丢失已有会话状态。 / Drag the expanded conversation history out to upgrade the composer into a resizable screenshot conversation window. The window preserves the frozen frame, selection canvas and chat context, supports multiple independent floating widgets with restore and docking back to the original composer, and temporarily hides existing conversation windows while a new capture is frozen without changing or losing their state.
+
 - 重做教学批改为普通截图对话：移除旧的独立教学批改面板、页面收集器和侧栏核对入口。框选或上传内容后，用户可以直接在原有对话条用自然语言要求批改试卷、讲题、填答案、备课、解释材料或检查图形化编程 / Python；同一套提示覆盖语文、数学、英语及其他学科和非学科知识。公式按可复制 LaTeX 输出，代码保留语言标记和缩进，必要的短批注仍原位返回。 / Rework teaching review as ordinary screenshot conversation: remove the old teaching panel, page collector and side review entry. After selecting or uploading content, users can ask in the existing composer to grade papers, explain questions, fill answers, prepare lessons, explain materials, or review Scratch / Python code. The same guidance covers Chinese, mathematics, English and other subject or non-subject knowledge. Formulas use copyable LaTeX, code keeps language tags and indentation, and only necessary short annotations are placed in the original content.
 
 - 将“新对话”移入对话条上拉菜单的标题区；收起时不再占用一行，展开后与对话记录标题和历史列表保持统一圆角浅色布局，并通过中英文、滚动和窄宽度回放验证。 / Move “New chat” into the expanded composer menu header. It no longer consumes a row when collapsed, keeps the same light rounded layout as the conversation history and list when expanded, and is verified in Chinese and English at normal, scrolled, and narrow widths.

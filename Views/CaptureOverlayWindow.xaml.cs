@@ -858,6 +858,7 @@ public partial class CaptureOverlayWindow : Window
 
     private void OnClosed(object? sender,EventArgs e)
     {
+        var conversationWindow=_conversationWorkspaceWindow;_conversationWorkspaceWindow=null;conversationWindow?.CloseForOwnerExit();
         ReleaseTeachingLiveCapture();
         _toolbarHideTimer.Stop();
         _closed=true;
@@ -1752,6 +1753,7 @@ public partial class CaptureOverlayWindow : Window
     {
         if(_thinkingGlowRequest is not null)PositionThinkingGlow();
         if(!_conversationAiAvailable){PromptBarHost.Visibility=Visibility.Collapsed;return;}
+        if(_conversationWorkspaceWindow is not null){_conversationWorkspaceWindow.Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(()=>_conversationWorkspaceWindow?.UpdateLayout()));return;}
         if(_positioningPromptBar||_promptDragging||_promptDockAnimating||Root.ActualWidth<=0||Root.ActualHeight<=0)return;
         var monitor=PromptMonitorBounds();
         if(monitor.IsEmpty)return;
@@ -1852,6 +1854,10 @@ public partial class CaptureOverlayWindow : Window
     }
     private void SetPromptBarHidden(bool hidden,bool preserveToolbarPlacement=false)
     {
+        if(_conversationWorkspaceWindow is not null)
+        {
+            _promptBarHidden=false;PromptBarHost.Visibility=Visibility.Visible;PromptBarHost.IsHitTestVisible=true;return;
+        }
         if(hidden&&(_promptDetached||_promptDragging||_promptDockAnimating))return;
         if(!_conversationAiAvailable){_selectionPromptFocus=false;if(PromptBarHost.IsKeyboardFocusWithin)Root.Focus();PromptBarHost.Visibility=Visibility.Collapsed;PromptBarHost.IsHitTestVisible=false;return;}
         // Preserve immediate typing after selection only while the pointer stays
