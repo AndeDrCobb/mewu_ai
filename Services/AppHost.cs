@@ -25,6 +25,7 @@ public sealed class AppHost : IDisposable
     private readonly object _sessionHistoryGate=new();
     private readonly List<ConversationHistoryEntry> _sessionConversationHistory=[];
     private GlobalHotkeyService? _hotkey; private Forms.NotifyIcon? _tray; private Forms.ContextMenuStrip? _trayMenu; private Icon? _ownedTrayIcon; private Font? _ownedTrayMenuFont; private MainWindow? _main; private SettingsWindow? _settingsWindow; private readonly List<Window> _auxiliaryWindows=[]; private bool _restoreMainAfterAuxiliary; private int _captureActive; private CaptureOverlayWindow? _activeCaptureOverlay;
+    private Action? _restoreHiddenConversationSessions;
     private int _disposed;
     public AppSettings Settings { get; private set; }=new(); public bool IsExiting { get; private set; }
     public bool IsCaptureActive => Volatile.Read(ref _captureActive) != 0;
@@ -113,6 +114,7 @@ public sealed class AppHost : IDisposable
                 }
             }
             restoreConversationSessions=RestoreConversationSessions;
+            _restoreHiddenConversationSessions=RestoreConversationSessions;
             void HideLauncher()
             {
                 if (_main?.IsVisible == true){_main.Hide();NativeMethods.FlushComposition();}
@@ -150,7 +152,7 @@ public sealed class AppHost : IDisposable
         {
             // If the capture was cancelled or failed before an overlay could
             // be shown, do not leave minimized conversation widgets hidden.
-            if(_activeCaptureOverlay is null)restoreConversationSessions?.Invoke();
+            if(_activeCaptureOverlay is null){restoreConversationSessions?.Invoke();_restoreHiddenConversationSessions=null;}
         }
     }
     private MainWindow CreateMainWindow()
@@ -421,6 +423,8 @@ public sealed class AppHost : IDisposable
 
     internal void ReleaseCaptureForDetachedOverlay(CaptureOverlayWindow overlay)
     {
+        _restoreHiddenConversationSessions?.Invoke();
+        _restoreHiddenConversationSessions=null;
         if(ReferenceEquals(_activeCaptureOverlay,overlay))
         {
             _activeCaptureOverlay=null;
