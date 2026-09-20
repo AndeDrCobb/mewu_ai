@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修复历史对话悬停提示及模型/截图引用下拉层的阴影裁切：所有 Popup 现在为阴影预留透明边界，并在 100% / 175% / 200% 缩放及四个提示方向下通过实际渲染回放。 / Fix clipped shadows on the history hover tip and model / screenshot-reference popups: every Popup now reserves transparent shadow space and passes real render replays at 100%, 175%, and 200% scale in all four tooltip directions.
+
 - 将对话条拖出后再展开历史，或先展开历史再拖出，都会把原截图覆盖层中的对话条变成无边框可移动、可缩放的截图会话面板；冻结画面、选区、标注和聊天上下文始终留在原覆盖层，最小化会隐藏整张会话画面并生成可分别恢复的悬浮按钮，创建新截图不会改写已有会话。 / Drag the composer out and then expand history, or expand history before dragging, to transform the original bar into a borderless movable and resizable screenshot-session panel. The frozen frame, selections, annotations and chat context remain in the original overlay; minimizing hides the complete session canvas and creates independently restorable floating widgets, while new captures leave existing sessions unchanged.
 
 - 重做教学批改为普通截图对话：移除旧的独立教学批改面板、页面收集器和侧栏核对入口。框选或上传内容后，用户可以直接在原有对话条用自然语言要求批改试卷、讲题、填答案、备课、解释材料或检查图形化编程 / Python；同一套提示覆盖语文、数学、英语及其他学科和非学科知识。公式按可复制 LaTeX 输出，代码保留语言标记和缩进，必要的短批注仍原位返回。 / Rework teaching review as ordinary screenshot conversation: remove the old teaching panel, page collector and side review entry. After selecting or uploading content, users can ask in the existing composer to grade papers, explain questions, fill answers, prepare lessons, explain materials, or review Scratch / Python code. The same guidance covers Chinese, mathematics, English and other subject or non-subject knowledge. Formulas use copyable LaTeX, code keeps language tags and indentation, and only necessary short annotations are placed in the original content.

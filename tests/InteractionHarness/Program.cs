@@ -134,6 +134,10 @@ internal static class Program
         {
             HistoryMenuReplay.Run(app,overlay,english);app.Run(overlay);return;
         }
+        if(args.Contains("--verify-popup-shadows"))
+        {
+            PopupShadowReplay.Run(app,overlay);app.Run(overlay);return;
+        }
         if(args.Contains("--verify-conversation-workspace"))
         {
             ConversationWorkspaceReplay.Run(app,host,overlay);app.Run();return;
