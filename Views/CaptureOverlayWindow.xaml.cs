@@ -1286,6 +1286,7 @@ public partial class CaptureOverlayWindow : Window
     private void OnLostMouseCapture(object s,MouseEventArgs e){FinishInterruptedPointerInteraction();}
     private void OnDeactivated(object? s,EventArgs e)
     {
+        if(_conversationWorkspaceWindow is not null){_inactiveEscapeTimer.Stop();return;}
         if(_promptDragging)PromptDragHandle.CancelDrag();
         FinishInterruptedPointerInteraction();
         if(_drawingMode&&!_drawingModalOpen)FinishInterruptedDrawingMode();
@@ -1296,6 +1297,9 @@ public partial class CaptureOverlayWindow : Window
     {
         _inactiveEscapeTimer.Stop();
         if(_closed||!_overlayReady)return;
+        // A detached conversation panel activates above this window. Keep the
+        // original frozen frame while it is being edited.
+        if(_conversationWorkspaceWindow is not null){KeepOverlayBelowPinnedWindows();return;}
         if(_rightPassThroughVisual||_rightPassThrough?.IsActive==true)return;
         if(!IsKeyboardFocusWithin&&!_drawingModalOpen&&_systemFileDialogDepth==0)Root.Focus();
         if(_applicationSnapshotActive)return;

@@ -13,6 +13,8 @@ internal sealed class ConversationFloatingWidget : Window
 {
     private readonly ConversationWorkspaceWindow _owner;
 
+    internal ConversationWorkspaceWindow Workspace=>_owner;
+
     internal ConversationFloatingWidget(ConversationWorkspaceWindow owner)
     {
         _owner=owner??throw new ArgumentNullException(nameof(owner));
@@ -52,8 +54,10 @@ internal sealed class ConversationFloatingWidget : Window
     private void PlaceNearWorkArea()
     {
         var area=SystemParameters.WorkArea;
-        Left=Math.Max(area.Left+8,area.Right-Width-18);
-        Top=Math.Max(area.Top+8,area.Bottom-Height-22);
+        var index=Application.Current?.Windows.OfType<ConversationFloatingWidget>().Count(window=>window.IsVisible&&!ReferenceEquals(window,this))??0;
+        var column=index%4;var row=index/4;
+        Left=Math.Max(area.Left+8,area.Right-Width-18-column*(Width+10));
+        Top=Math.Max(area.Top+8,area.Bottom-Height-22-row*(Height+10));
     }
 
     internal void CloseForOwnerExit()

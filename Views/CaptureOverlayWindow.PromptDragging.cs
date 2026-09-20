@@ -6,7 +6,6 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Media.Animation;
 using mewu_ai_Assistant.Services;
 
@@ -97,13 +96,20 @@ public partial class CaptureOverlayWindow
         ConversationWorkspaceWindow? workspace=null;
         try
         {
-            var snapshot=RenderDetachedSnapshot();
+            var localLeft=Canvas.GetLeft(PromptBarHost);var localTop=Canvas.GetTop(PromptBarHost);
+            var screenOrigin=PresentationSource.FromVisual(this) is not null
+                ? PointToScreen(new Point(Math.Max(0,localLeft),Math.Max(0,localTop)))
+                : new Point(Left+Math.Max(0,localLeft),Top+Math.Max(0,localTop));
+            var initialWidth=Math.Max(520,Math.Min(900,Math.Max(PromptBar.ActualWidth,PromptBar.DesiredSize.Width)));
+            var initialHeight=Math.Max(300,Math.Min(720,Math.Max(PromptBar.ActualHeight,PromptBar.DesiredSize.Height)));
             if(PromptBarHost.Parent is Panel parent)parent.Children.Remove(PromptBarHost);
             _promptDetached=true;_promptBarHidden=false;PromptBarHost.Visibility=Visibility.Visible;PromptBarHost.IsHitTestVisible=true;
-            workspace=new ConversationWorkspaceWindow(this,snapshot);
+            workspace=new ConversationWorkspaceWindow(this,new Rect(screenOrigin.X,screenOrigin.Y,initialWidth,initialHeight));
             _conversationWorkspaceWindow=workspace;
             workspace.AttachPromptBar(PromptBarHost);
-            Hide();Topmost=false;Cursor=Cursors.Arrow;
+            // The capture overlay remains the frozen screenshot canvas.  Only
+            // the original conversation bar is lifted into the compact panel.
+            Show();Topmost=true;Cursor=Cursors.Arrow;
             _host.ReleaseCaptureForDetachedOverlay(this);
             workspace.Show();workspace.Activate();
         }
@@ -117,22 +123,6 @@ public partial class CaptureOverlayWindow
             PromptBarHost.Visibility=Visibility.Visible;PromptBarHost.IsHitTestVisible=true;_promptDetached=false;
             PromptStatus.Text=L("无法打开独立对话窗口，请重试。","Unable to open the conversation window. Please try again.");
             PositionPromptBar();
-        }
-    }
-
-    private BitmapSource RenderDetachedSnapshot()
-    {
-        var hostVisibility=PromptBarHost.Visibility;var dimmerVisibility=Dimmer.Visibility;var toolbarVisibility=Toolbar.Visibility;var drawVisibility=DrawingToolbar.Visibility;var dockHintVisibility=PromptDockHint.Visibility;var sizeVisibility=SizeText.Visibility;var pointerVisibility=PointerInspector.Visibility;var countdownVisibility=RecordingCountdown.Visibility;
-        try
-        {
-            PromptBarHost.Visibility=Visibility.Collapsed;Dimmer.Visibility=Visibility.Collapsed;Toolbar.Visibility=DrawingToolbar.Visibility=PromptDockHint.Visibility=SizeText.Visibility=PointerInspector.Visibility=RecordingCountdown.Visibility=Visibility.Collapsed;
-            Root.UpdateLayout();
-            var width=Math.Max(1,(int)Math.Round(Root.ActualWidth));var height=Math.Max(1,(int)Math.Round(Root.ActualHeight));
-            var bitmap=new RenderTargetBitmap(width,height,96,96,PixelFormats.Pbgra32);bitmap.Render(Root);bitmap.Freeze();return bitmap;
-        }
-        finally
-        {
-            PromptBarHost.Visibility=hostVisibility;Dimmer.Visibility=dimmerVisibility;Toolbar.Visibility=toolbarVisibility;DrawingToolbar.Visibility=drawVisibility;PromptDockHint.Visibility=dockHintVisibility;SizeText.Visibility=sizeVisibility;PointerInspector.Visibility=pointerVisibility;RecordingCountdown.Visibility=countdownVisibility;
         }
     }
 
@@ -157,6 +147,18 @@ public partial class CaptureOverlayWindow
     }
 
     internal void RestoreFromConversationWidget()=>_conversationWorkspaceWindow?.RestoreFromWidget();
+
+    internal void HideDetachedSession()
+    {
+        if(_conversationWorkspaceWindow is null||_closed)return;
+        Hide();
+    }
+
+    internal void ShowDetachedSession()
+    {
+        if(_conversationWorkspaceWindow is null||_closed)return;
+        Show();Topmost=true;
+    }
 
     internal void CloseDetachedConversationWindow()
     {

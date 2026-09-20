@@ -93,23 +93,36 @@ public sealed class AppHost : IDisposable
         if(Interlocked.CompareExchange(ref _captureActive,1,0)!=0)return;
         CrashDiagnosticsService.MarkOperation("启动屏幕助手");
         var token=_lifetime.Token;
+        Action? restoreConversationSessions=null;
         try
         {
             // A capture can be triggered from the tray or the global hotkey
             // while the launcher is still visible.  Hide it before the frame
             // is frozen so the assistant never captures its own launcher and
             // the overlay remains the single, clean surface the user sees.
-            var hiddenConversationWindows=new List<Window>();
+            var hiddenConversationSessions=new List<(Window Window,CaptureOverlayWindow Overlay)>();
+            var restoredConversationSessions=false;
+            void RestoreConversationSessions()
+            {
+                if(restoredConversationSessions)return;
+                restoredConversationSessions=true;
+                foreach(var (window,overlay) in hiddenConversationSessions)
+                {
+                    try{overlay.ShowDetachedSession();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationOverlayRestore",ex);}catch{}}
+                    try{if(!window.IsVisible)window.Show();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowRestore",ex);}catch{}}
+                }
+            }
+            restoreConversationSessions=RestoreConversationSessions;
             void HideLauncher()
             {
                 if (_main?.IsVisible == true){_main.Hide();NativeMethods.FlushComposition();}
                 foreach(var window in _app.Windows.OfType<ConversationWorkspaceWindow>().Where(window=>window.IsVisible).ToArray())
                 {
-                    hiddenConversationWindows.Add(window);window.Hide();
+                    hiddenConversationSessions.Add((window,window.Overlay));window.Overlay.HideDetachedSession();window.Hide();
                 }
                 foreach(var widget in _app.Windows.OfType<ConversationFloatingWidget>().Where(window=>window.IsVisible).ToArray())
                 {
-                    hiddenConversationWindows.Add(widget);widget.Hide();
+                    hiddenConversationSessions.Add((widget,widget.Workspace.Overlay));widget.Workspace.Overlay.HideDetachedSession();widget.Hide();
                 }
             }
             if(_app.Dispatcher.CheckAccess())HideLauncher();
@@ -119,8 +132,7 @@ public sealed class AppHost : IDisposable
             void ShowCapture()
             {
                 token.ThrowIfCancellationRequested();
-                var overlay=new CaptureOverlayWindow(this);_activeCaptureOverlay=overlay;overlay.Closed+=(_,_)=>OnCaptureOverlayClosed(overlay);overlay.Show();overlay.Activate();
-                foreach(var window in hiddenConversationWindows)try{window.Show();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowRestore",ex);}catch{}}
+                var overlay=new CaptureOverlayWindow(this);_activeCaptureOverlay=overlay;overlay.Closed+=(_,_)=>{OnCaptureOverlayClosed(overlay);RestoreConversationSessions();};overlay.Show();overlay.Activate();
             }
             // Hotkeys already arrive on the UI thread. Freeze that moment
             // directly; don't queue two extra turns before taking the frame.
@@ -138,9 +150,7 @@ public sealed class AppHost : IDisposable
         {
             // If the capture was cancelled or failed before an overlay could
             // be shown, do not leave minimized conversation widgets hidden.
-            if(_activeCaptureOverlay is null)
-                foreach(var window in _app.Windows.OfType<Window>().Where(window=>(window is ConversationWorkspaceWindow or ConversationFloatingWidget)&&!window.IsVisible).ToArray())
-                    try{window.Show();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowRestoreAfterCaptureFailure",ex);}catch{}}
+            if(_activeCaptureOverlay is null)restoreConversationSessions?.Invoke();
         }
     }
     private MainWindow CreateMainWindow()

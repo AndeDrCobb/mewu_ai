@@ -29,13 +29,13 @@ internal static class ConversationWorkspaceReplay
             app.Dispatcher.Invoke(()=>{foreach(var _ in new[]{1,2,3})app.Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Render,new Action(()=>{}));});
             var workspace=app.Windows.OfType<ConversationWorkspaceWindow>().SingleOrDefault()??throw new InvalidOperationException("Detached conversation window was not created");
             var hostElement=(FrameworkElement)overlay.FindName("PromptBarHost");
-            Check(checks,"detached-window-created",!overlay.IsVisible&&workspace.HasPromptBar(hostElement));
-            Check(checks,"detached-window-resizable",workspace.ResizeMode==ResizeMode.CanResize&&workspace.MinWidth>=600&&workspace.MinHeight>=400);
+            Check(checks,"detached-window-keeps-frozen-canvas",overlay.IsVisible&&workspace.IsVisible&&workspace.HasPromptBar(hostElement));
+            Check(checks,"detached-bar-is-borderless-panel",workspace.WindowStyle==WindowStyle.None&&workspace.ResizeMode==ResizeMode.NoResize&&!workspace.ShowInTaskbar&&workspace.Topmost&&workspace.HasResizeHandles&&workspace.MinWidth>=480&&workspace.MinHeight>=280);
             workspace.MinimizeToWidget();app.Dispatcher.Invoke(()=>{});
             var widget=app.Windows.OfType<ConversationFloatingWidget>().SingleOrDefault()??throw new InvalidOperationException("Floating widget was not created");
-            Check(checks,"minimized-to-floating-widget",!workspace.IsVisible&&widget.IsVisible);
+            Check(checks,"minimized-hides-full-canvas",!overlay.IsVisible&&!workspace.IsVisible&&widget.IsVisible);
             workspace.RestoreFromWidget();app.Dispatcher.Invoke(()=>{});
-            Check(checks,"floating-widget-restores",workspace.IsVisible&&!widget.IsVisible);
+            Check(checks,"floating-widget-restores-full-session",overlay.IsVisible&&workspace.IsVisible&&!widget.IsVisible);
             overlay.RedockConversationWindow();app.Dispatcher.Invoke(()=>{});
             Check(checks,"redock-restores-overlay",overlay.IsVisible&&hostElement.Parent==overlay.FindName("Root"));
             typeof(CaptureOverlayWindow).GetField("_promptDetached",Private)!.SetValue(overlay,true);
