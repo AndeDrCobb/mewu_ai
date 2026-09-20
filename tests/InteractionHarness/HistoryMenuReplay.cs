@@ -40,6 +40,8 @@ internal static class HistoryMenuReplay
                 toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Layout();
                 Check("expanded-shows-new-chat",button.IsVisible&&panel.IsAncestorOf(button));
                 Check("header-outside-scrolling-list",!scroll.IsAncestorOf(button));
+                var bubbleRows=Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<Border>().Where(border=>border.Child is StackPanel&&border.CornerRadius.TopLeft>=14).ToArray();
+                Check("expanded-history-uses-left-right-bubbles",bubbleRows.Any(border=>border.HorizontalAlignment==System.Windows.HorizontalAlignment.Left)&&bubbleRows.Any(border=>border.HorizontalAlignment==System.Windows.HorizontalAlignment.Right));
                 CheckBounds();Save("expanded");
                 scroll.ScrollToEnd();await Layout();Check("action-stays-visible-after-scroll",button.IsVisible);CheckBounds();
                 // Inspect the actual production panel at a narrow width too.
@@ -67,6 +69,7 @@ internal static class HistoryMenuReplay
             catch(Exception ex){failure=ex.ToString();Environment.ExitCode=1;}
             finally{File.WriteAllText(Path.Combine(folder,prefix+"-result.json"),JsonSerializer.Serialize(new{checks,failure}));overlay.Close();app.Shutdown(Environment.ExitCode);}
             void Check(string name,bool success){if(!success)throw new InvalidOperationException(name);checks.Add(name);}
+            IEnumerable<DependencyObject> Descendants(DependencyObject root){for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);yield return child;foreach(var nested in Descendants(child))yield return nested;}}
             object? Invoke(string name,params object[] values)=>typeof(CaptureOverlayWindow).GetMethod(name,BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(overlay,values);
         }));
     }

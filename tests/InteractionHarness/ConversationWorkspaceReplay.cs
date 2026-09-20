@@ -40,10 +40,13 @@ internal static class ConversationWorkspaceReplay
             var barHost=(FrameworkElement)overlay.FindName("PromptBarHost");
             var prompt=(System.Windows.Controls.TextBox)overlay.FindName("QuickPrompt");
             var historyScroll=(ScrollViewer)overlay.FindName("HistoryScroll");
+            var promptDragHandle=(Thumb)overlay.FindName("PromptDragHandle");
             Check(checks,"original-canvas-visible",overlay.IsVisible&&workspace.IsVisible);
             Check(checks,"content-reparented-without-composer-shell",workspace.HasConversation(content)&&bar.Child is null&&barHost.Visibility==Visibility.Collapsed);
-            Check(checks,"old-composer-drag-handle-not-in-window",!Descendants(workspace).OfType<Thumb>().Any(t=>t.Tag is null));
+            Check(checks,"old-composer-drag-handle-not-in-window",!workspace.IsAncestorOf(promptDragHandle));
             Check(checks,"reference-chip-styles-follow-window",workspace.Resources["ReferenceChipButton"] is Style&&workspace.Resources["ReferenceChipRemoveButton"] is Style);
+            var historyBubbles=Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<Border>().Where(border=>border.Child is StackPanel&&border.CornerRadius.TopLeft>=14).ToArray();
+            Check(checks,"history-uses-left-right-bubbles",historyBubbles.Any(border=>border.HorizontalAlignment==System.Windows.HorizontalAlignment.Left)&&historyBubbles.Any(border=>border.HorizontalAlignment==System.Windows.HorizontalAlignment.Right));
             var frozenImage=((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source;
             Check(checks,"history-fills-window",historyScroll.ActualHeight>160);
             prompt.Text="把第二步再讲详细一点";prompt.Focus();Pump(app);
@@ -58,6 +61,7 @@ internal static class ConversationWorkspaceReplay
             var answer=(MarkdownAnswerView)overlay.FindName("AnswerText");
             answer.Markdown="### 解题步骤\n\n1. **整理条件**：列出已知量与要求的量。\n2. **建立关系**：根据题意写出算式。\n3. **检查结果**：代入原条件，核对单位与范围。\n\n你可以继续圈选原截图中的某一步，我会针对那一步展开解释。";
             Invoke(overlay,"ShowAnswer");Pump(app);Save(workspace,"conversation-answer.png");
+            Check(checks,"current-answer-uses-bubble-surface",((FrameworkElement)overlay.FindName("AnswerHeader")).Visibility==Visibility.Collapsed&&((Border)overlay.FindName("AnswerScroll")).BorderThickness.Left==1);
             Check(checks,"answer-and-history-fit",answer.ActualHeight>30&&historyScroll.ActualHeight>60&&prompt.TransformToAncestor(workspace).TransformBounds(new Rect(prompt.RenderSize)).Bottom<workspace.ActualHeight-8);
             workspace.MinimizeToWidget();Pump(app);
             var widget=app.Windows.OfType<ConversationFloatingWidget>().Single();

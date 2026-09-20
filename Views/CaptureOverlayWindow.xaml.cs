@@ -595,6 +595,7 @@ public partial class CaptureOverlayWindow : Window
     {
         _historyExpanded=!_historyExpanded;
         RefreshHistoryPreview();
+        ApplyBubbleAnswerStyle(_historyExpanded||_conversationWorkspaceWindow is not null);
         if(_historyExpanded&&_promptDetached&&_conversationWorkspaceWindow is null)
         {
             DetachConversationWindow();
@@ -608,7 +609,16 @@ public partial class CaptureOverlayWindow : Window
             _historyOpenedOnce=true;
         }
         PositionPromptBar();
+        AnimateHistoryReveal();
         e.Handled=true;
+    }
+
+    private void AnimateHistoryReveal()
+    {
+        if(!_historyExpanded||!SystemParameters.ClientAreaAnimation||_conversationWorkspaceWindow is not null)return;
+        HistoryPanel.Opacity=1;
+        var transform=new TranslateTransform();HistoryPanel.RenderTransform=transform;
+        transform.BeginAnimation(TranslateTransform.YProperty,new DoubleAnimation(10,0,TimeSpan.FromMilliseconds(220)){EasingFunction=new CubicEase{EasingMode=EasingMode.EaseOut},FillBehavior=FillBehavior.Stop});
     }
 
     private void StartNewConversation(object sender,RoutedEventArgs e)
@@ -690,24 +700,34 @@ public partial class CaptureOverlayWindow : Window
 
     private Border CreateHistoryPair(string prompt,string answer,bool current)
     {
-        var card=new Border
+        var stream=new StackPanel{Margin=new Thickness(0,0,0,6)};
+        stream.Children.Add(CreateConversationBubble(LocalizationService.T("你","You"),prompt,true,current));
+        stream.Children.Add(CreateConversationBubble("AI",answer,false,current));
+        return new Border{Background=Brushes.Transparent,Child=stream};
+    }
+
+    private Border CreateConversationBubble(string label,string text,bool user,bool current)
+    {
+        var bubble=new Border
         {
-            Background=new SolidColorBrush(current?Color.FromRgb(232,237,255):Color.FromRgb(255,255,255)),
-            BorderBrush=new SolidColorBrush(current?Color.FromRgb(197,207,250):Color.FromRgb(224,231,240)),
+            HorizontalAlignment=user?HorizontalAlignment.Right:HorizontalAlignment.Left,
+            MaxWidth=560,
+            Background=new SolidColorBrush(user
+                ?(current?Color.FromRgb(232,237,255):Color.FromRgb(239,244,255))
+                :(current?Color.FromRgb(246,248,253):Color.FromRgb(248,250,253))),
+            BorderBrush=new SolidColorBrush(user
+                ?(current?Color.FromRgb(196,207,250):Color.FromRgb(213,223,246))
+                :(current?Color.FromRgb(220,228,241):Color.FromRgb(229,235,243))),
             BorderThickness=new Thickness(1),
-            CornerRadius=new CornerRadius(9),
-            Padding=new Thickness(8,6,8,6),
-            Margin=new Thickness(0,0,0,5)
+            CornerRadius=new CornerRadius(15),
+            Padding=new Thickness(12,8,12,8),
+            Margin=user?new Thickness(44,3,2,3):new Thickness(2,3,44,3)
         };
         var content=new StackPanel();
-        var roleColor=new SolidColorBrush(current?Color.FromRgb(79,95,207):Color.FromRgb(96,112,135));
-        content.Children.Add(new TextBlock{Text=LocalizationService.T("用户","You"),Foreground=roleColor,FontSize=10.5,FontWeight=FontWeights.SemiBold});
-        content.Children.Add(CreateHistoryText(prompt,new Thickness(0,2,0,5)));
-        content.Children.Add(new Border{Height=1,Background=new SolidColorBrush(current?Color.FromRgb(205,214,246):Color.FromRgb(230,235,242)),Margin=new Thickness(0,0,0,5)});
-        content.Children.Add(new TextBlock{Text="AI",Foreground=roleColor,FontSize=10.5,FontWeight=FontWeights.SemiBold});
-        content.Children.Add(CreateHistoryText(answer,new Thickness(0,2,0,0)));
-        card.Child=content;
-        return card;
+        content.Children.Add(new TextBlock{Text=label,Foreground=new SolidColorBrush(user?Color.FromRgb(79,95,207):Color.FromRgb(96,112,135)),FontSize=10.5,FontWeight=FontWeights.SemiBold});
+        content.Children.Add(CreateHistoryText(text,new Thickness(0,2,0,0)));
+        bubble.Child=content;
+        return bubble;
     }
 
     private bool _historyCopyMenuOpen;
@@ -1910,7 +1930,19 @@ public partial class CaptureOverlayWindow : Window
         transform.BeginAnimation(TranslateTransform.YProperty,movement);
         PromptBarHost.BeginAnimation(OpacityProperty,new DoubleAnimation(currentOpacity,targetOpacity,TimeSpan.FromMilliseconds(_promptBarHidden?120:190)){FillBehavior=FillBehavior.Stop});
     }
-    private void ShowAnswer(){SetPromptBarHidden(false);ResponseScroll.Visibility=Visibility.Visible;if(_answerExpanded)return;_answerExpanded=true;AnswerHeader.Visibility=AnswerScroll.Visibility=AnswerDivider.Visibility=Visibility.Visible;if(ReasoningToggle.Visibility!=Visibility.Visible&&!string.IsNullOrWhiteSpace(_reasoningBuffer.ToString()))RevealReasoningInProgress();_ = Dispatcher.BeginInvoke(DispatcherPriority.Render,PositionPromptBar);}
+    private void ApplyBubbleAnswerStyle(bool enabled)
+    {
+        AnswerHeader.Visibility=enabled?Visibility.Collapsed:(_answerExpanded?Visibility.Visible:Visibility.Collapsed);
+        AnswerDivider.Visibility=enabled?Visibility.Collapsed:AnswerHeader.Visibility;
+        AnswerScroll.Background=enabled?new SolidColorBrush(Color.FromRgb(246,248,253)):Brushes.Transparent;
+        AnswerScroll.BorderBrush=enabled?new SolidColorBrush(Color.FromRgb(222,229,241)):Brushes.Transparent;
+        AnswerScroll.BorderThickness=enabled?new Thickness(1):new Thickness(0);
+        AnswerScroll.CornerRadius=enabled?new CornerRadius(15,15,15,4):new CornerRadius(0);
+        AnswerScroll.Padding=enabled?new Thickness(12,9,12,9):new Thickness(0);
+        AnswerScroll.Margin=enabled?new Thickness(8,7,70,8):new Thickness(8,8,8,8);
+        AnswerScroll.HorizontalAlignment=enabled?HorizontalAlignment.Left:HorizontalAlignment.Stretch;
+    }
+    private void ShowAnswer(){SetPromptBarHidden(false);ResponseScroll.Visibility=Visibility.Visible;AnswerScroll.Visibility=Visibility.Visible;_answerExpanded=true;ApplyBubbleAnswerStyle(_historyExpanded||_conversationWorkspaceWindow is not null);if(ReasoningToggle.Visibility!=Visibility.Visible&&!string.IsNullOrWhiteSpace(_reasoningBuffer.ToString()))RevealReasoningInProgress();_ = Dispatcher.BeginInvoke(DispatcherPriority.Render,PositionPromptBar);}
     private void ToggleReasoning(object s,RoutedEventArgs e){_reasoningExpanded=!_reasoningExpanded;ReasoningPanel.Visibility=_reasoningExpanded?Visibility.Visible:Visibility.Collapsed;ReasoningChevronRotation.Angle=_reasoningExpanded?180:0;_ = Dispatcher.BeginInvoke(PositionPromptBar);}
     private void ShowReasoning(string delta,CancellationTokenSource request)
     {
