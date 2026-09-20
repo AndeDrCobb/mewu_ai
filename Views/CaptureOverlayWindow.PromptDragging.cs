@@ -201,6 +201,12 @@ public partial class CaptureOverlayWindow
         else if(e.Key==Key.F8&&_teachingCaptureFinishRegistered){FinishTeachingLiveCapture();e.Handled=true;}
     }
 
+    private void ConversationPopupPreviewKeyDown(object? sender,KeyEventArgs e)
+    {
+        if(e.Key!=Key.Escape)return;
+        HandleEscape();e.Handled=true;
+    }
+
     internal void RedockConversationWindow()
     {
         if(_conversationWorkspaceWindow is null||_closed)return;
