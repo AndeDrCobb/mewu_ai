@@ -136,7 +136,7 @@ internal static class Program
         }
         if(args.Contains("--verify-conversation-workspace"))
         {
-            ConversationWorkspaceReplay.Run(app,host,overlay);return;
+            ConversationWorkspaceReplay.Run(app,host,overlay);app.Run();return;
         }
         if(args.Contains("--verify-thinking-glow"))
         {

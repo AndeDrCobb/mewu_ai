@@ -683,7 +683,7 @@ public partial class CaptureOverlayWindow : Window
         HistoryToggle.ToolTip=conversationCount>0
             ?LocalizationService.T($"查看提问与历史（{conversationCount}）",$"Prompt & history ({conversationCount})")
             :LocalizationService.T("查看提问与历史","Prompt & history");
-        HistoryPanel.Visibility=_historyExpanded?Visibility.Visible:Visibility.Collapsed;
+        HistoryPanel.Visibility=_historyExpanded||_conversationWorkspaceWindow is not null?Visibility.Visible:Visibility.Collapsed;
         HistoryChevronRotation.Angle=_historyExpanded?0:180;
         HistoryScroll.MaxHeight=GetHistoryMaxHeight();
     }
@@ -1762,8 +1762,8 @@ public partial class CaptureOverlayWindow : Window
     private void PositionPromptBar()
     {
         if(_thinkingGlowRequest is not null)PositionThinkingGlow();
+        if(_conversationWorkspaceWindow is not null){_conversationWorkspaceWindow.LayoutPrompt();return;}
         if(!_conversationAiAvailable){PromptBarHost.Visibility=Visibility.Collapsed;return;}
-        if(_conversationWorkspaceWindow is not null){_conversationWorkspaceWindow.Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(()=>_conversationWorkspaceWindow?.UpdateLayout()));return;}
         if(_positioningPromptBar||_promptDragging||_promptDockAnimating||Root.ActualWidth<=0||Root.ActualHeight<=0)return;
         var monitor=PromptMonitorBounds();
         if(monitor.IsEmpty)return;
@@ -1806,7 +1806,7 @@ public partial class CaptureOverlayWindow : Window
         _=Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(() =>
         {
             _promptBarLayoutPassQueued=false;
-            if(_closed||!IsLoaded||PromptBarHost.Visibility!=Visibility.Visible)return;
+            if(_closed||!IsLoaded||_conversationWorkspaceWindow is not null||PromptBarHost.Visibility!=Visibility.Visible)return;
             if(_promptDragging||_promptDockAnimating)return;
             var monitor=PromptMonitorBounds();
             if(monitor.IsEmpty)return;
@@ -1832,7 +1832,7 @@ public partial class CaptureOverlayWindow : Window
         _=Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(() =>
         {
             _promptBarInputLayoutQueued=false;
-            if(_closed||!IsLoaded||PromptBarHost.Visibility!=Visibility.Visible)return;
+            if(_closed||!IsLoaded||(_conversationWorkspaceWindow is null&&PromptBarHost.Visibility!=Visibility.Visible))return;
             // TextBox text changes invalidate the child, but the overlay is
             // hosted by a Canvas and can otherwise keep the previous arranged
             // height for one frame.  Re-measure the composer at render priority
@@ -1866,7 +1866,7 @@ public partial class CaptureOverlayWindow : Window
     {
         if(_conversationWorkspaceWindow is not null)
         {
-            _promptBarHidden=false;PromptBarHost.Visibility=Visibility.Visible;PromptBarHost.IsHitTestVisible=true;return;
+            _promptBarHidden=false;PromptBarHost.Visibility=Visibility.Collapsed;return;
         }
         if(hidden&&(_promptDetached||_promptDragging||_promptDockAnimating))return;
         if(!_conversationAiAvailable){_selectionPromptFocus=false;if(PromptBarHost.IsKeyboardFocusWithin)Root.Focus();PromptBarHost.Visibility=Visibility.Collapsed;PromptBarHost.IsHitTestVisible=false;return;}
