@@ -20,6 +20,7 @@ public partial class CaptureOverlayWindow
     private bool _promptDragWasDetached;
     private int _promptDockAnimationVersion;
     private ConversationWorkspaceWindow? _conversationWorkspaceWindow;
+    private bool _conversationSessionFrozen;
     private readonly List<(DependencyObject Target,DependencyProperty Property,object Value)> _conversationLayoutRestore=[];
     private StackPanel? _conversationHistoryStack;
     private Grid? _conversationHistoryGrid;
@@ -106,6 +107,7 @@ public partial class CaptureOverlayWindow
             var initialWidth=Math.Max(520,Math.Min(900,Math.Max(PromptBar.ActualWidth,PromptBar.DesiredSize.Width)));
             var initialHeight=Math.Max(300,Math.Min(720,Math.Max(PromptBar.ActualHeight,PromptBar.DesiredSize.Height)));
             _promptDetached=true;_promptBarHidden=false;
+            _conversationSessionFrozen=true;
             workspace=new ConversationWorkspaceWindow(this,new Rect(screenOrigin.X,screenOrigin.Y,initialWidth,initialHeight));
             _conversationWorkspaceWindow=workspace;
             PrepareConversationLayout();

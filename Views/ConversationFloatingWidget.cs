@@ -30,8 +30,7 @@ internal sealed class ConversationFloatingWidget : Window
 
     private FrameworkElement BuildContent()
     {
-        var shell=new Border{Background=new SolidColorBrush(Color.FromRgb(249,251,255)),BorderBrush=new SolidColorBrush(Color.FromRgb(190,201,230)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(18),Padding=new Thickness(9,6,9,6)};
-        shell.Effect=new System.Windows.Media.Effects.DropShadowEffect{Color=Color.FromRgb(36,50,78),BlurRadius=18,ShadowDepth=5,Opacity=.28};
+        var shell=new Border{Background=new SolidColorBrush(Color.FromRgb(249,251,255)),BorderBrush=new SolidColorBrush(Color.FromRgb(211,220,235)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(18),Padding=new Thickness(9,6,9,6)};
         var row=new DockPanel{LastChildFill=true};
         var close=new Button{Content="×",Width=24,Height=24,Padding=new Thickness(0),Margin=new Thickness(5,0,0,0),ToolTip=LocalizationService.T("关闭会话","Close conversation"),Foreground=new SolidColorBrush(Color.FromRgb(113,126,151)),Background=Brushes.Transparent,BorderThickness=new Thickness(0),FontSize=17};
         close.Click+=(_,_)=>_owner.CloseSession();DockPanel.SetDock(close,Dock.Right);row.Children.Add(close);

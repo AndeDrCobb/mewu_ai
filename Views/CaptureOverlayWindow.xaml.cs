@@ -1299,7 +1299,7 @@ public partial class CaptureOverlayWindow : Window
         if(_closed||!_overlayReady)return;
         // A detached conversation panel activates above this window. Keep the
         // original frozen frame while it is being edited.
-        if(_conversationWorkspaceWindow is not null){KeepOverlayBelowPinnedWindows();return;}
+        if(_conversationWorkspaceWindow is not null||_conversationSessionFrozen){KeepOverlayBelowPinnedWindows();return;}
         if(_rightPassThroughVisual||_rightPassThrough?.IsActive==true)return;
         if(!IsKeyboardFocusWithin&&!_drawingModalOpen&&_systemFileDialogDepth==0)Root.Focus();
         if(_applicationSnapshotActive)return;

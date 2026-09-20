@@ -43,6 +43,8 @@ internal static class ConversationWorkspaceReplay
             Check(checks,"original-canvas-visible",overlay.IsVisible&&workspace.IsVisible);
             Check(checks,"content-reparented-without-composer-shell",workspace.HasConversation(content)&&bar.Child is null&&barHost.Visibility==Visibility.Collapsed);
             Check(checks,"old-composer-drag-handle-not-in-window",!Descendants(workspace).OfType<Thumb>().Any(t=>t.Tag is null));
+            Check(checks,"reference-chip-styles-follow-window",workspace.Resources["ReferenceChipButton"] is Style&&workspace.Resources["ReferenceChipRemoveButton"] is Style);
+            var frozenImage=((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source;
             Check(checks,"history-fills-window",historyScroll.ActualHeight>160);
             prompt.Text="把第二步再讲详细一点";prompt.Focus();Pump(app);
             Check(checks,"input-visible-and-inside-window",prompt.IsVisible&&prompt.ActualWidth>100&&prompt.TransformToAncestor(workspace).TransformBounds(new Rect(prompt.RenderSize)).Bottom<workspace.ActualHeight-8);
@@ -64,6 +66,7 @@ internal static class ConversationWorkspaceReplay
             Check(checks,"restore-keeps-draft-history",overlay.IsVisible&&workspace.IsVisible&&prompt.Text=="把第二步再讲详细一点"&&history.Count>=2);
             overlay.RedockConversationWindow();Pump(app);
             Check(checks,"redock-restores-original-layout",bar.Child==content&&barHost.Parent==overlay.FindName("Root")&&((Border)overlay.FindName("HistoryPanel")).Parent==overlay.FindName("HistorySection"));
+            Check(checks,"redock-keeps-original-frozen-frame",ReferenceEquals(frozenImage,((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source));
             Set(overlay,"_promptDetached",true);Set(overlay,"_historyExpanded",false);
             typeof(CaptureOverlayWindow).GetMethod("ToggleHistory",Private)!.Invoke(overlay,[null,new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)]);Pump(app);
             workspace=app.Windows.OfType<ConversationWorkspaceWindow>().Single();

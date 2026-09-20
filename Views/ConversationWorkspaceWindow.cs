@@ -23,6 +23,8 @@ internal sealed class ConversationWorkspaceWindow : Window
     internal ConversationWorkspaceWindow(CaptureOverlayWindow overlay,Rect initialBounds)
     {
         _overlay=overlay??throw new ArgumentNullException(nameof(overlay));
+        if(overlay.Resources["ReferenceChipButton"] is not null)Resources["ReferenceChipButton"]=overlay.Resources["ReferenceChipButton"];
+        if(overlay.Resources["ReferenceChipRemoveButton"] is not null)Resources["ReferenceChipRemoveButton"]=overlay.Resources["ReferenceChipRemoveButton"];
         Title=LocalizationService.T("截图会话","Screenshot conversation");
         Width=Math.Clamp(initialBounds.Width>0?initialBounds.Width:680,520,980);
         Height=Math.Clamp(initialBounds.Height,480,760);
