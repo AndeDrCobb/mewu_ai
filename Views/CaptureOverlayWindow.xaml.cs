@@ -494,6 +494,13 @@ public partial class CaptureOverlayWindow : Window
 
     private void UpdateChannelPickerItems()
     {
+        var activeChannel=_conversationChannels.FirstOrDefault(channel=>channel.Id==_selectedConversationChannelId);
+        var title=activeChannel?.DisplayName??L("选择模型/渠道","Select model / channel");
+        if(activeChannel is not null&&!string.IsNullOrWhiteSpace(activeChannel.Model)&&!title.Contains(activeChannel.Model,StringComparison.OrdinalIgnoreCase))
+            title+=" · "+activeChannel.Model;
+        LocalizationService.SetExcludeFromLocalization(ConversationChannelTitle,true);
+        ConversationChannelTitle.Text=title;
+        ConversationChannelTitle.ToolTip=title;
         ChannelPickerItems.Children.Clear();
         foreach(var channel in _conversationChannels)
         {

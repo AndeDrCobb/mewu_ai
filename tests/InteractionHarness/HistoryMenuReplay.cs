@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using mewu_ai_Assistant.Models;
+using mewu_ai_Assistant.Services;
 using mewu_ai_Assistant.Views;
 using Application=System.Windows.Application;
 using Button=System.Windows.Controls.Button;
@@ -33,6 +34,9 @@ internal static class HistoryMenuReplay
                 var panel=(Border)overlay.FindName("HistoryPanel");
                 var bar=(Border)overlay.FindName("PromptBar");
                 var scroll=(ScrollViewer)overlay.FindName("HistoryScroll");
+                typeof(CaptureOverlayWindow).GetField("_conversationChannels",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(overlay,new List<ConversationChannel>{new("header-test","课堂助手","header-test","MiniMax-M3",ConversationChannelKind.Api,true,true)});
+                typeof(CaptureOverlayWindow).GetField("_selectedConversationChannelId",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(overlay,"header-test");
+                Invoke("UpdateChannelPickerItems");
                 Invoke("SetPromptBarHidden",false,false);
                 await Layout();Check("collapsed-hides-new-chat",!button.IsVisible);Save("collapsed");
                 var history=(List<AiMessage>)typeof(CaptureOverlayWindow).GetField("_history",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(overlay)!;

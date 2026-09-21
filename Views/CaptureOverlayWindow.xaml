@@ -136,7 +136,7 @@
       <Button x:Name="HistoryToggle" AutomationProperties.Name="查看提问和历史对话" ToolTip="查看提问与历史" Style="{StaticResource HistoryToggleButton}" Click="ToggleHistory">
        <Path Width="8" Height="8" Stretch="Uniform" Stroke="#617188" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,4 L5.5,7.5 L9,4" RenderTransformOrigin="0.5,0.5"><Path.RenderTransform><RotateTransform x:Name="HistoryChevronRotation" Angle="180"/></Path.RenderTransform></Path>
       </Button>
-      <Border x:Name="HistoryPanel" Visibility="Collapsed" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" CornerRadius="14" Padding="4,4,4,2" Margin="6,5,6,2">
+      <Border x:Name="HistoryPanel" Visibility="Collapsed" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" CornerRadius="14" Padding="4,0,4,2" Margin="6,0,6,2">
        <StackPanel>
         <DockPanel LastChildFill="True" Margin="1,0,1,7">
          <Button x:Name="MinimizeConversationButton" DockPanel.Dock="Right" Style="{StaticResource ConversationHeaderButton}" ToolTip="最小化为悬浮窗" AutomationProperties.Name="最小化对话" Click="MinimizeConversation">
@@ -145,10 +145,10 @@
          <Button x:Name="NewConversationButton" DockPanel.Dock="Right" Style="{StaticResource ConversationHeaderButton}" ToolTip="新对话：开始空白会话" AutomationProperties.Name="开始新对话" Click="StartNewConversation">
           <Path Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M7,3 L3,3 L3,13 L13,13 L13,9 M8,8 L8.5,5.5 L12.5,1.5 L14.5,3.5 L10.5,7.5 Z"/>
          </Button>
-         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+         <DockPanel VerticalAlignment="Center" Margin="0,0,8,0">
           <Path Width="15" Height="15" Stretch="Uniform" Stroke="#7C8CA5" StrokeThickness="1.4" StrokeLineJoin="Round" Margin="0,0,7,0" Data="M2,2 L14,2 L14,11 L8,11 L4,14 L4,11 L2,11 Z M5,5 L11,5 M5,8 L9,8"/>
-          <TextBlock Text="对话记录" FontSize="12.5" FontWeight="SemiBold" Foreground="#364660"/>
-         </StackPanel>
+          <TextBlock x:Name="ConversationChannelTitle" Text="选择模型/渠道" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" FontSize="12.5" FontWeight="SemiBold" Foreground="#364660"/>
+         </DockPanel>
         </DockPanel>
         <ScrollViewer x:Name="HistoryScroll" MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
          <local:HistoryPreviewPanel x:Name="HistoryItems"/>
