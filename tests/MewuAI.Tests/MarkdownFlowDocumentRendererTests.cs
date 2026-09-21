@@ -78,6 +78,30 @@ public sealed class MarkdownFlowDocumentRendererTests
         });
     }
     [Fact]
+    public void CommonVisionReplyEscapesAndShorthandFractionsRender()
+    {
+        RunSta(() =>
+        {
+            const string input = "(1) 切线方程：$y=\\frac{x-1}{e}$。\\n(2) 参数范围：$a\\in[\\frac1e,+\\infty)$。必要性由$x\\to1^+$得$a(\\ln a+1)\\ge0$。";
+            var view = new mewu_ai_Assistant.Views.MarkdownAnswerView { Markdown = input };
+            Assert.NotNull(MathFormulaRenderer.Create(@"$a\in[\frac1e,+\infty)$", 13, System.Windows.Media.Brushes.Black));
+            Assert.NotNull(MathFormulaRenderer.Create(@"$x\to1^+$", 13, System.Windows.Media.Brushes.Black));
+            Assert.NotNull(MathFormulaRenderer.Create(@"$a(\ln a+1)\ge0$", 13, System.Windows.Media.Brushes.Black));
+            var formulas = view.Document.Blocks.OfType<Paragraph>().SelectMany(block => block.Inlines.OfType<InlineUIContainer>()).ToArray();
+            Assert.Equal(4, formulas.Length);
+            Assert.All(formulas, formula => Assert.IsType<mewu_ai_Assistant.Views.MathFormulaView>(formula.Child));
+            for(var end=1;end<input.Length;end+=5)view.Markdown=input[..end];
+            view.Markdown=input;
+            Assert.Equal(4,view.Document.Blocks.OfType<Paragraph>().SelectMany(p=>p.Inlines.OfType<InlineUIContainer>()).Count());
+            Assert.DoesNotContain(@"\n(2)",view.PlainText);
+            Assert.Contains(@"$a\in[\frac1e,+\infty)$",view.PlainText);
+            Assert.NotNull(AnnotationFormulaLayout.TryCreate(@"$a\in[\frac1e,+\infty)$",240,18,System.Windows.Media.Brushes.Black));
+            var literal=MarkdownFlowDocumentRenderer.Render("`"+input+"`");
+            Assert.Empty(literal.Blocks.OfType<Paragraph>().SelectMany(p=>p.Inlines.OfType<InlineUIContainer>()));
+            Assert.Contains(input,MarkdownFlowDocumentRenderer.ToPlainText(literal));
+        });
+    }
+    [Fact]
     public void AnnotationFormulaLayoutSupportsMixedTextAndExportWithoutChangingSource()
     {
         RunSta(()=>

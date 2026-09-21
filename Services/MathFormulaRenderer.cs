@@ -14,7 +14,7 @@ namespace mewu_ai_Assistant.Services;
 internal static class MathFormulaRenderer
 {
     private static readonly object ParserGate=new();
-    static MathFormulaRenderer()=>Commands.Add("binom");
+    static MathFormulaRenderer()=>Commands.UnionWith(("binom in to mapsto rightarrow longrightarrow forall exists subset subseteq cap cup mathbb").Split(' '));
     private static readonly HashSet<string> Commands=new(("frac dfrac tfrac sqrt left right cdot times div pm mp le leq ge geq ne neq approx equiv infty sum prod int lim sin cos tan log ln exp max min sup inf alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi omicron pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi psi omega Delta Epsilon Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega partial nabla mathrm mathbf mathit text overline underline vec hat bar begin end quad qquad displaystyle substack cases aligned matrix pmatrix bmatrix cdots ldots vert Vert lvert rvert langle rangle").Split(' '),StringComparer.Ordinal);
     internal static DrawingImage? Create(string source,double size,Brush foreground,bool allowPlain=true,bool halo=false)
     {
@@ -75,6 +75,7 @@ internal static class MathFormulaRenderer
         }
         return normalized.ToString();
     }
+
     internal static bool IsBoundedFormula(string value)
     {
         if(value.Length is 0 or >2048)return false;
