@@ -72,6 +72,11 @@ internal static class AnswerMenuReplay
                 Check("provider-escaped-formula-renders-as-vector",formula.Width>20&&formula.Height>15);
                 answer.SelectAll();Check("formula-copy-keeps-original-latex",answer.SelectedPlainText.Contains(providerFormula,StringComparison.Ordinal));
                 SaveElement(answer,"formula-provider-escapes.png");
+                const string binomial=@"$$(x+a)^{2}=\sum\_{k=0}^{n}\binom{n}{k}x^{k}a^{n-k}$$";
+                for(var end=1;end<binomial.Length;end+=5)answer.Markdown=binomial[..end];
+                answer.Markdown=binomial;overlay.UpdateLayout();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                Check("latest-streamed-binomial-is-typeset",answer.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().SelectMany(block=>block.Inlines.OfType<System.Windows.Documents.InlineUIContainer>()).Any(inline=>inline.Child is MathFormulaView));
+                SaveElement(answer,"formula-binomial.png");
                 var selection=typeof(CaptureOverlayWindow).GetMethod("CreateSelection",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(overlay,[false])!;
                 selection.GetType().GetField("Bounds")!.SetValue(selection,new Rect(60,220,900,480));
                 var notes=(List<mewu_ai_Assistant.Models.AiAnnotation>)selection.GetType().GetProperty("AnnotationNotes")!.GetValue(selection)!;

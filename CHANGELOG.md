@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修复含二项式系数 `\binom` 的公式显示为源码的问题，覆盖流式最新回答及标注公式。 / Render binomial coefficients (`\binom`) in streamed replies and annotations.
+
 - 标注气泡和原位文字标注支持公式排版及文字混排，长公式按框宽缩放，带标注导出保留相同公式效果。 / Typeset formulas alongside text in annotation cards and in-place labels, fit long formulas to their width, and preserve typesetting in annotated exports.
 
 - 修复部分模型返回的公式因 `\_`、重复转义的 `\\,` 或常见希腊字母命令而显示成原始 LaTeX；现在会直接排版显示，同时复制仍保留原公式文本。 / Render formulas containing `\_`, double-escaped `\\,`, or common Greek-letter commands instead of exposing raw LaTeX, while preserving the original formula when copied.

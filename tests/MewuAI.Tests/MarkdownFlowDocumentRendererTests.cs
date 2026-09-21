@@ -94,6 +94,22 @@ public sealed class MarkdownFlowDocumentRendererTests
         });
     }
     [Fact]
+    public void BinomialReplyRendersDuringStreamingAndInAnnotations()
+    {
+        RunSta(()=>
+        {
+            const string formula=@"$$(x+a)^{2}=\sum\_{k=0}^{n}\binom{n}{k}x^{k}a^{n-k}$$";
+            const string reply="图中公式为二项式定理：\n"+formula+"\n说明：\n"+@"右侧 $\sum\_{k=0}^{n}\binom{n}{k}x^{k}a^{n-k}$ 是 $(x+a)^{n}$，其中 $\binom{n}{k}=\frac{n!}{k!(n-k)!}$。"+"\n\n"+@"$$(x+a)^{n}=\sum\_{k=0}^{n}\binom{n}{k}x^{k}a^{n-k}$$";
+            var view=new mewu_ai_Assistant.Views.MarkdownAnswerView();
+            for(var end=1;end<reply.Length;end+=7)view.Markdown=reply[..end];
+            view.Markdown=reply;
+            Assert.Equal(5,view.Document.Blocks.OfType<Paragraph>().SelectMany(p=>p.Inlines.OfType<InlineUIContainer>()).Count());
+            view.SelectAll();Assert.Contains(formula,view.SelectedPlainText);
+            Assert.NotNull(AnnotationFormulaLayout.TryCreate(formula,240,18,System.Windows.Media.Brushes.Black));
+            Assert.NotNull(MathFormulaRenderer.Create(@"$\binom{n}{k}$",18,System.Windows.Media.Brushes.Black));
+        });
+    }
+    [Fact]
     public void UnsupportedFormulaIsReadableAndDoesNotExecuteOrDisappear()
     {
         RunSta(()=>
