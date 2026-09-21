@@ -58,9 +58,21 @@ Screenshots, manual annotations, pinned images, text recognition, and recording 
 <a href="./docs/images/ai-checkmarks.jpg"><img src="./docs/images/ai-checkmarks.jpg" width="100%" alt="AI highlights details and adds checkmarks to a screenshot" /></a>
 </td>
 <td width="50%" valign="top">
+<h3>Recognize tables</h3>
+<p>Turn a table screenshot into a structured answer, then use Copy table to paste it into Excel.</p>
+<a href="./docs/images/table-recognition.png"><img src="./docs/images/table-recognition.png" width="100%" alt="A table screenshot recognized as rows and columns with a Copy table button" /></a>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 <h3>Analyze videos</h3>
 <p>Click a time in an answer to jump to a scene. Annotations follow the subject while a marked segment plays.</p>
 <a href="./docs/media/MewuAI-video-annotations.gif"><img src="./docs/media/MewuAI-video-annotations.gif" width="100%" alt="Jumping to a video scene from an answer and playing it with tracking annotations" /></a>
+</td>
+<td width="50%" valign="top">
+<h3>Annotate data</h3>
+<p>Ask AI to identify and mark objects in an image, such as visible vehicles in a traffic scene.</p>
+<a href="./docs/images/data-annotations.png"><img src="./docs/images/data-annotations.png" width="100%" alt="AI circles visible vehicles in a traffic image and explains the limits of recognition" /></a>
 </td>
 </tr>
 <tr>
@@ -70,33 +82,21 @@ Screenshots, manual annotations, pinned images, text recognition, and recording 
 <a href="./docs/images/in-place-translation.jpg"><img src="./docs/images/in-place-translation.jpg" width="100%" alt="Translated text appears in the original positions within a screenshot" /></a>
 </td>
 <td width="50%" valign="top">
-<h3>Recognize tables</h3>
-<p>Turn a table screenshot into a structured answer, then use Copy table to paste it into Excel.</p>
-<a href="./docs/images/table-recognition.png"><img src="./docs/images/table-recognition.png" width="100%" alt="A table screenshot recognized as rows and columns with a Copy table button" /></a>
+<h3>Draw and annotate</h3>
+<p>Ask AI to add a diagram, or add your own notes with pens, shapes, and text.</p>
+<a href="./docs/images/draw-and-annotate-latest.jpg"><img src="./docs/images/draw-and-annotate-latest.jpg" width="100%" alt="AI drawings and annotations on a screenshot" /></a>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 <h3>Understand code</h3>
 <p>Select a piece of code and ask for an explanation tied to the lines you are reading.</p>
-<a href="./docs/images/understand-code-latest.jpg"><img src="./docs/images/understand-code-latest.jpg" width="100%" alt="Explanations beside a code screenshot point to the relevant lines" /></a>
+<a href="./docs/images/understand-code-latest.png"><img src="./docs/images/understand-code-latest.png" width="100%" alt="Explanations beside a code screenshot point to the relevant lines" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>Annotate papers</h3>
 <p>Reference exam screenshots for explanations and annotations, or compare several pages to discuss shared errors and create practice.</p>
 <a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="Geometry explanations and in-place annotations on an exam screenshot" /></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-<h3>Draw and annotate</h3>
-<p>Ask AI to add a diagram, or add your own notes with pens, shapes, and text.</p>
-<a href="./docs/images/draw-and-annotate-latest.jpg"><img src="./docs/images/draw-and-annotate-latest.jpg" width="100%" alt="AI drawings and annotations on a screenshot" /></a>
-</td>
-<td width="50%" valign="top">
-<h3>Annotate data</h3>
-<p>Ask AI to identify and mark objects in an image, such as visible vehicles in a traffic scene.</p>
-<a href="./docs/images/data-annotations.png"><img src="./docs/images/data-annotations.png" width="100%" alt="AI circles visible vehicles in a traffic image and explains the limits of recognition" /></a>
 </td>
 </tr>
 </table>
