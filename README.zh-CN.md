@@ -56,9 +56,21 @@
 <a href="./docs/images/ai-checkmarks.jpg"><img src="./docs/images/ai-checkmarks.jpg" width="100%" alt="AI 在截图中圈出重点并添加勾选标记" /></a>
 </td>
 <td width="50%" valign="top">
+<h3>视频分析</h3>
+<p>点击回答中的时间跳到相关画面；播放标记片段时，批注跟随目标移动。</p>
+<a href="./docs/media/MewuAI-video-annotations.gif"><img src="./docs/media/MewuAI-video-annotations.gif" width="100%" alt="点击回答定位视频片段，播放时标注跟随目标移动" /></a>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 <h3>截图翻译</h3>
 <p>在原文的位置阅读译文，选中文字即可复制。</p>
 <a href="./docs/images/in-place-translation.jpg"><img src="./docs/images/in-place-translation.jpg" width="100%" alt="译文显示在截图原文的位置" /></a>
+</td>
+<td width="50%" valign="top">
+<h3>数据标注</h3>
+<p>让 AI 识别并圈出图片中的目标，例如交通画面里可辨认的车辆。</p>
+<a href="./docs/images/data-annotations.png"><img src="./docs/images/data-annotations.png" width="100%" alt="AI 圈出交通画面中可辨认的车辆，并说明识别范围" /></a>
 </td>
 </tr>
 <tr>
@@ -68,9 +80,9 @@
 <a href="./docs/images/understand-code-latest.png"><img src="./docs/images/understand-code-latest.png" width="100%" alt="代码截图旁的解释与对应代码位置相连" /></a>
 </td>
 <td width="50%" valign="top">
-<h3>绘图与批注</h3>
-<p>让 AI 添加图示，或自己用画笔、形状和文字补充说明。</p>
-<a href="./docs/images/draw-and-annotate-latest.jpg"><img src="./docs/images/draw-and-annotate-latest.jpg" width="100%" alt="截图上的 AI 绘图与批注" /></a>
+<h3>表格识别</h3>
+<p>把截图中的表格识别成行列清晰的回答，点击“复制表格”即可粘贴到 Excel。</p>
+<a href="./docs/images/table-recognition.png"><img src="./docs/images/table-recognition.png" width="100%" alt="表格截图识别为结构化行列，回答上方提供复制表格按钮" /></a>
 </td>
 </tr>
 <tr>
@@ -80,21 +92,9 @@
 <a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="几何试题截图上的解答与原位批注演示" /></a>
 </td>
 <td width="50%" valign="top">
-<h3>视频分析</h3>
-<p>点击回答中的时间跳到相关画面；播放标记片段时，批注跟随目标移动。</p>
-<a href="./docs/media/MewuAI-video-annotations.gif"><img src="./docs/media/MewuAI-video-annotations.gif" width="100%" alt="点击回答定位视频片段，播放时标注跟随目标移动" /></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-<h3>数据标注</h3>
-<p>让 AI 识别并圈出图片中的目标，例如交通画面里可辨认的车辆。</p>
-<a href="./docs/images/data-annotations.png"><img src="./docs/images/data-annotations.png" width="100%" alt="AI 圈出交通画面中可辨认的车辆，并说明识别范围" /></a>
-</td>
-<td width="50%" valign="top">
-<h3>表格识别</h3>
-<p>把截图中的表格识别成行列清晰的回答，点击“复制表格”即可粘贴到 Excel。</p>
-<a href="./docs/images/table-recognition.png"><img src="./docs/images/table-recognition.png" width="100%" alt="表格截图识别为结构化行列，回答上方提供复制表格按钮" /></a>
+<h3>绘图与批注</h3>
+<p>让 AI 添加图示，或自己用画笔、形状和文字补充说明。</p>
+<a href="./docs/images/draw-and-annotate-latest.jpg"><img src="./docs/images/draw-and-annotate-latest.jpg" width="100%" alt="截图上的 AI 绘图与批注" /></a>
 </td>
 </tr>
 </table>
