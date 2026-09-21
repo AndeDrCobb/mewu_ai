@@ -216,6 +216,7 @@ public static class MarkdownFlowDocumentRenderer
             {
                 case MathInline math:AddFormula(target,math is BracketMathInline bracket?bracket.SourceText:new string('$',Math.Max(1,math.DelimiterCount))+math.Content+new string('$',Math.Max(1,math.DelimiterCount)),fontSize);break;
                 case LiteralInline literal:AddTextRuns(target,NormalizeProviderEscapedNewlines(literal.Content.ToString()),fontSize);break;
+                case HtmlEntityInline entity:AddTextRuns(target,entity.Transcoded.ToString(),fontSize);break;
                 case LineBreakInline:target.Add(new LineBreak());break;
                 case CodeInline code:
                     target.Add(new Run(code.Content){FontFamily=CodeFont,FontSize=Math.Max(11,fontSize-1),Background=CodeBackground});break;

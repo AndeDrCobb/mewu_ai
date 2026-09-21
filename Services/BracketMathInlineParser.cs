@@ -52,7 +52,7 @@ internal sealed class BracketMathInlineParser:InlineParser
             // Leave currency and unsupported input to the normal Markdown parser.
             var value=content.ToString();
             if(char.IsWhiteSpace(value[0])||char.IsWhiteSpace(value[^1])||
-                value.Any(c=>c>127)||!MathFormulaRenderer.IsBoundedFormula(value))return false;
+                value.Any(c=>c>127&&!"。、，：（）".Contains(c))||!MathFormulaRenderer.IsBoundedFormula(value))return false;
             processor.Inline=new BracketMathInline{SourceText=source.ToString(),Content=content,
                 Span=new SourceSpan(processor.GetSourcePosition(start,out var line,out var column),processor.GetSourcePosition(scan.Start-1)),Line=line,Column=column};
             slice=scan;return true;
