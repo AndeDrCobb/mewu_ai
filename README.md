@@ -79,7 +79,7 @@ Screenshots, manual annotations, pinned images, text recognition, and recording 
 <td width="50%" valign="top">
 <h3>Annotate papers</h3>
 <p>Reference exam screenshots for explanations and annotations, or compare several pages to discuss shared errors and create practice.</p>
-<a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="Human-reviewed annotations and math typesetting on an exam screenshot" /></a>
+<a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="Geometry explanations and in-place annotations on an exam screenshot" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>Analyze videos</h3>
@@ -102,11 +102,9 @@ Screenshots, manual annotations, pinned images, text recognition, and recording 
 </table>
 
 <details>
-<summary>About the paper demonstration and its source</summary>
+<summary>About the paper demonstration</summary>
 
-The paper image is a human-reviewed demonstration from 0.4.2, showing in-place annotations and math typesetting. The current version uses ordinary screenshot conversations, multiple region references and the existing conversation bar, with no separate paper workflow entry. Readings and grading still need human review.
-
-Original: [HKEAA 2025 HKDSE Mathematics Compulsory Part sample script](https://www.hkeaa.edu.hk/DocLibrary/HKDSE/Subject_Information/math/2025-Sample-MATH-CP-Level2-E-A756.pdf#page=3) (PDF page 3, printed page 2). The complete handwritten page is preserved. The screenshot shows a result after a reviewer checked each question and corrected readings and answer boxes. Copyright belongs to the original owner.
+The example shows explanations and in-place annotations for a geometry question. Check AI answers and annotations against the original question.
 
 </details>
 
@@ -191,6 +189,8 @@ Bug reports, suggestions, code, and documentation improvements are welcome. See 
 
 ## License
 
-Created by **Abner Stephen**.
+Created by **Abner Stephen** & **Yandi** ＆**shuziyuxingxing**.
 
 Project-owned source is licensed under [MPL-2.0](./LICENSE). Commercial use is permitted under the license. When distributing covered software, provide the covered source and retain copyright and license notices as required. See [license and source information](./SOURCE.md) and the separate [third-party notices](./THIRD-PARTY-NOTICES.md).
+
+Thanks: Lin Wenjie for providing subject assistance

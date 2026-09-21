@@ -77,7 +77,7 @@
 <td width="50%" valign="top">
 <h3>试卷批注</h3>
 <p>引用试卷截图进行讲解和批注；多张截图可一起分析共同问题、生成练习。</p>
-<a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="试卷截图上的人工复核批注与数学排版演示" /></a>
+<a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="几何试题截图上的解答与原位批注演示" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>视频分析</h3>
@@ -100,11 +100,9 @@
 </table>
 
 <details>
-<summary>试卷演示与原卷来源</summary>
+<summary>试卷演示说明</summary>
 
-试卷配图为 0.4.2 的真实答卷人工复核演示，用于展示原位批注与数学排版。当前版本统一使用普通截图、多区域引用和原有对话条，没有独立试卷入口。识读与判分仍需人工核对。
-
-原卷：[香港考评局 2025 HKDSE 数学必修部分公开答卷示例](https://www.hkeaa.edu.hk/DocLibrary/HKDSE/Subject_Information/math/2025-Sample-MATH-CP-Level2-E-A756.pdf#page=3)（PDF 第 3 页，卷面页码 2）。截图保留整页真实手写，展示人工逐题核对、修正识读与作答框后的结果。原卷版权归原机构。
+配图展示几何试题的讲解与原位批注。AI 回答与批注请结合原题核对。
 
 </details>
 
@@ -189,7 +187,7 @@ Windows N / KN 版本需要安装 Media Feature Pack 才能录制和播放视频
 
 ## 开源协议
 
-作者：**Abner Stephen**。
+作者：**Abner Stephen** ＆ **pyxyd** ＆ **shuziyuxingxing**。
 
 项目自有源码采用 [MPL-2.0](./LICENSE)，允许遵守协议的商业使用。对外分发时，请按协议提供受覆盖的源代码并保留版权和许可声明。详见[许可与源码说明](./SOURCE.md)；第三方依赖另见[第三方声明](./THIRD-PARTY-NOTICES.md)。
 
