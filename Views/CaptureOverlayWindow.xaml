@@ -150,7 +150,6 @@
           <TextBlock Text="对话记录" FontSize="12.5" FontWeight="SemiBold" Foreground="#364660"/>
          </StackPanel>
         </DockPanel>
-        <Border Height="1" Background="#DEE5F0" Margin="1,0,1,7"/>
         <ScrollViewer x:Name="HistoryScroll" MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
          <local:HistoryPreviewPanel x:Name="HistoryItems"/>
         </ScrollViewer>
