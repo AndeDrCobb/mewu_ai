@@ -189,6 +189,8 @@ Windows N / KN 版本需要安装 Media Feature Pack 才能录制和播放视频
 
 ## 开源协议
 
-作者：**Abner Stephen**。
+作者：**Abner Stephen** ＆ **pyxyd** ＆ **shuziyuxingxing**。
 
 项目自有源码采用 [MPL-2.0](./LICENSE)，允许遵守协议的商业使用。对外分发时，请按协议提供受覆盖的源代码并保留版权和许可声明。详见[许可与源码说明](./SOURCE.md)；第三方依赖另见[第三方声明](./THIRD-PARTY-NOTICES.md)。
+
+感谢：林文杰老师提供学科帮助
