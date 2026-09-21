@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修复部分模型返回的公式因 `\_`、重复转义的 `\\,` 或常见希腊字母命令而显示成原始 LaTeX；现在会直接排版显示，同时复制仍保留原公式文本。 / Render formulas containing `\_`, double-escaped `\\,`, or common Greek-letter commands instead of exposing raw LaTeX, while preserving the original formula when copied.
+
 - 最小化会话悬浮窗支持拖动：按住并移动可重新摆放，轻点仍恢复对话，关闭按钮保留独立点击行为。 / Minimized conversation widgets can be dragged to reposition; a click still restores the conversation and the close button keeps its own action.
 
 - 最小化会话右侧显示旋转点环（悬停时由同位置的关闭按钮覆盖），回答成功完成后显示绿点；原“点击恢复对话”位置实时预览最新思考片段，没有思考内容时显示最新回答。取消与失败使用独立状态，多个会话分别更新。 / Show a rotating dotted indicator on the right of minimized conversations, covered by the close button on hover, and a green dot on successful completion. Preview the latest reasoning, or answer text when reasoning is unavailable, in place of “Click to restore”. Keep cancellation, failure and each conversation's state distinct.

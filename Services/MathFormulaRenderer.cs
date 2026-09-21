@@ -14,7 +14,7 @@ namespace mewu_ai_Assistant.Services;
 internal static class MathFormulaRenderer
 {
     private static readonly object ParserGate=new();
-    private static readonly HashSet<string> Commands=new(("frac dfrac tfrac sqrt left right cdot times div pm mp le leq ge geq ne neq approx equiv infty sum prod int lim sin cos tan log ln alpha beta gamma delta theta pi sigma omega Delta Sigma Omega mathrm mathbf mathit text overline underline vec hat bar begin end quad qquad displaystyle substack cases aligned matrix pmatrix bmatrix cdots ldots vert Vert lvert rvert langle rangle").Split(' '),StringComparer.Ordinal);
+    private static readonly HashSet<string> Commands=new(("frac dfrac tfrac sqrt left right cdot times div pm mp le leq ge geq ne neq approx equiv infty sum prod int lim sin cos tan log ln exp max min sup inf alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi omicron pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi psi omega Delta Epsilon Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega partial nabla mathrm mathbf mathit text overline underline vec hat bar begin end quad qquad displaystyle substack cases aligned matrix pmatrix bmatrix cdots ldots vert Vert lvert rvert langle rangle").Split(' '),StringComparer.Ordinal);
     internal static DrawingImage? Create(string source,double size,Brush foreground,bool allowPlain=true,bool halo=false)
     {
         if(source.Length is 0 or >2048)return null;
@@ -26,6 +26,7 @@ internal static class MathFormulaRenderer
         {
             if(!allowPlain||!PlainMathNotation.TryConvert(value,out value))return null;
         }
+        value=NormalizeEscapedLatex(value);
         if(!IsBoundedFormula(value))return null;
         value=value.Replace(@"\begin{aligned}",@"\begin{align}",StringComparison.Ordinal).Replace(@"\end{aligned}",@"\end{align}",StringComparison.Ordinal)
             .Replace(@"\begin{align*}",@"\begin{align}",StringComparison.Ordinal).Replace(@"\end{align*}",@"\end{align}",StringComparison.Ordinal);
@@ -50,6 +51,28 @@ internal static class MathFormulaRenderer
             group.Freeze();var result=new DrawingImage(group);result.Freeze();return result;
         }
         catch(Exception ex) when(ex is not OutOfMemoryException){return null;}
+    }
+
+    private static string NormalizeEscapedLatex(string value)
+    {
+        // Some compatible providers JSON/Markdown-escape LaTeX a second time
+        // and escape the underscore used for a subscript.  Normalize only
+        // these unambiguous display escapes; OriginalText remains untouched
+        // so copying the formula still returns the provider's LaTeX.
+        var normalized=new StringBuilder(value.Length);
+        for(var index=0;index<value.Length;index++)
+        {
+            if(value[index]=='\\'&&index+1<value.Length&&value[index+1]=='_')
+            {
+                normalized.Append('_');index++;continue;
+            }
+            if(value[index]=='\\'&&index+2<value.Length&&value[index+1]=='\\'&&value[index+2]==',')
+            {
+                normalized.Append(@"\,");index+=2;continue;
+            }
+            normalized.Append(value[index]);
+        }
+        return normalized.ToString();
     }
     internal static bool IsBoundedFormula(string value)
     {

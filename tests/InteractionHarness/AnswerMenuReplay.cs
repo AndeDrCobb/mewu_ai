@@ -63,6 +63,15 @@ internal static class AnswerMenuReplay
                 open.IsOpen=false;
                 history.Select(0,0);await Open(history,"answer-menu-history-unselected.png");
                 Check("history-empty-selection-disabled",!((MenuItem)open!.Items[0]).IsEnabled);
+                open.IsOpen=false;
+                const string providerFormula=@"$$\frac{1}{\sqrt{\pi}} \int\_{-\infty}^{x} \frac{1}{2\sqrt{t-\tau}}\\, e^{-\frac{(x+\xi)^2}{4(t-\tau)}}\\, \frac{1}{2\sqrt{t-\tau}}\\, d\xi$$";
+                answer.Markdown=providerFormula;overlay.UpdateLayout();await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                var formula=answer.Document.Blocks.OfType<System.Windows.Documents.Paragraph>()
+                    .SelectMany(block=>block.Inlines.OfType<System.Windows.Documents.InlineUIContainer>())
+                    .Select(inline=>inline.Child).OfType<MathFormulaView>().Single();
+                Check("provider-escaped-formula-renders-as-vector",formula.Width>20&&formula.Height>15);
+                answer.SelectAll();Check("formula-copy-keeps-original-latex",answer.SelectedPlainText.Contains(providerFormula,StringComparison.Ordinal));
+                SaveElement(answer,"formula-provider-escapes.png");
             }
             catch(Exception ex){failure=ex.ToString();Environment.ExitCode=1;}
             finally
@@ -97,6 +106,12 @@ internal static class AnswerMenuReplay
                 open.IsOpen=false;
             }
             void Check(string name,bool valid){if(!valid)throw new InvalidOperationException(name);checks.Add(name);}
+            static void SaveElement(FrameworkElement element,string file)
+            {
+                element.UpdateLayout();var width=Math.Max(1,(int)Math.Ceiling(element.ActualWidth));var height=Math.Max(1,(int)Math.Ceiling(element.ActualHeight));
+                var visual=new DrawingVisual();using(var drawing=visual.RenderOpen()){drawing.DrawRectangle(System.Windows.Media.Brushes.White,null,new Rect(0,0,width,height));drawing.DrawRectangle(new VisualBrush(element),null,new Rect(0,0,width,height));}
+                var bitmap=new RenderTargetBitmap(width,height,96,96,PixelFormats.Pbgra32);bitmap.Render(visual);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using var stream=File.Create(Path.Combine(".codex-build",file));encoder.Save(stream);
+            }
         }));
     }
 }

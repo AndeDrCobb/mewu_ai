@@ -62,6 +62,21 @@ public sealed class MarkdownFlowDocumentRendererTests
             Assert.Contains(document.Blocks.OfType<Paragraph>().Last().Inlines.OfType<Run>(),r=>r.Text==inline);
         });
     }
+
+    [Fact]
+    public void CommonProviderEscapesAndGreekVariablesStillRenderAsFormula()
+    {
+        RunSta(() =>
+        {
+            const string input = @"$$\frac{1}{\sqrt{\pi}} \int\_{-\infty}^{x} \frac{1}{2\sqrt{t-\tau}}\\, e^{-\frac{(x+\xi)^2}{4(t-\tau)}}\\, \frac{1}{2\sqrt{t-\tau}}\\, d\xi$$";
+            var view = new mewu_ai_Assistant.Views.MarkdownAnswerView { Markdown = input };
+            var formula = Assert.Single(view.Document.Blocks.OfType<Paragraph>().SelectMany(block => block.Inlines.OfType<InlineUIContainer>()));
+            var image = Assert.IsType<mewu_ai_Assistant.Views.MathFormulaView>(formula.Child);
+            Assert.InRange(image.Width, 20, 1200);
+            Assert.Contains(@"\tau", image.OriginalText);
+            Assert.Contains(@"\xi", image.OriginalText);
+        });
+    }
     [Fact]
     public void UnsupportedFormulaIsReadableAndDoesNotExecuteOrDisappear()
     {
