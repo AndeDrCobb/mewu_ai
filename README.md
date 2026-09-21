@@ -191,6 +191,8 @@ Bug reports, suggestions, code, and documentation improvements are welcome. See 
 
 ## License
 
-Created by **Abner Stephen** & **Yandi**.
+Created by **Abner Stephen** & **Yandi** ＆**shuziyuxingxing**.
 
 Project-owned source is licensed under [MPL-2.0](./LICENSE). Commercial use is permitted under the license. When distributing covered software, provide the covered source and retain copyright and license notices as required. See [license and source information](./SOURCE.md) and the separate [third-party notices](./THIRD-PARTY-NOTICES.md).
+
+Thanks: Lin Wenjie for providing subject assistance
