@@ -25,6 +25,7 @@ internal sealed class ConversationFloatingWidget : Window
     private ConversationWidgetState _state;
     private string _previewContent=string.Empty;
     private bool _closed;
+    private Point? _pressStart;
 
     internal ConversationFloatingWidget(CaptureOverlayWindow owner)
     {
@@ -38,9 +39,14 @@ internal sealed class ConversationFloatingWidget : Window
         _preview.SizeChanged+=(_,_)=>UpdatePreviewText();
         UpdateProgress(ConversationWidgetState.Idle,string.Empty);
         Loaded+=(_,_)=>{PlaceNearWorkArea();UpdateSpinnerAnimation();};
-        IsVisibleChanged+=(_,_)=>UpdateSpinnerAnimation();
+        IsVisibleChanged+=(_,_)=>{if(!IsVisible)CancelPointerGesture();UpdateSpinnerAnimation();};
         Closed+=(_,_)=>{_closed=true;_spinnerRotation.BeginAnimation(RotateTransform.AngleProperty,null);};
         MouseLeftButtonDown+=OnMouseDown;
+        MouseMove+=OnPointerMove;
+        MouseLeftButtonUp+=OnPointerUp;
+        LostMouseCapture+=(_,_)=>_pressStart=null;
+        Deactivated+=(_,_)=>CancelPointerGesture();
+        PreviewKeyDown+=(_,e)=>{if(e.Key==Key.Escape&&_pressStart is not null){CancelPointerGesture();e.Handled=true;}};
     }
 
     private FrameworkElement BuildContent()
@@ -138,7 +144,38 @@ internal sealed class ConversationFloatingWidget : Window
     {
         for(var source=e.OriginalSource as DependencyObject;source is not null;source=VisualTreeHelper.GetParent(source))
             if(source is Button)return;
-        if(e.ChangedButton==MouseButton.Left){_owner.RestoreFromConversationWidget();e.Handled=true;}
+        if(e.ChangedButton!=MouseButton.Left)return;
+        _pressStart=e.GetPosition(this);
+        if(!CaptureMouse())_pressStart=null;
+        e.Handled=true;
+    }
+
+    private void OnPointerMove(object sender,MouseEventArgs e)
+    {
+        if(_pressStart is not {} start)return;
+        if(e.LeftButton!=MouseButtonState.Pressed){CancelPointerGesture();return;}
+        if(!PinnedWindowInteractionPolicy.ShouldBeginDrag(start,e.GetPosition(this),
+            SystemParameters.MinimumHorizontalDragDistance,SystemParameters.MinimumVerticalDragDistance))return;
+        // The native move loop handles monitor/DPI changes and Escape. End
+        // click tracking first: a drag must never restore the conversation.
+        CancelPointerGesture();
+        e.Handled=true;
+        if(!_closed&&IsVisible&&Mouse.LeftButton==MouseButtonState.Pressed)DragMove();
+    }
+
+    private void OnPointerUp(object sender,MouseButtonEventArgs e)
+    {
+        if(e.ChangedButton!=MouseButton.Left||_pressStart is null)return;
+        var point=e.GetPosition(this);
+        CancelPointerGesture();
+        e.Handled=true;
+        if(!_closed&&IsVisible&&new Rect(RenderSize).Contains(point))_owner.RestoreFromConversationWidget();
+    }
+
+    private void CancelPointerGesture()
+    {
+        _pressStart=null;
+        if(IsMouseCaptured)ReleaseMouseCapture();
     }
 
     private void PlaceNearWorkArea()

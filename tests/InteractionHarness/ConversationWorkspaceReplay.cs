@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -22,6 +23,9 @@ internal static class ConversationWorkspaceReplay
     internal static void Run(Application app,AppHost host,CaptureOverlayWindow overlay)
     {
         var checks=new List<string>();string? failure=null;
+        // This replay starts before Application.Run; native input can invoke
+        // async UI handlers while our nested dispatcher frame is pumping.
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(app.Dispatcher));
         app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
         try
         {
@@ -72,6 +76,18 @@ internal static class ConversationWorkspaceReplay
             ((System.Windows.Controls.Button)overlay.FindName("MinimizeConversationButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Pump(app);
             var widget=app.Windows.OfType<ConversationFloatingWidget>().Single();
             Check(checks,"minimize-hides-canvas",!overlay.IsVisible&&widget.IsVisible);
+            var originalPosition=widget.PointToScreen(new System.Windows.Point());
+            var dragPoint=widget.PointToScreen(new System.Windows.Point(80,35));
+            var pointerEvents=new List<string>();
+            widget.PreviewMouseDown+=(_,e)=>pointerEvents.Add("down:"+e.GetPosition(widget));
+            widget.PreviewMouseMove+=(_,e)=>pointerEvents.Add("move:"+e.LeftButton+":"+e.GetPosition(widget));
+            widget.PreviewMouseUp+=(_,e)=>pointerEvents.Add("up:"+e.GetPosition(widget));
+            PointerGesture(app,dragPoint,true);Pump(app);
+            var dragDistance=(widget.PointToScreen(new System.Windows.Point())-originalPosition).Length;
+            Check(checks,$"native-drag-moves-widget-without-restoring (distance={dragDistance:F1}, overlay={overlay.IsVisible}, widget={widget.IsVisible}, captured={widget.IsMouseCaptured}, events={string.Join(';',pointerEvents)})",dragDistance>60&&!overlay.IsVisible&&widget.IsVisible&&!widget.IsMouseCaptured);
+            var draggedPosition=new System.Windows.Point(widget.Left,widget.Top);
+            widget.Hide();Pump(app);widget.Show();Pump(app);
+            Check(checks,"hide-show-keeps-dragged-position",(new System.Windows.Point(widget.Left,widget.Top)-draggedPosition).Length<1);
             var preview=Descendants(widget).OfType<TextBlock>().Single(text=>text.Name=="ConversationProgressPreview");
             var spinner=Descendants(widget).OfType<Canvas>().Single(element=>element.Name=="ConversationThinkingSpinner");
             var dot=Descendants(widget).OfType<System.Windows.Shapes.Ellipse>().Single(element=>element.Name=="ConversationStatusDot");
@@ -138,7 +154,8 @@ internal static class ConversationWorkspaceReplay
             prompt.Focus();SendEscape(prompt);Pump(app);
             widget=app.Windows.OfType<ConversationFloatingWidget>().Single();
             Check(checks,"escape-from-restored-input-minimizes",!overlay.IsVisible&&widget.IsVisible&&app.Windows.Cast<Window>().Contains(overlay));
-            overlay.RestoreFromConversationWidget();Pump(app);
+            PointerGesture(app,widget.PointToScreen(new System.Windows.Point(80,35)),false);Pump(app);
+            Check(checks,"native-click-restores-conversation",overlay.IsVisible&&!app.Windows.Cast<Window>().Contains(widget));
             Check(checks,"second-restore-keeps-frame-and-draft",overlay.IsVisible&&prompt.Text=="把第二步再讲详细一点"&&ReferenceEquals(frozenImage,((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source));
             SendEscape(prompt);Pump(app);
             widget=app.Windows.OfType<ConversationFloatingWidget>().Single();
@@ -151,7 +168,7 @@ internal static class ConversationWorkspaceReplay
             var closingSpinner=Descendants(widget).OfType<Canvas>().Single(element=>element.Name=="ConversationThinkingSpinner");
             Check(checks,"closing-scenario-has-active-spinner",closingSpinner.IsVisible&&closingSpinner.RenderTransform.HasAnimatedProperties==SystemParameters.ClientAreaAnimation);
             Save(widget,"conversation-widget-hover.png");
-            close.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Pump(app);
+            PointerGesture(app,close.PointToScreen(new System.Windows.Point(close.ActualWidth/2,close.ActualHeight/2)),false);Pump(app);
             Check(checks,"widget-close-ends-session",!app.Windows.Cast<Window>().Contains(overlay)&&!app.Windows.OfType<ConversationFloatingWidget>().Any());
             Check(checks,"closing-widget-stops-animation-and-cancels-request",!closingSpinner.RenderTransform.HasAnimatedProperties&&closingRequest.IsCancellationRequested);
         }
@@ -165,6 +182,44 @@ internal static class ConversationWorkspaceReplay
         }
     }
     private static void Set(object target,string name,object value)=>target.GetType().GetField(name,Private)!.SetValue(target,value);
+    private static void PointerGesture(Application app,System.Windows.Point start,bool drag)
+    {
+        var frame=new DispatcherFrame();
+        var area=System.Windows.Forms.SystemInformation.VirtualScreen;
+        var desktop=new ScreenRect(area.X,area.Y,area.Width,area.Height);
+        var task=Task.Run(()=>
+        {
+            try
+            {
+                PointerInput(start,0,desktop);Thread.Sleep(100);PointerInput(start,2,desktop);Thread.Sleep(100);
+                if(drag)
+                {
+                    PointerInput(start+new Vector(-20,-10),0,desktop);Thread.Sleep(150);
+                    PointerInput(start+new Vector(-160,-90),0,desktop);Thread.Sleep(150);
+                }
+            }
+            finally
+            {
+                PointerInput(drag?start+new Vector(-160,-90):start,4,desktop);
+                Thread.Sleep(100);app.Dispatcher.BeginInvoke(new Action(()=>frame.Continue=false));
+            }
+        });
+        Dispatcher.PushFrame(frame);task.GetAwaiter().GetResult();
+    }
+    private static void PointerInput(System.Windows.Point point,uint flags,ScreenRect desktop)
+    {
+        var absolute=ScreenCoordinateService.ToAbsoluteMousePoint((int)point.X,(int)point.Y,desktop);
+        var inputs=new[]{new PointerInputData{X=absolute.X,Y=absolute.Y,Flags=0x8000|0x4000|1|flags}};
+        if(SendInput(1,inputs,Marshal.SizeOf<PointerInputData>())!=1)throw new InvalidOperationException("Pointer replay injection failed");
+    }
+    [StructLayout(LayoutKind.Explicit,Size=40)]private struct PointerInputData
+    {
+        [FieldOffset(0)]public uint Type;
+        [FieldOffset(8)]public int X;
+        [FieldOffset(12)]public int Y;
+        [FieldOffset(20)]public uint Flags;
+    }
+    [DllImport("user32.dll")]private static extern uint SendInput(uint count,PointerInputData[] inputs,int size);
     private static void Invoke(object target,string name,params object[] arguments)=>target.GetType().GetMethod(name,Private)!.Invoke(target,arguments);
     private static void Pump(Application app){for(var i=0;i<3;i++)app.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{}));}
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root){for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);yield return child;foreach(var nested in Descendants(child))yield return nested;}}
