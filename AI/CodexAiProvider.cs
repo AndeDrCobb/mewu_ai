@@ -194,7 +194,12 @@ internal sealed class CodexTurnCollector(string threadId,AiRequest request,Cance
                 if(type=="commandExecution")request.AgentProgress?.Report(new(AiAgentEventKind.ToolStarted,"Codex 正在分析本机附件"));break;
             case "item/completed":
                 var completed=data.GetProperty("item");
-                if(CodexAppServer.Text(completed,"type")=="agentMessage")
+                var completedType=CodexAppServer.Text(completed,"type");
+                if(completedType=="commandExecution")
+                {
+                    request.AgentProgress?.Report(new(AiAgentEventKind.ToolCompleted,"Codex 正在分析本机附件",CodexAppServer.Text(completed,"status")));
+                }
+                if(completedType=="agentMessage")
                 {
                     var final=CodexAppServer.Text(completed,"text");
                     if(final.Length>2_000_000)throw new InvalidDataException("Codex 回答超过安全限制。");

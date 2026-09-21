@@ -204,6 +204,12 @@ internal sealed class WorkBuddyTurnCollector(string session,AiRequest request,Ca
                 _answer.Clear();
                 request.AgentProgress?.Report(new(AiAgentEventKind.ToolStarted,"WorkBuddy 正在分析本机附件"));
             }
+            else if(type=="tool_call_update")
+            {
+                var status=WorkBuddyAcpServer.Text(update,"status");
+                if(status is "completed" or "failed" or "cancelled")
+                    request.AgentProgress?.Report(new(AiAgentEventKind.ToolCompleted,"WorkBuddy 正在分析本机附件",status,status!="completed"));
+            }
         }
     }
     internal AiResult Finish(JsonElement response)

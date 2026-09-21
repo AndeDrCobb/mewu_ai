@@ -11,6 +11,7 @@ namespace MewuAI.Tests;
 
 public sealed class CodexIntegrationTests
 {
+    private sealed class InlineProgress(ICollection<AiAgentEvent> events):IProgress<AiAgentEvent>{public void Report(AiAgentEvent value)=>events.Add(value);}
     private static JsonElement Json(string value)=>JsonSerializer.Deserialize<JsonElement>(value);
     private static void Start(CodexTurnCollector turn)=>turn.Receive("turn/started",Json("""{"threadId":"ours","turn":{"id":"turn1"}}"""));
     private static void Complete(CodexTurnCollector turn,string status="completed")=>turn.Receive("turn/completed",JsonSerializer.SerializeToElement(new{threadId="ours",turn=new{id="turn1",status}}));
@@ -62,6 +63,16 @@ public sealed class CodexIntegrationTests
         turn.Receive("item/completed",Json("""{"threadId":"ours","turnId":"turn1","item":{"type":"agentMessage","phase":"final_answer","text":"finished"}}"""));
         Assert.False(turn.Completion.IsCompleted);Complete(turn);
         Assert.Equal("finished",(await turn.Completion).Answer);
+    }
+
+    [Fact]
+    public void AttachmentToolCompletionClosesAgentActivity()
+    {
+        var events=new List<AiAgentEvent>();
+        var turn=new CodexTurnCollector("ours",new(){AgentProgress=new InlineProgress(events)},CancellationToken.None);Start(turn);
+        turn.Receive("item/started",Json("""{"threadId":"ours","turnId":"turn1","item":{"type":"commandExecution","id":"cmd1"}}"""));
+        turn.Receive("item/completed",Json("""{"threadId":"ours","turnId":"turn1","item":{"type":"commandExecution","status":"completed"}}"""));
+        Assert.Contains(events,item=>item.Kind==AiAgentEventKind.ToolCompleted);
     }
 
     [Fact]
