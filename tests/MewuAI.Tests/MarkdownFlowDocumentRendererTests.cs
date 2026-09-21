@@ -13,6 +13,22 @@ namespace MewuAI.Tests;
 public sealed class MarkdownFlowDocumentRendererTests
 {
     [Theory]
+    [InlineData(@"AD\perp CE")]
+    [InlineData(@"\mathbf a=\overrightarrow{AB}")]
+    [InlineData(@"\boxed{\frac1{15}}")]
+    [InlineData(@"\mathbf a\cdot\mathbf c=\frac{8^{2}+3^{2}-7^{2}}2=12,\qquad \mathbf b\cdot\mathbf c=\frac{5^{2}+3^{2}-5^{2}}2=\frac92.")]
+    [InlineData(@"\overrightarrow{CE}=\frac38\mathbf a-\mathbf b")]
+    [InlineData(@"\overrightarrow{AD}\cdot\overrightarrow{CE}=\frac38\times12-\frac92=0,")]
+    [InlineData(@"|\mathbf u|=\sqrt{25-\frac{20^{2}}{64}}=\frac{5\sqrt3}{2},\qquad |\mathbf v|=\sqrt{9-\frac{12^{2}}{64}}=\frac{3\sqrt3}{2}.")]
+    public void GeometryReplyFormulasRenderInAnswerAndAnnotation(string formula)
+    {
+        RunSta(()=>
+        {
+            Assert.NotNull(MathFormulaRenderer.Create("$"+formula+"$",18,System.Windows.Media.Brushes.Black,false));
+            Assert.NotNull(AnnotationFormulaLayout.TryCreate("$"+formula+"$",400,18,System.Windows.Media.Brushes.Black));
+        });
+    }
+    [Theory]
     [InlineData(false)][InlineData(true)]
     public void PaperFeedbackAvoidsAnswersAndCrowdedInkAndExportPreservesOriginal(bool crowded)
     {
