@@ -42,9 +42,9 @@ public sealed partial class SettingsWindow : Window
     private static readonly Brush SecondaryBrush = new SolidColorBrush(Color.FromRgb(99, 112, 137));
     private readonly AppHost _host;
     private readonly ProviderHeaderCredentialService _headerCredentials = new();
-    private readonly ComboBox _uiLanguage = new(), _delay = new(), _imageFormat = new(), _overlayOpacity = new(), _recordingFps = new(), _recordingQuality = new(), _gifFps = new(), _tempCleanup = new(), _voiceLanguage = new(), _hermesAgentSelector = new(), _hermesModelSelector = new(), _hermesReasoning = new(), _model = new();
+    private readonly ComboBox _uiLanguage = new(), _delay = new(), _imageFormat = new(), _overlayOpacity = new(), _recordingFps = new(), _recordingQuality = new(), _gifFps = new(), _tempCleanup = new(), _voiceLanguage = new(), _hermesAgentSelector = new(), _hermesModelSelector = new(), _hermesReasoning = new(), _model = new(), _apiFormat = new(), _authMode = new();
     private readonly TextBox _hotkey = new();
-    private readonly TextBox _baseUrl = new(), _customHeaders = new();
+    private readonly TextBox _baseUrl = new(), _customHeaders = new(), _requestPath = new(), _region = new(), _plan = new();
     private readonly TextBox _requestParameters = new();
     private readonly PasswordBox _apiKey = new();
     private readonly Button _clearApiKey = new(), _testApiConnection = new();
@@ -300,6 +300,7 @@ public sealed partial class SettingsWindow : Window
         panel.Children.Add(_uiLanguage);
         panel.Children.Add(Text("语言设置将在重新启动喵呜AI后生效。",true));
         panel.Children.Add(ThinkingGlowSettings());
+        panel.Children.Add(NetworkProxySettings());
         panel.Children.Add(Text("启动与快捷键", true));
         _startup.Content = "登录 Windows 后自动启动";
         _startup.IsChecked = _host.Settings.LaunchAtStartup;
@@ -835,6 +836,8 @@ public sealed partial class SettingsWindow : Window
             _baseUrl.Text = draft.BaseUrl;
             PopulateModelSuggestions(draft.Model);
             _requestParameters.Text = draft.ParametersJson;
+            _apiFormat.Text=draft.ApiFormat;_authMode.Text=draft.AuthMode;
+            _requestPath.Text=draft.RequestPath;_region.Text=draft.Region;_plan.Text=draft.Plan;
             _customHeaders.Text = _captureProtectionAvailable == false
                 ? "屏幕防捕获不可用，Custom Headers 已隐藏。" : draft.HeadersJson;
             _apiAdvanced.IsExpanded = ProviderPresetPolicy.Detect(provider).RequiresBaseUrl &&
@@ -1108,6 +1111,8 @@ public sealed partial class SettingsWindow : Window
             {
                 CaptureHotkey=new HotkeySetting{Key=parsed,Modifiers=modifiers},
                 LaunchAtStartup=_startup.IsChecked==true,
+                NetworkProxyMode=(_networkProxyMode.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"system",
+                NetworkProxyUrl=_networkProxyUrl.Text.Trim(),
                 UiLanguage=(_uiLanguage.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"system",
                 ThinkingGlowEnabled=_thinkingGlowEnabled.IsChecked==true,
                 ThinkingGlowColor=_thinkingGlowColor,

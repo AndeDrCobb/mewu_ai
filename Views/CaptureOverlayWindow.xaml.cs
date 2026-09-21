@@ -303,7 +303,7 @@ public partial class CaptureOverlayWindow : Window
 
     private SelectionItem? Active=>_activeIndex>=0&&_activeIndex<_selections.Count?_selections[_activeIndex]:null;
 
-    public CaptureOverlayWindow(AppHost host)
+    public CaptureOverlayWindow(AppHost host,ConversationSessionArchive? restoredSession=null)
     {
         _pinsBeforeCapture=GetPinnedWindows().ToHashSet();
         _host=host;IsTeachingMode=host.Settings.TeachingMode;_frame=new ScreenCaptureService().CaptureDesktop(host.Settings.IncludeCaptureCursor);InitializeComponent();LocalizationService.SetExcludeFromLocalization(SelectionLayer,true);LocalizationService.SetExcludeFromLocalization(HistoryItems,true);LocalizationService.SetExcludeFromLocalization(ReferenceChips,true);AnswerText.MarkdownChanged+=(_,_)=>TableCopyButton.Visibility=AnswerText.ContainsTable?Visibility.Visible:Visibility.Collapsed;
@@ -335,6 +335,7 @@ public partial class CaptureOverlayWindow : Window
         }
         RefreshAiFeatureAvailability();
         LoadSessionHistory();
+        RestoreConversationArchive(restoredSession);
         ApplyVoiceAvailability();
         if(NativeMethods.VisualQaCaptureEnabled)ShowInTaskbar=true;
         DesktopImage.Source=_frame.Image;Dimmer.Fill=new SolidColorBrush(Color.FromArgb((byte)Math.Round(Math.Clamp(host.Settings.OverlayOpacity,.4,.75)*255),0,0,0));
@@ -549,7 +550,10 @@ public partial class CaptureOverlayWindow : Window
         if(string.IsNullOrWhiteSpace(provider))return;
         var entries=_host.GetSessionConversationHistory(provider,model);
         if(entries.Count==0)return;
-        MergeHistoryEntries(entries);
+        var latest=entries[^1];
+        _archiveSessionId=string.IsNullOrWhiteSpace(latest.SessionId)?Guid.NewGuid().ToString("N"):latest.SessionId;
+        _archiveSessionTitle=latest.SessionTitle??string.Empty;
+        MergeHistoryEntries(entries.Where(entry=>entry.SessionId==latest.SessionId));
     }
 
     private async Task LoadPersistedHistoryAsync()
@@ -570,7 +574,7 @@ public partial class CaptureOverlayWindow : Window
                 // Persisted records stay visible in the history panel but are
                 // not merged into the request context; the explicit 新会话
                 // action controls the conversation boundary.
-                _persistedHistory=entries.Where(entry=>string.Equals(entry.Provider,provider,StringComparison.Ordinal)&&string.Equals(entry.Model,model,StringComparison.Ordinal)).TakeLast(24).ToArray();
+                _persistedHistory=entries.Where(entry=>entry.Provider==provider&&entry.Model==model&&entry.SessionId==_archiveSessionId).TakeLast(24).ToArray();
                 RefreshHistoryPreview();
             },DispatcherPriority.Background);
         }
@@ -653,6 +657,9 @@ public partial class CaptureOverlayWindow : Window
         }
         var (historyProvider,historyModel)=GetHistoryScope();
         _host.ClearSessionConversationHistory(historyProvider,historyModel);
+        _archiveSessionId=Guid.NewGuid().ToString("N");
+        _archiveSessionTitle=string.Empty;
+        _persistedHistory=[];
         _history.Clear();
         _history.Add(new AiMessage("system",VisualAnnotationProtocol.SystemInstruction));
         _lastSubmittedPrompt=string.Empty;
@@ -2401,7 +2408,7 @@ public partial class CaptureOverlayWindow : Window
             new PrivacyLogger().Info("ScreenAiResult",$"附件 {totalCount}，视频 {targets.Count(item=>item.VideoPath is not null)+uploadedReferences.Count(file=>file.Type==AiAttachmentType.Video)}，最终模型批注 {result.Annotations.Count}，补标返回 {repairReturnedAnnotationCount}，有效批注 {renderedAnnotationCount}");
             var continuation=result.ContinuationMessage is {ProviderContent:not null} complete&&string.Equals(complete.Role,"assistant",StringComparison.OrdinalIgnoreCase)
                 ?complete with {Text=result.Answer}:null;
-            var (historyProvider,historyModel)=GetHistoryScope(selectedChannel.Id);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();if(_host.Settings.SaveConversationHistory)await new ConversationHistoryService().TryAppendAsync(historyProvider,historyModel,turnPrompt,result.Answer,request.Token);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();_host.RememberConversationHistory(new ConversationHistoryEntry(DateTimeOffset.UtcNow,historyProvider,historyModel,turnPrompt,result.Answer){ContinuationMessage=continuation});_history.Add(new("user",turnPrompt));_history.Add(continuation??new AiMessage("assistant",result.Answer));_lastSubmittedTurnRecorded=true;ConversationContextPolicy.TrimInPlace(_history);RefreshHistoryPreview();RecordOverlayOperation(before,tableRecognition?"AI 表格识别":"AI 识图");var tableCount=TableClipboardService.Parse(result.Answer).Count;PromptStatus.Text=tableRecognition?(tableCount>0?$"已识别 {tableCount} 个表格 · 点击回答上方的“复制表格”":"没有识别到完整表格，可调整选区后重试"):hasVideo?CaptureOverlayPolicy.GetVideoCompletionStatus(true,renderedAnnotationCount):CaptureOverlayPolicy.GetImageCompletionStatus(hasImage,targets.Any(item=>item.VideoPath is null),targets.Count(item=>item.VideoPath is null&&HasAiAnnotations(item)),CaptureOverlayPolicy.NeedsImageAnnotationRepair(prompt,string.Empty,0));requestSucceeded=true;if(usingHermes&&_host.Settings.HermesAutoReadAloud&&!tableRecognition)_=BeginOverlayReadAloudAsync(result.Answer);
+            if(string.IsNullOrWhiteSpace(_archiveSessionTitle))_archiveSessionTitle=turnPrompt[..Math.Min(48,turnPrompt.Length)];var (historyProvider,historyModel)=GetHistoryScope(selectedChannel.Id);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();if(_host.Settings.SaveConversationHistory)await new ConversationHistoryService().TryAppendAsync(historyProvider,historyModel,turnPrompt,result.Answer,_archiveSessionId,_archiveSessionTitle,request.Token);if(!CaptureOverlayPolicy.CanAcceptAiUpdate(_request,request,_closed))return;request.Token.ThrowIfCancellationRequested();_host.RememberConversationHistory(new ConversationHistoryEntry(DateTimeOffset.UtcNow,historyProvider,historyModel,turnPrompt,result.Answer){ContinuationMessage=continuation,SessionId=_archiveSessionId,SessionTitle=_archiveSessionTitle});_history.Add(new("user",turnPrompt));_history.Add(continuation??new AiMessage("assistant",result.Answer));_lastSubmittedTurnRecorded=true;ConversationContextPolicy.TrimInPlace(_history);RefreshHistoryPreview();RecordOverlayOperation(before,tableRecognition?"AI 表格识别":"AI 识图");var tableCount=TableClipboardService.Parse(result.Answer).Count;PromptStatus.Text=tableRecognition?(tableCount>0?$"已识别 {tableCount} 个表格 · 点击回答上方的“复制表格”":"没有识别到完整表格，可调整选区后重试"):hasVideo?CaptureOverlayPolicy.GetVideoCompletionStatus(true,renderedAnnotationCount):CaptureOverlayPolicy.GetImageCompletionStatus(hasImage,targets.Any(item=>item.VideoPath is null),targets.Count(item=>item.VideoPath is null&&HasAiAnnotations(item)),CaptureOverlayPolicy.NeedsImageAnnotationRepair(prompt,string.Empty,0));requestSucceeded=true;if(usingHermes&&_host.Settings.HermesAutoReadAloud&&!tableRecognition)_=BeginOverlayReadAloudAsync(result.Answer);
         }
         catch(OperationCanceledException){new PrivacyLogger().Info("ScreenAiAnnotationPhase",primaryApplied?"核验或后续处理已取消；保留已显示的初稿":"初稿请求已取消；恢复发送前状态");if(!_closed&&ReferenceEquals(_request,request)){if(primaryApplied)PromptStatus.Text="已停止核验，保留初稿和已显示标注";else{ApplyOverlaySnapshot(before);PromptStatus.Text="已取消";}}}
         catch(Exception ex){new PrivacyLogger().Error(requestStage=="render"?"ScreenAiRender":"ScreenAiRequest",ex);if(!_closed&&ReferenceEquals(_request,request)){var message=request.IsCancellationRequested?"已取消":$"请求失败（{selectedChannel.DisplayName}）：{ex.Message}";if(request.IsCancellationRequested)ApplyOverlaySnapshot(before);else{CloseReasoning("思考过程 · 请求失败",Color.FromRgb(214,120,120));ShowAnswer();AnswerText.Markdown=message;}PromptStatus.Text=message;}}

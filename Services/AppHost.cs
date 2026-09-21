@@ -44,6 +44,7 @@ public sealed class AppHost : IDisposable
         CrashDiagnosticsService.InitializePrimary();
         CrashDiagnosticsService.MarkOperation("加载设置");
         _settingsService=new();Settings=_settingsService.Load();
+        NetworkHttpClientFactory.Configure(Settings.NetworkProxyMode,Settings.NetworkProxyUrl);
         LocalizationService.Initialize(_uiCultureOverride is null?Settings.UiLanguage:"system",_uiCultureOverride??CultureInfo.CurrentUICulture);
         _main=CreateMainWindow(); _app.MainWindow=_main;
         _hotkey=new GlobalHotkeyService(); _hotkey.Pressed+=BeginCapture; var hotkeyOk=_hotkey.Register(Settings.CaptureHotkey);
@@ -89,7 +90,7 @@ public sealed class AppHost : IDisposable
         var item=new Forms.ToolStripMenuItem(text){AutoSize=false,Width=Math.Max(156,menu.MinimumSize.Width-menu.Padding.Horizontal),Height=36,Margin=new Forms.Padding(0,1,0,1),Padding=new Forms.Padding(12,0,14,0),TextAlign=ContentAlignment.MiddleLeft};item.Click+=onClick;menu.Items.Add(item);return item;
     }
     public void BeginCapture(){if(!IsExiting&&Volatile.Read(ref _disposed)==0)_=BeginCaptureAsync();}
-    private async Task BeginCaptureAsync()
+    private async Task BeginCaptureAsync(ConversationSessionArchive? restoredSession=null)
     {
         if(Interlocked.CompareExchange(ref _captureActive,1,0)!=0)return;
         CrashDiagnosticsService.MarkOperation("启动屏幕助手");
@@ -129,7 +130,7 @@ public sealed class AppHost : IDisposable
             void ShowCapture()
             {
                 token.ThrowIfCancellationRequested();
-                var overlay=new CaptureOverlayWindow(this);_activeCaptureOverlay=overlay;overlay.Closed+=(_,_)=>{OnCaptureOverlayClosed(overlay);RestoreConversationSessions();};overlay.Show();overlay.Activate();
+                var overlay=new CaptureOverlayWindow(this,restoredSession);_activeCaptureOverlay=overlay;overlay.Closed+=(_,_)=>{OnCaptureOverlayClosed(overlay);RestoreConversationSessions();};overlay.Show();overlay.Activate();
             }
             // Hotkeys already arrive on the UI thread. Freeze that moment
             // directly; don't queue two extra turns before taking the frame.
@@ -155,6 +156,20 @@ public sealed class AppHost : IDisposable
         var window=new MainWindow(this);
         window.Closed+=(_,_)=>BeginShutdown();
         return window;
+    }
+    internal IReadOnlyList<ConversationHistoryEntry> GetAllSessionConversationHistory()
+    {
+        lock(_sessionHistoryGate)return _sessionConversationHistory.ToArray();
+    }
+    internal bool CanOpenConversationSession(ConversationSessionArchive session)
+        =>GetConversationChannels().Any(channel=>ConversationArchivePolicy.Matches(session,channel,Settings));
+    public bool BeginConversationSession(ConversationSessionArchive session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if(!_app.Dispatcher.CheckAccess())return _app.Dispatcher.Invoke(()=>BeginConversationSession(session));
+        if(IsExiting||Volatile.Read(ref _disposed)!=0||IsCaptureActive||!CanOpenConversationSession(session)||ConversationArchivePolicy.Entries(session).Count==0)return false;
+        _=BeginCaptureAsync(session);
+        return true;
     }
     public void ShowMainWindow() { if(IsExiting||_app.Dispatcher.HasShutdownStarted)return;_app.Dispatcher.Invoke(()=>{if(IsExiting)return;_main??=CreateMainWindow();_main.Show();_main.WindowState=WindowState.Normal;_main.Activate();}); }
     public void ShowSettings(bool showAi=false) { _app.Dispatcher.Invoke(()=>{ if(_settingsWindow is null){_settingsWindow=new SettingsWindow(this);var window=_settingsWindow;window.Closed+=(_,_)=>{if(ReferenceEquals(_settingsWindow,window))_settingsWindow=null;FinishAuxiliary(window);};} if(showAi)_settingsWindow.ShowAiPage();PrepareAuxiliary(_settingsWindow);_settingsWindow.Show();_settingsWindow.WindowState=WindowState.Normal;_settingsWindow.Activate();}); }
@@ -486,6 +501,8 @@ public sealed class AppHost : IDisposable
     public bool TryApplySettings(AppSettings candidate,out string? error,out string? warning)
     {
         error=null;warning=null;var previous=Settings;var startupChanged=candidate.LaunchAtStartup!=previous.LaunchAtStartup;
+        try{NetworkHttpClientFactory.Validate(candidate.NetworkProxyMode,candidate.NetworkProxyUrl);}
+        catch(InvalidOperationException ex){error=ex.Message;return false;}
         var hotkeyChanged=candidate.CaptureHotkey.Key!=previous.CaptureHotkey.Key||candidate.CaptureHotkey.Modifiers!=previous.CaptureHotkey.Modifiers;
         if(_hotkey?.Register(candidate.CaptureHotkey)==false){error="该快捷键可能已被其他应用占用，旧快捷键仍然有效。";return false;}
         try
@@ -503,6 +520,7 @@ public sealed class AppHost : IDisposable
             error=ex.Message;return false;
         }
         Settings=candidate;
+        NetworkHttpClientFactory.Configure(candidate.NetworkProxyMode,candidate.NetworkProxyUrl);
         if((previous.HermesEnabled&&!candidate.HermesEnabled)||(previous.HermesAutoReadAloud&&!candidate.HermesAutoReadAloud))
             _hermesReadAloud.Stop();
         try{_main?.RefreshStatus();}
