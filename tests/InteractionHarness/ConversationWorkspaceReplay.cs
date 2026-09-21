@@ -67,7 +67,7 @@ internal static class ConversationWorkspaceReplay
             Check(checks,"completed-answer-not-duplicated",!Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<System.Windows.Controls.TextBox>().Any(box=>box.Text.Contains("解题步骤")));
             Save(workspace,"conversation-unified-completed.png");
             Set(overlay,"_lastSubmittedPrompt","下一题怎么做？");Invoke(overlay,"ResetAnswerForRequest");Pump(app);
-            Check(checks,"next-turn-keeps-previous-answer",Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<System.Windows.Controls.TextBox>().Any(box=>box.Text.Contains("解题步骤")));
+            Check(checks,"next-turn-keeps-previous-answer",Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<MarkdownAnswerView>().Any(box=>box.Markdown.Contains("解题步骤")));
             Invoke(overlay,"RefreshHistoryPreview");Pump(app);
             Check(checks,"cancel-without-answer-has-no-fake-bubble",!Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<System.Windows.Controls.TextBox>().Any(box=>box.Text.Contains("未收到 AI 回复")));
             using var pending=new CancellationTokenSource();

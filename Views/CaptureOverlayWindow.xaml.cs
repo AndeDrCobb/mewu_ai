@@ -735,7 +735,14 @@ public partial class CaptureOverlayWindow : Window
             Margin=user?new Thickness(44,3,2,3):new Thickness(2,3,44,3)
         };
         var content=new StackPanel();
-        content.Children.Add(CreateHistoryText(text,new Thickness(0,2,0,0)));
+        if(user)content.Children.Add(CreateHistoryText(text,new Thickness(0,2,0,0)));
+        else
+        {
+            var reply=new MarkdownAnswerView{FontSize=12,MaxWidth=534,Margin=new Thickness(0,2,0,0),Markdown=text};
+            reply.ContextMenu.Opened+=(_,_)=>_historyCopyMenuOpen=true;
+            reply.ContextMenu.Closed+=(_,_)=>_historyCopyMenuOpen=false;
+            content.Children.Add(reply);
+        }
         bubble.Child=content;
         return bubble;
     }

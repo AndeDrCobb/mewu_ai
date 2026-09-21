@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 历史 AI 回复使用与当前回复相同的 Markdown/公式渲染，重新截图加载历史后仍显示公式；取消历史回复的900字符显示截断，保留完整公式和复制内容。 / Render historical assistant replies with the same Markdown and math view as current replies, preserving formulas after reopening capture and removing the 900-character display truncation.
+
 - 修复含二项式系数 `\binom` 的公式显示为源码的问题，覆盖流式最新回答及标注公式。 / Render binomial coefficients (`\binom`) in streamed replies and annotations.
 
 - 标注气泡和原位文字标注支持公式排版及文字混排，长公式按框宽缩放，带标注导出保留相同公式效果。 / Typeset formulas alongside text in annotation cards and in-place labels, fit long formulas to their width, and preserve typesetting in annotated exports.
