@@ -4,6 +4,15 @@
 
 ## 未发布 / Unreleased
 
+暂无未发布变更。 / No unreleased changes.
+
+## 0.5.1 — 公式、标注反馈与 README 演示 / Formula rendering, annotation feedback and README demos
+
+发行说明 / Release notes: [0.5.1](https://github.com/abnste/mewu_ai/releases/tag/v0.5.1)
+
+完整的双语发行说明见 [docs/release-notes-v0.5.1.md](./docs/release-notes-v0.5.1.md)。 / See the full bilingual notes in [docs/release-notes-v0.5.1.md](./docs/release-notes-v0.5.1.md).
+
+
 - 历史 AI 回复使用与当前回复相同的 Markdown/公式渲染，重新截图加载历史后仍显示公式；取消历史回复的900字符显示截断，保留完整公式和复制内容。 / Render historical assistant replies with the same Markdown and math view as current replies, preserving formulas after reopening capture and removing the 900-character display truncation.
 
 - 修复含二项式系数 `\binom` 的公式显示为源码的问题，覆盖流式最新回答及标注公式。 / Render binomial coefficients (`\binom`) in streamed replies and annotations.

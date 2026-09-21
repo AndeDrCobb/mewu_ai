@@ -3,14 +3,14 @@
   <h1>喵呜AI（MewuAI）— Windows AI 截图标注软件</h1>
   <p>开源截图工具，支持 AI 原位标注、离线 OCR、截图翻译、长截图和录屏。</p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/公测版-v0.5.0-7C6CF0?style=flat-square" alt="v0.5.0 公测版" /></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.5.1"><img src="https://img.shields.io/badge/公测版-v0.5.1-7C6CF0?style=flat-square" alt="v0.5.1 公测版" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 及以上，x64" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MPL--2.0-blue?style=flat-square" alt="MPL-2.0" /></a>
   </p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.0/MewuAI-Setup-0.5.0-win-x64.exe"><strong>下载安装版</strong></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.1/MewuAI-Setup-0.5.1-win-x64.exe"><strong>下载安装版</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.0/MewuAI-Portable-0.5.0-win-x64.zip">免安装版</a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.1/MewuAI-Portable-0.5.1-win-x64.zip">免安装版</a>
   </p>
   <p><strong>简体中文</strong> · <a href="./README.md">English</a> · <a href="./CHANGELOG.md">更新日志</a> · <a href="https://github.com/abnste/mewu_ai/issues">问题反馈</a></p>
 </div>
@@ -65,19 +65,19 @@
 <td width="50%" valign="top">
 <h3>代码讲解</h3>
 <p>框选看不懂的代码，让 AI 对着具体位置解释。</p>
-<a href="./docs/images/code-explanation.jpg"><img src="./docs/images/code-explanation.jpg" width="100%" alt="代码截图旁的解释与对应代码位置相连" /></a>
+<a href="./docs/images/understand-code-latest.png"><img src="./docs/images/understand-code-latest.png" width="100%" alt="代码截图旁的解释与对应代码位置相连" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>绘图与批注</h3>
 <p>让 AI 添加图示，或自己用画笔、形状和文字补充说明。</p>
-<a href="./docs/images/ai-drawing.jpg"><img src="./docs/images/ai-drawing.jpg" width="100%" alt="截图上的 AI 绘图与批注" /></a>
+<a href="./docs/images/draw-and-annotate-latest.jpg"><img src="./docs/images/draw-and-annotate-latest.jpg" width="100%" alt="截图上的 AI 绘图与批注" /></a>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 <h3>试卷批注</h3>
 <p>引用试卷截图进行讲解和批注；多张截图可一起分析共同问题、生成练习。</p>
-<a href="./docs/images/hkdse-2025-inplace-math-zh.png"><img src="./docs/images/hkdse-2025-inplace-math-zh.png" width="100%" alt="真实 HKDSE 手写答卷经人工复核后的原位批注与数学排版演示" /></a>
+<a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="试卷截图上的人工复核批注与数学排版演示" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>视频分析</h3>

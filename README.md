@@ -3,14 +3,14 @@
   <h1>MewuAI — AI Screenshot Annotation for Windows</h1>
   <p>Open-source screen capture with in-place AI annotations, offline OCR, screenshot translation, and screen recording.</p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/Public_Beta-v0.5.0-7C6CF0?style=flat-square" alt="v0.5.0 public beta" /></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/tag/v0.5.1"><img src="https://img.shields.io/badge/Public_Beta-v0.5.1-7C6CF0?style=flat-square" alt="v0.5.1 public beta" /></a>
     <img src="https://img.shields.io/badge/Windows-10_2004%2B-0078D4?style=flat-square" alt="Windows 10 2004 or later, x64" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MPL--2.0-blue?style=flat-square" alt="MPL-2.0" /></a>
   </p>
   <p>
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.0/MewuAI-Setup-0.5.0-win-x64.exe"><strong>Download installer</strong></a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.1/MewuAI-Setup-0.5.1-win-x64.exe"><strong>Download installer</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.0/MewuAI-Portable-0.5.0-win-x64.zip">Portable ZIP</a>
+    <a href="https://github.com/abnste/mewu_ai/releases/download/v0.5.1/MewuAI-Portable-0.5.1-win-x64.zip">Portable ZIP</a>
   </p>
   <p><a href="./README.zh-CN.md">简体中文</a> · <strong>English</strong> · <a href="./CHANGELOG.md">Changelog</a> · <a href="https://github.com/abnste/mewu_ai/issues">Report an issue</a></p>
 </div>
@@ -67,19 +67,19 @@ Screenshots, manual annotations, pinned images, text recognition, and recording 
 <td width="50%" valign="top">
 <h3>Understand code</h3>
 <p>Select a piece of code and ask for an explanation tied to the lines you are reading.</p>
-<a href="./docs/images/code-explanation.jpg"><img src="./docs/images/code-explanation.jpg" width="100%" alt="Explanations beside a code screenshot point to the relevant lines" /></a>
+<a href="./docs/images/understand-code-latest.png"><img src="./docs/images/understand-code-latest.png" width="100%" alt="Explanations beside a code screenshot point to the relevant lines" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>Draw and annotate</h3>
 <p>Ask AI to add a diagram, or add your own notes with pens, shapes, and text.</p>
-<a href="./docs/images/ai-drawing.jpg"><img src="./docs/images/ai-drawing.jpg" width="100%" alt="AI drawings and annotations on a screenshot" /></a>
+<a href="./docs/images/draw-and-annotate-latest.jpg"><img src="./docs/images/draw-and-annotate-latest.jpg" width="100%" alt="AI drawings and annotations on a screenshot" /></a>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 <h3>Annotate papers</h3>
 <p>Reference exam screenshots for explanations and annotations, or compare several pages to discuss shared errors and create practice.</p>
-<a href="./docs/images/hkdse-2025-inplace-math-en.png"><img src="./docs/images/hkdse-2025-inplace-math-en.png" width="100%" alt="Human-reviewed annotations and math typesetting on a genuine HKDSE handwritten script" /></a>
+<a href="./docs/images/exam-annotation-latest.jpg"><img src="./docs/images/exam-annotation-latest.jpg" width="100%" alt="Human-reviewed annotations and math typesetting on an exam screenshot" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>Analyze videos</h3>
@@ -191,6 +191,6 @@ Bug reports, suggestions, code, and documentation improvements are welcome. See 
 
 ## License
 
-Created by **Abner Stephen** & **Yandi**.
+Created by **Abner Stephen**.
 
 Project-owned source is licensed under [MPL-2.0](./LICENSE). Commercial use is permitted under the license. When distributing covered software, provide the covered source and retain copyright and license notices as required. See [license and source information](./SOURCE.md) and the separate [third-party notices](./THIRD-PARTY-NOTICES.md).
