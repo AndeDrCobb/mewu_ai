@@ -13,6 +13,7 @@ using mewu_ai_Assistant.Models;
 using mewu_ai_Assistant.Services;
 using mewu_ai_Assistant.Views;
 using Application=System.Windows.Application;
+using MouseEventArgs=System.Windows.Input.MouseEventArgs;
 
 internal static class ConversationWorkspaceReplay
 {
@@ -77,7 +78,7 @@ internal static class ConversationWorkspaceReplay
             Check(checks,"multiple-independent-widgets",app.Windows.OfType<ConversationFloatingWidget>().Count()==2&&!next.IsVisible);
             overlay.RestoreFromConversationWidget();Pump(app);
             Check(checks,"restore-only-selected-session",!next.IsVisible&&app.Windows.OfType<ConversationFloatingWidget>().Count()==1);
-            next.Close();Pump(app);
+            Set(next,"_applicationSnapshotActive",false);next.Close();Pump(app);
             Check(checks,"restore-keeps-draft-history",overlay.IsVisible&&prompt.Text=="把第二步再讲详细一点"&&history.Count>=2);
             Check(checks,"restore-keeps-original-frozen-frame",ReferenceEquals(frozenImage,((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source));
             Check(checks,"restore-keeps-one-message-scroll",historyScroll.IsAncestorOf(answer));
@@ -87,7 +88,20 @@ internal static class ConversationWorkspaceReplay
             SendEscape(prompt);Pump(app);
             Check(checks,"escape-closes-picker-first",!picker.IsOpen&&workspace.IsVisible&&overlay.IsVisible);
             prompt.Focus();SendEscape(prompt);Pump(app);
-            Check(checks,"escape-from-input-closes-session",!workspace.IsVisible&&!overlay.IsVisible);
+            widget=app.Windows.OfType<ConversationFloatingWidget>().Single();
+            Check(checks,"escape-from-restored-input-minimizes",!overlay.IsVisible&&widget.IsVisible&&app.Windows.Cast<Window>().Contains(overlay));
+            overlay.RestoreFromConversationWidget();Pump(app);
+            Check(checks,"second-restore-keeps-frame-and-draft",overlay.IsVisible&&prompt.Text=="把第二步再讲详细一点"&&ReferenceEquals(frozenImage,((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source));
+            SendEscape(prompt);Pump(app);
+            widget=app.Windows.OfType<ConversationFloatingWidget>().Single();
+            var close=Descendants(widget).OfType<System.Windows.Controls.Button>().Single(button=>button.Name=="CloseConversationButton");
+            widget.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseLeaveEvent});
+            Check(checks,"widget-close-hidden-until-hover",close.Visibility==Visibility.Hidden);
+            widget.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseEnterEvent});Pump(app);
+            Check(checks,"widget-hover-shows-close",close.IsVisible);
+            Save(widget,"conversation-widget-hover.png");
+            close.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Pump(app);
+            Check(checks,"widget-close-ends-session",!app.Windows.Cast<Window>().Contains(overlay)&&!app.Windows.OfType<ConversationFloatingWidget>().Any());
         }
         catch(Exception ex){failure=ex is TargetInvocationException tie?tie.InnerException?.ToString()??tie.ToString():ex.ToString();}
         finally

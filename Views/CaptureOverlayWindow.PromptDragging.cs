@@ -21,6 +21,7 @@ public partial class CaptureOverlayWindow
     private int _promptDockAnimationVersion;
     private ConversationFloatingWidget? _conversationWidget;
     private bool _conversationSessionFrozen;
+    private bool _restoredFromConversationWidget;
 
     private void PromptDragStarted(object sender,DragStartedEventArgs e)
     {
@@ -87,6 +88,11 @@ public partial class CaptureOverlayWindow
 
     private void MinimizeConversation(object sender,RoutedEventArgs e)
     {
+        MinimizeConversationToWidget();e.Handled=true;
+    }
+
+    private void MinimizeConversationToWidget()
+    {
         if(_closed||_conversationWidget is not null)return;
         if(_recordingMode||_recordingCountdownActive||_longCaptureMode||_overlayRequest is not null)
         {
@@ -98,7 +104,6 @@ public partial class CaptureOverlayWindow
         Hide();_inactiveEscapeTimer.Stop();
         _host.ReleaseCaptureForMinimizedOverlay(this);
         widget.Show();
-        e.Handled=true;
     }
 
     internal void RestoreFromConversationWidget()
@@ -108,6 +113,7 @@ public partial class CaptureOverlayWindow
         {
             _host.Notify(L("当前正在进行另一轮截图，请先完成后再恢复此会话。","Finish the current screenshot before restoring this conversation."));return;
         }
+        _restoredFromConversationWidget=true;
         var widget=_conversationWidget;_conversationWidget=null;widget.CloseForOwnerExit();
         Show();WindowState=WindowState.Normal;Topmost=true;Activate();
         PositionPromptBar();SetPromptBarHidden(false);QuickPrompt.Focus();

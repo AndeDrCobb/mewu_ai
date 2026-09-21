@@ -4141,6 +4141,11 @@ public partial class CaptureOverlayWindow : Window
         else if(_recordingMode)StopRecording(this,new RoutedEventArgs());
         else if(_drawingMode)ExitDrawingMode();
         else if(_activeInteraction is not null){ResolveOverlayInteractionWithFallback();PromptStatus.Text="已取消本次 Hermes 交互";}
+        else if(_restoredFromConversationWidget)
+        {
+            if(_overlayRequest is not null){TryCancel(_overlayRequest);return;}
+            MinimizeConversationToWidget();
+        }
         // Closing owns cancellation and rejects late OCR/provider completions.
         // Never wait for a network task or clear several OCR regions one by one.
         else Close();

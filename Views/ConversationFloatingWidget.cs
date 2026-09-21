@@ -32,8 +32,12 @@ internal sealed class ConversationFloatingWidget : Window
     {
         var shell=new Border{Background=new SolidColorBrush(Color.FromRgb(249,251,255)),BorderBrush=new SolidColorBrush(Color.FromRgb(211,220,235)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(18),Padding=new Thickness(9,6,9,6)};
         var row=new DockPanel{LastChildFill=true};
-        var close=new Button{Content="×",Width=24,Height=24,Padding=new Thickness(0),Margin=new Thickness(5,0,0,0),ToolTip=LocalizationService.T("关闭会话","Close conversation"),Foreground=new SolidColorBrush(Color.FromRgb(113,126,151)),Background=Brushes.Transparent,BorderThickness=new Thickness(0),FontSize=17};
-        close.Click+=(_,_)=>_owner.Close();DockPanel.SetDock(close,Dock.Right);row.Children.Add(close);
+        var close=new Button{Name="CloseConversationButton",Style=(Style)_owner.FindResource("ConversationHeaderButton"),Width=22,Height=22,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(5,0,0,0),ToolTip=LocalizationService.T("关闭会话","Close conversation"),Visibility=Visibility.Hidden};
+        close.Content=new System.Windows.Shapes.Path{Width=12,Height=12,Stroke=new SolidColorBrush(Color.FromRgb(113,126,151)),StrokeThickness=1.5,StrokeStartLineCap=PenLineCap.Round,StrokeEndLineCap=PenLineCap.Round,Data=Geometry.Parse("M3,3 L9,9 M9,3 L3,9")};
+        System.Windows.Automation.AutomationProperties.SetName(close,LocalizationService.T("关闭会话","Close conversation"));
+        MouseEnter+=(_,_)=>close.Visibility=Visibility.Visible;
+        MouseLeave+=(_,_)=>close.Visibility=Visibility.Hidden;
+        close.Click+=(_,e)=>{e.Handled=true;_owner.Close();};DockPanel.SetDock(close,Dock.Right);row.Children.Add(close);
         var icon=new Border{Width=28,Height=28,CornerRadius=new CornerRadius(10),Background=new SolidColorBrush(Color.FromRgb(232,237,255)),Margin=new Thickness(0,0,8,0)};
         icon.Child=new System.Windows.Shapes.Path{Width=15,Height=15,Stretch=Stretch.Uniform,Stroke=new SolidColorBrush(Color.FromRgb(82,99,217)),StrokeThickness=1.5,Data=Geometry.Parse("M2,2 L14,2 L14,11 L8,11 L4,14 L4,11 L2,11 Z M5,5 L11,5 M5,8 L9,8"),HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center};
         DockPanel.SetDock(icon,Dock.Left);row.Children.Add(icon);
@@ -46,7 +50,8 @@ internal sealed class ConversationFloatingWidget : Window
 
     private void OnMouseDown(object? sender,MouseButtonEventArgs e)
     {
-        if(e.OriginalSource is Button)return;
+        for(var source=e.OriginalSource as DependencyObject;source is not null;source=VisualTreeHelper.GetParent(source))
+            if(source is Button)return;
         if(e.ChangedButton==MouseButton.Left){_owner.RestoreFromConversationWidget();e.Handled=true;}
     }
 
