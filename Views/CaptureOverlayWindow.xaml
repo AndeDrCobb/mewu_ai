@@ -122,7 +122,7 @@
    </StackPanel>
   </Border>
   <Rectangle x:Name="PromptDockHint" Visibility="Collapsed" IsHitTestVisible="False" RadiusX="20" RadiusY="20" Stroke="#AAB8CF" StrokeThickness="2" StrokeDashArray="5,4" Fill="#167B8AF4"/>
-  <Grid x:Name="PromptBarHost" Opacity="0.99">
+  <Grid x:Name="PromptBarHost" Opacity="0.99" PreviewMouseLeftButtonDown="PromptBackgroundMouseDown">
    <Border Background="#FFFFFFFF" CornerRadius="20" IsHitTestVisible="False">
     <Border.Effect><DropShadowEffect Color="#1D2B3F" BlurRadius="36" ShadowDepth="8" Opacity="0.30"/></Border.Effect>
    </Border>

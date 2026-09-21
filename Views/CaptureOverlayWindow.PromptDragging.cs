@@ -24,6 +24,35 @@ public partial class CaptureOverlayWindow
     private bool _conversationSessionFrozen;
     private bool _restoredFromConversationWidget;
 
+    private void PromptBackgroundMouseDown(object sender,MouseButtonEventArgs e)
+    {
+        if(_closed||_promptDragging||!IsPromptDragBackground(e.OriginalSource as DependencyObject))return;
+        // Forward only blank chrome to the existing Thumb. It owns capture,
+        // release and cancellation for every drag surface, including this one.
+        e.Handled=true;
+        PromptDragHandle.RaiseEvent(new MouseButtonEventArgs(e.MouseDevice,e.Timestamp,MouseButton.Left)
+        {
+            RoutedEvent=MouseLeftButtonDownEvent
+        });
+    }
+
+    private bool IsPromptDragBackground(DependencyObject? source)
+    {
+        for(var current=source;current is not null;)
+        {
+            if(ReferenceEquals(current,PromptBarHost))return true;
+            if(ReferenceEquals(current,PromptInputBorder)||current is ButtonBase or TextBoxBase or PasswordBox or Selector or RangeBase or Thumb or MenuBase)
+                return false;
+            current=current switch
+            {
+                Visual or System.Windows.Media.Media3D.Visual3D=>VisualTreeHelper.GetParent(current),
+                FrameworkContentElement content=>content.Parent,
+                _=>LogicalTreeHelper.GetParent(current)
+            };
+        }
+        return false;
+    }
+
     private void PromptDragStarted(object sender,DragStartedEventArgs e)
     {
         var origin=new Point(Canvas.GetLeft(PromptBarHost),Canvas.GetTop(PromptBarHost));

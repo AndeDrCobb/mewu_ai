@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 扩大对话条拖动范围，顶部、底部及内容之间的空白均可拖动；输入框、按钮、滚动条与回答文字保留原有操作。 / Allow dragging from blank space at the top, bottom and between conversation content while preserving input, buttons, scrollbars and text selection.
+
 - 对话条拖离底部后自动原位展开；浮动时可拖到包含任务栏的完整屏幕范围，拖回原位仍可吸附，取消拖动恢复原来的位置与展开状态。 / Automatically expand the conversation in place when detached from the bottom; floating conversations can reach the full screen including the taskbar area, retain docking, and restore their previous position and expansion state on cancellation.
 
 - 扩大上拉箭头的透明点击区域，使其覆盖顶部拖动区而不改变现有视觉样式；拖动把手其余区域仍可正常拖动。 / Expand the history toggle's transparent hit area into the top drag zone without changing its visual appearance; the remaining drag handle stays draggable.
