@@ -12,6 +12,7 @@ using mewu_ai_Assistant.Models;
 using mewu_ai_Assistant.Views;
 using Application=System.Windows.Application;
 using Button=System.Windows.Controls.Button;
+using TextBox=System.Windows.Controls.TextBox;
 
 internal static class HistoryMenuReplay
 {
@@ -40,6 +41,22 @@ internal static class HistoryMenuReplay
                 toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Layout();
                 Check("expanded-shows-new-chat",button.IsVisible&&panel.IsAncestorOf(button));
                 Check("header-outside-scrolling-list",!scroll.IsAncestorOf(button));
+                var answer=(MarkdownAnswerView)overlay.FindName("AnswerText");
+                typeof(CaptureOverlayWindow).GetField("_lastSubmittedPrompt",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(overlay,"继续解释第二步");
+                Invoke("ResetAnswerForRequest");answer.Markdown="第二步先代入已知条件，再检查单位。";Invoke("ShowAnswer");await Layout();
+                Check("inplace-live-answer-in-same-scroll",scroll.IsAncestorOf(answer)&&((ScrollViewer)overlay.FindName("ResponseScroll")).Content is null);
+                toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Layout();
+                Check("collapse-restores-live-answer",((ScrollViewer)overlay.FindName("ResponseScroll")).IsAncestorOf(answer));
+                toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Layout();
+                Check("reexpand-restores-single-scroll",scroll.IsAncestorOf(answer));
+                history.Add(new("user","继续解释第二步"));history.Add(new("assistant",answer.Markdown));
+                typeof(CaptureOverlayWindow).GetField("_lastSubmittedTurnRecorded",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(overlay,true);
+                Invoke("RefreshHistoryPreview");
+                var before=Invoke("CaptureOverlaySnapshot");
+                Invoke("ResetAnswerForRequest");Invoke("ApplyOverlaySnapshot",before!);await Layout();
+                Check("cancel-restores-answer",answer.Markdown.Contains("检查单位"));
+                Check("cancel-preserves-expanded-stream",scroll.IsAncestorOf(answer));
+                Check("cancel-does-not-duplicate-answer",!Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<TextBox>().Any(text=>text.Text.Contains("检查单位")));
                 var bubbleRows=Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<Border>().Where(border=>border.Child is StackPanel&&border.CornerRadius.TopLeft>=14).ToArray();
                 Check("expanded-history-uses-left-right-bubbles",bubbleRows.Any(border=>border.HorizontalAlignment==System.Windows.HorizontalAlignment.Left)&&bubbleRows.Any(border=>border.HorizontalAlignment==System.Windows.HorizontalAlignment.Right));
                 CheckBounds();Save("expanded");
@@ -58,7 +75,7 @@ internal static class HistoryMenuReplay
                     var scrollBounds=new Rect(scroll.TranslatePoint(new System.Windows.Point(),panel),scroll.RenderSize);
                     Check("list-fits-"+bar.ActualWidth,scrollBounds.Bottom<=panel.ActualHeight+.1&&scrollBounds.Top>=bounds.Bottom);
                 }
-                async Task Layout(){await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);overlay.UpdateLayout();}
+                async Task Layout(){await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);await Task.Delay(260);overlay.UpdateLayout();}
                 void Save(string name)
                 {
                     var visual=new DrawingVisual();using(var dc=visual.RenderOpen())dc.DrawRectangle(new VisualBrush(bar){Stretch=Stretch.None,AlignmentX=AlignmentX.Left,AlignmentY=AlignmentY.Top},null,new Rect(bar.RenderSize));

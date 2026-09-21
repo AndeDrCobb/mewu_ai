@@ -232,7 +232,9 @@ public partial class CaptureOverlayWindow : Window
         bool AnswerExpanded,
         IReadOnlyList<AiMessage> History,
         IReadOnlyList<SelectionItem> LastSentSelections,
-        string LastSubmittedPrompt);
+        string LastSubmittedPrompt,
+        bool LastSubmittedTurnRecorded,
+        bool HistoryExpanded);
     private sealed record AnnotationMappingResult(
         IReadOnlyDictionary<SelectionItem,IReadOnlyList<AiAnnotation>> BySelection,
         int RawCount,
@@ -664,6 +666,7 @@ public partial class CaptureOverlayWindow : Window
     private void RefreshHistoryPreview()
     {
         if(!IsInitialized||HistoryItems is null)return;
+        UpdateConversationStream();
 
         var messages=_history
             .Where(message=>message is not null&&(string.Equals(message.Role,"user",StringComparison.OrdinalIgnoreCase)||string.Equals(message.Role,"assistant",StringComparison.OrdinalIgnoreCase)))
@@ -679,10 +682,10 @@ public partial class CaptureOverlayWindow : Window
         {
             var pair=pairs[pairIndex];
             var isCurrent=currentIsInHistory&&pairIndex==latestPairIndex;
-            previewRows.Add(new HistoryPreviewEntry(pair.Prompt,pair.Answer,isCurrent));
+            previewRows.Add(new HistoryPreviewEntry(pair.Prompt,UnifiedConversation&&isCurrent?string.Empty:pair.Answer,isCurrent));
         }
         if(!string.IsNullOrWhiteSpace(_lastSubmittedPrompt)&&!currentIsInHistory)
-            previewRows.Add(new HistoryPreviewEntry(_lastSubmittedPrompt,_request is null?LocalizationService.T("未收到 AI 回复","No AI response"):LocalizationService.T("正在生成回答…","Generating response…"),true));
+            previewRows.Add(new HistoryPreviewEntry(_lastSubmittedPrompt,string.Empty,true));
         HistoryItems.UpdateRows(previewRows,entry=>CreateHistoryPair(entry.Prompt,entry.Answer,entry.IsCurrent));
         if(HistoryItems.Children.Count==0)
         {
@@ -702,7 +705,7 @@ public partial class CaptureOverlayWindow : Window
     {
         var stream=new StackPanel{Margin=new Thickness(0,0,0,6)};
         stream.Children.Add(CreateConversationBubble(LocalizationService.T("你","You"),prompt,true,current));
-        stream.Children.Add(CreateConversationBubble("AI",answer,false,current));
+        if(!string.IsNullOrWhiteSpace(answer))stream.Children.Add(CreateConversationBubble("AI",answer,false,current));
         return new Border{Background=Brushes.Transparent,Child=stream};
     }
 
@@ -743,9 +746,9 @@ public partial class CaptureOverlayWindow : Window
     {
         var monitor=PromptMonitorBounds();
         if(monitor.IsEmpty||!double.IsFinite(monitor.Height))return 104;
-        // Only the history list scrolls; its heading and new-conversation
-        // action stay visible above it without enlarging the list budget.
-        return Math.Clamp(monitor.Height*.14,84,112);
+        // Expanded chat gets one shared viewport for history and the live turn.
+        // The heading and composer remain outside that viewport.
+        return UnifiedConversation?Math.Clamp(monitor.Height*.42,160,420):Math.Clamp(monitor.Height*.14,84,112);
     }
 
     private string GetReferenceLabel(SelectionItem item)
@@ -1474,7 +1477,9 @@ public partial class CaptureOverlayWindow : Window
         _answerExpanded,
         _history.ToArray(),
         _lastSentSelections.ToArray(),
-        _lastSubmittedPrompt);
+        _lastSubmittedPrompt,
+        _lastSubmittedTurnRecorded,
+        _historyExpanded);
 
     private void RecordOverlayOperation(OverlaySnapshot before,string label)
     {
@@ -1513,9 +1518,10 @@ public partial class CaptureOverlayWindow : Window
         _followAnswerTail=true;LatestAnswerButton.Visibility=Visibility.Collapsed;
         _history.Clear();_history.AddRange(snapshot.History);
         _lastSubmittedPrompt=snapshot.LastSubmittedPrompt;
+        _lastSubmittedTurnRecorded=snapshot.LastSubmittedTurnRecorded;
         _lastSentSelections=[..snapshot.LastSentSelections.Where(targetItems.Contains)];
         _lastSentAnnotationTargets=[.._lastSentSelections.Select(item=>new SentAnnotationTarget(item.ReferenceHandle,item.VideoPath is null?AiAttachmentType.Image:AiAttachmentType.Video,item))];
-        _answerExpanded=false;_historyExpanded=false;AnswerText.SetLocalReplyImageSources(snapshot.LocalReplyImageSources);AnswerText.Markdown=snapshot.AnswerMarkdown;
+        _answerExpanded=false;_historyExpanded=snapshot.HistoryExpanded;AnswerText.SetLocalReplyImageSources(snapshot.LocalReplyImageSources);AnswerText.Markdown=snapshot.AnswerMarkdown;
         ResponseScroll.Visibility=Visibility.Collapsed;AnswerHeader.Visibility=AnswerScroll.Visibility=AnswerDivider.Visibility=Visibility.Collapsed;
         if(snapshot.AnswerExpanded&&snapshot.AnswerMarkdown.Length>0)ShowAnswer();
         _reasoningBuffer.Clear();ReasoningText.Text="";ReasoningToggle.Visibility=ReasoningPanel.Visibility=Visibility.Collapsed;
@@ -1803,7 +1809,7 @@ public partial class CaptureOverlayWindow : Window
             // arrangement. Toggling 540 -> 574 DIPs and shrinking/restoring
             // MaxHeight on each update reformatted the entire long answer.
             ResponseScroll.MaxHeight=CaptureOverlayPolicy.GetPromptResponseMaxHeight(PromptBar.MaxHeight);
-            if(_answerExpanded)AnswerScroll.MaxHeight=CaptureOverlayPolicy.GetAnswerViewportHeight(monitor.Height);
+            if(_answerExpanded)AnswerScroll.MaxHeight=UnifiedConversation?double.PositiveInfinity:CaptureOverlayPolicy.GetAnswerViewportHeight(monitor.Height);
             PromptBar.Measure(new Size(PromptBar.Width,PromptBar.MaxHeight));
             var bounds=CaptureOverlayPolicy.GetPromptBarBounds(monitor,PromptBar.DesiredSize.Height);
             if(bounds.IsEmpty)return;
@@ -1981,7 +1987,7 @@ public partial class CaptureOverlayWindow : Window
         _lastSentSelections.Clear();
         _lastSubmittedTurnRecorded=false;
         _lastSentAnnotationTargets.Clear();
-        ResolveOverlayInteractionWithFallback();AgentActivityItems.Children.Clear();AgentActivityCard.Visibility=AiInteractionCard.Visibility=Visibility.Collapsed;_answerExpanded=false;_historyExpanded=false;ResponseScroll.Visibility=Visibility.Collapsed;AnswerText.Markdown="";AnswerHeader.Visibility=AnswerScroll.Visibility=AnswerDivider.Visibility=Visibility.Collapsed;_reasoningBuffer.Clear();_reasoningRenderScheduled=false;_reasoningRenderRequest=null;ReasoningText.Text="";ReasoningToggle.Visibility=ReasoningPanel.Visibility=Visibility.Collapsed;ReasoningPulse.BeginAnimation(OpacityProperty,null);ReasoningPulse.Background=new SolidColorBrush(Color.FromRgb(123,138,244));_reasoningExpanded=false;RefreshHistoryPreview();_ = Dispatcher.BeginInvoke(PositionPromptBar);
+        ResolveOverlayInteractionWithFallback();AgentActivityItems.Children.Clear();AgentActivityCard.Visibility=AiInteractionCard.Visibility=Visibility.Collapsed;_answerExpanded=false;ResponseScroll.Visibility=Visibility.Collapsed;AnswerText.Markdown="";AnswerHeader.Visibility=AnswerScroll.Visibility=AnswerDivider.Visibility=Visibility.Collapsed;_reasoningBuffer.Clear();_reasoningRenderScheduled=false;_reasoningRenderRequest=null;ReasoningText.Text="";ReasoningToggle.Visibility=ReasoningPanel.Visibility=Visibility.Collapsed;ReasoningPulse.BeginAnimation(OpacityProperty,null);ReasoningPulse.Background=new SolidColorBrush(Color.FromRgb(123,138,244));_reasoningExpanded=false;RefreshHistoryPreview();_ = Dispatcher.BeginInvoke(PositionPromptBar);
     }
 
     private void UpdateOverlayAgentActivity(AiAgentEvent update,CancellationTokenSource request)

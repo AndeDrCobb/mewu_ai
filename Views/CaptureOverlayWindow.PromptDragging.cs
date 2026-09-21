@@ -133,13 +133,11 @@ public partial class CaptureOverlayWindow
     internal void LayoutDetachedPrompt(double width,double height)
     {
         if(_closed||_conversationWorkspaceWindow is null||width<=0||height<=0)return;
-        // The content grid stretches with the window. History/answer scroll in
-        // the available space; the composer and status stay at the bottom.
-        var hasAnswer=ResponseScroll.Visibility==Visibility.Visible;
-        PromptContent.RowDefinitions[0].Height=new GridLength(hasAnswer?.4:1,GridUnitType.Star);
-        PromptContent.RowDefinitions[1].Height=hasAnswer?new GridLength(.6,GridUnitType.Star):GridLength.Auto;
-        var answerHeight=Math.Max(60,(height-150)*.6-50);
-        AnswerScroll.MaxHeight=answerHeight;
+        // HistoryScroll contains both completed turns and the original live
+        // response controls. The former response row has no content or height.
+        PromptContent.RowDefinitions[0].Height=new GridLength(1,GridUnitType.Star);
+        PromptContent.RowDefinitions[1].Height=GridLength.Auto;
+        AnswerScroll.MaxHeight=double.PositiveInfinity;
     }
 
     private void SetConversationProperty(DependencyObject target,DependencyProperty property,object value)
@@ -150,6 +148,7 @@ public partial class CaptureOverlayWindow
 
     private void PrepareConversationLayout()
     {
+        UpdateConversationStream();
         PromptBar.Child=null;
         SetConversationProperty(PromptBarHost,VisibilityProperty,Visibility.Collapsed);
         SetConversationProperty(PromptContent,MarginProperty,new Thickness(0));

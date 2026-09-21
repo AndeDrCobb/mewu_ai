@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 修复气泡对话仍分成历史和当前回复两块的问题：原位展开和独立会话面板共用一个消息滚动区，实时回答完成后不重复显示，发送下一轮保留历史展开状态；移除没有实际回答时的“未收到 AI 回复”占位气泡。 / Use one message scroller for expanded and detached conversations, keep the live answer only once after completion, preserve expanded history on subsequent sends, and remove fabricated empty-answer placeholder bubbles.
+
 - 将展开历史和拖出后的截图会话统一为左右气泡：用户消息靠右、AI 消息靠左，当前回复使用同一套气泡表面；原位展开增加轻量位移动画，不再把历史和当前回复显示成两种卡片。 / Unify expanded history and detached screenshot conversations as left/right bubbles: user messages align right, AI messages align left, and the current reply uses the same bubble surface; in-place expansion now uses a light slide animation instead of two unrelated card styles.
 
 - 修复历史对话悬停提示及模型/截图引用下拉层的阴影裁切：所有 Popup 现在为阴影预留透明边界，并在 100% / 175% / 200% 缩放及四个提示方向下通过实际渲染回放。 / Fix clipped shadows on the history hover tip and model / screenshot-reference popups: every Popup now reserves transparent shadow space and passes real render replays at 100%, 175%, and 200% scale in all four tooltip directions.
