@@ -13,7 +13,7 @@ public partial class CaptureOverlayWindow
 
     private void UpdateConversationStream()
     {
-        var expanded=_historyExpanded||_conversationWorkspaceWindow is not null;
+        var expanded=_historyExpanded;
         if(expanded==UnifiedConversation)return;
         if(expanded)
         {

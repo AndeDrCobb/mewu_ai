@@ -597,13 +597,7 @@ public partial class CaptureOverlayWindow : Window
     {
         _historyExpanded=!_historyExpanded;
         RefreshHistoryPreview();
-        ApplyBubbleAnswerStyle(_historyExpanded||_conversationWorkspaceWindow is not null);
-        if(_historyExpanded&&_promptDetached&&_conversationWorkspaceWindow is null)
-        {
-            DetachConversationWindow();
-            e.Handled=true;
-            return;
-        }
+        ApplyBubbleAnswerStyle(_historyExpanded);
         if(_historyExpanded&&!_historyOpenedOnce)
         {
             HistoryScroll.UpdateLayout();
@@ -617,7 +611,7 @@ public partial class CaptureOverlayWindow : Window
 
     private void AnimateHistoryReveal()
     {
-        if(!_historyExpanded||!SystemParameters.ClientAreaAnimation||_conversationWorkspaceWindow is not null)return;
+        if(!_historyExpanded||!SystemParameters.ClientAreaAnimation)return;
         HistoryPanel.Opacity=1;
         var transform=new TranslateTransform();HistoryPanel.RenderTransform=transform;
         transform.BeginAnimation(TranslateTransform.YProperty,new DoubleAnimation(10,0,TimeSpan.FromMilliseconds(220)){EasingFunction=new CubicEase{EasingMode=EasingMode.EaseOut},FillBehavior=FillBehavior.Stop});
@@ -696,7 +690,7 @@ public partial class CaptureOverlayWindow : Window
         HistoryToggle.ToolTip=conversationCount>0
             ?LocalizationService.T($"查看提问与历史（{conversationCount}）",$"Prompt & history ({conversationCount})")
             :LocalizationService.T("查看提问与历史","Prompt & history");
-        HistoryPanel.Visibility=_historyExpanded||_conversationWorkspaceWindow is not null?Visibility.Visible:Visibility.Collapsed;
+        HistoryPanel.Visibility=_historyExpanded?Visibility.Visible:Visibility.Collapsed;
         HistoryChevronRotation.Angle=_historyExpanded?0:180;
         HistoryScroll.MaxHeight=GetHistoryMaxHeight();
     }
@@ -704,12 +698,12 @@ public partial class CaptureOverlayWindow : Window
     private Border CreateHistoryPair(string prompt,string answer,bool current)
     {
         var stream=new StackPanel{Margin=new Thickness(0,0,0,6)};
-        stream.Children.Add(CreateConversationBubble(LocalizationService.T("你","You"),prompt,true,current));
-        if(!string.IsNullOrWhiteSpace(answer))stream.Children.Add(CreateConversationBubble("AI",answer,false,current));
+        stream.Children.Add(CreateConversationBubble(prompt,true,current));
+        if(!string.IsNullOrWhiteSpace(answer))stream.Children.Add(CreateConversationBubble(answer,false,current));
         return new Border{Background=Brushes.Transparent,Child=stream};
     }
 
-    private Border CreateConversationBubble(string label,string text,bool user,bool current)
+    private Border CreateConversationBubble(string text,bool user,bool current)
     {
         var bubble=new Border
         {
@@ -727,7 +721,6 @@ public partial class CaptureOverlayWindow : Window
             Margin=user?new Thickness(44,3,2,3):new Thickness(2,3,44,3)
         };
         var content=new StackPanel();
-        content.Children.Add(new TextBlock{Text=label,Foreground=new SolidColorBrush(user?Color.FromRgb(79,95,207):Color.FromRgb(96,112,135)),FontSize=10.5,FontWeight=FontWeights.SemiBold});
         content.Children.Add(CreateHistoryText(text,new Thickness(0,2,0,0)));
         bubble.Child=content;
         return bubble;
@@ -887,7 +880,7 @@ public partial class CaptureOverlayWindow : Window
 
     private void OnClosed(object? sender,EventArgs e)
     {
-        var conversationWindow=_conversationWorkspaceWindow;_conversationWorkspaceWindow=null;conversationWindow?.CloseForOwnerExit();
+        var widget=_conversationWidget;_conversationWidget=null;widget?.CloseForOwnerExit();
         ReleaseTeachingLiveCapture();
         _toolbarHideTimer.Stop();
         _closed=true;
@@ -1309,7 +1302,7 @@ public partial class CaptureOverlayWindow : Window
     private void OnLostMouseCapture(object s,MouseEventArgs e){FinishInterruptedPointerInteraction();}
     private void OnDeactivated(object? s,EventArgs e)
     {
-        if(_conversationWorkspaceWindow is not null){_inactiveEscapeTimer.Stop();return;}
+        if(_conversationWidget is not null){_inactiveEscapeTimer.Stop();return;}
         if(_promptDragging)PromptDragHandle.CancelDrag();
         FinishInterruptedPointerInteraction();
         if(_drawingMode&&!_drawingModalOpen)FinishInterruptedDrawingMode();
@@ -1320,9 +1313,8 @@ public partial class CaptureOverlayWindow : Window
     {
         _inactiveEscapeTimer.Stop();
         if(_closed||!_overlayReady)return;
-        // A detached conversation panel activates above this window. Keep the
-        // original frozen frame while it is being edited.
-        if(_conversationWorkspaceWindow is not null||_conversationSessionFrozen){KeepOverlayBelowPinnedWindows();return;}
+        // Restoring a minimized session must keep its original screenshot.
+        if(_conversationSessionFrozen){KeepOverlayBelowPinnedWindows();return;}
         if(_rightPassThroughVisual||_rightPassThrough?.IsActive==true)return;
         if(!IsKeyboardFocusWithin&&!_drawingModalOpen&&_systemFileDialogDepth==0)Root.Focus();
         if(_applicationSnapshotActive)return;
@@ -1788,7 +1780,7 @@ public partial class CaptureOverlayWindow : Window
     private void PositionPromptBar()
     {
         if(_thinkingGlowRequest is not null)PositionThinkingGlow();
-        if(_conversationWorkspaceWindow is not null){_conversationWorkspaceWindow.LayoutPrompt();return;}
+
         if(!_conversationAiAvailable){PromptBarHost.Visibility=Visibility.Collapsed;return;}
         if(_positioningPromptBar||_promptDragging||_promptDockAnimating||Root.ActualWidth<=0||Root.ActualHeight<=0)return;
         var monitor=PromptMonitorBounds();
@@ -1832,7 +1824,7 @@ public partial class CaptureOverlayWindow : Window
         _=Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(() =>
         {
             _promptBarLayoutPassQueued=false;
-            if(_closed||!IsLoaded||_conversationWorkspaceWindow is not null||PromptBarHost.Visibility!=Visibility.Visible)return;
+            if(_closed||!IsLoaded||PromptBarHost.Visibility!=Visibility.Visible)return;
             if(_promptDragging||_promptDockAnimating)return;
             var monitor=PromptMonitorBounds();
             if(monitor.IsEmpty)return;
@@ -1858,7 +1850,7 @@ public partial class CaptureOverlayWindow : Window
         _=Dispatcher.BeginInvoke(DispatcherPriority.Render,new Action(() =>
         {
             _promptBarInputLayoutQueued=false;
-            if(_closed||!IsLoaded||(_conversationWorkspaceWindow is null&&PromptBarHost.Visibility!=Visibility.Visible))return;
+            if(_closed||!IsLoaded||PromptBarHost.Visibility!=Visibility.Visible)return;
             // TextBox text changes invalidate the child, but the overlay is
             // hosted by a Canvas and can otherwise keep the previous arranged
             // height for one frame.  Re-measure the composer at render priority
@@ -1890,10 +1882,6 @@ public partial class CaptureOverlayWindow : Window
     }
     private void SetPromptBarHidden(bool hidden,bool preserveToolbarPlacement=false)
     {
-        if(_conversationWorkspaceWindow is not null)
-        {
-            _promptBarHidden=false;PromptBarHost.Visibility=Visibility.Collapsed;return;
-        }
         if(hidden&&(_promptDetached||_promptDragging||_promptDockAnimating))return;
         if(!_conversationAiAvailable){_selectionPromptFocus=false;if(PromptBarHost.IsKeyboardFocusWithin)Root.Focus();PromptBarHost.Visibility=Visibility.Collapsed;PromptBarHost.IsHitTestVisible=false;return;}
         // Preserve immediate typing after selection only while the pointer stays
@@ -1948,7 +1936,7 @@ public partial class CaptureOverlayWindow : Window
         AnswerScroll.Margin=enabled?new Thickness(8,7,70,8):new Thickness(8,8,8,8);
         AnswerScroll.HorizontalAlignment=enabled?HorizontalAlignment.Left:HorizontalAlignment.Stretch;
     }
-    private void ShowAnswer(){SetPromptBarHidden(false);ResponseScroll.Visibility=Visibility.Visible;AnswerScroll.Visibility=Visibility.Visible;_answerExpanded=true;ApplyBubbleAnswerStyle(_historyExpanded||_conversationWorkspaceWindow is not null);if(ReasoningToggle.Visibility!=Visibility.Visible&&!string.IsNullOrWhiteSpace(_reasoningBuffer.ToString()))RevealReasoningInProgress();_ = Dispatcher.BeginInvoke(DispatcherPriority.Render,PositionPromptBar);}
+    private void ShowAnswer(){SetPromptBarHidden(false);ResponseScroll.Visibility=Visibility.Visible;AnswerScroll.Visibility=Visibility.Visible;_answerExpanded=true;ApplyBubbleAnswerStyle(_historyExpanded);if(ReasoningToggle.Visibility!=Visibility.Visible&&!string.IsNullOrWhiteSpace(_reasoningBuffer.ToString()))RevealReasoningInProgress();_ = Dispatcher.BeginInvoke(DispatcherPriority.Render,PositionPromptBar);}
     private void ToggleReasoning(object s,RoutedEventArgs e){_reasoningExpanded=!_reasoningExpanded;ReasoningPanel.Visibility=_reasoningExpanded?Visibility.Visible:Visibility.Collapsed;ReasoningChevronRotation.Angle=_reasoningExpanded?180:0;_ = Dispatcher.BeginInvoke(PositionPromptBar);}
     private void ShowReasoning(string delta,CancellationTokenSource request)
     {

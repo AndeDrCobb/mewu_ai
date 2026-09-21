@@ -101,15 +101,14 @@ public sealed class AppHost : IDisposable
             // while the launcher is still visible.  Hide it before the frame
             // is frozen so the assistant never captures its own launcher and
             // the overlay remains the single, clean surface the user sees.
-            var hiddenConversationSessions=new List<(Window Window,CaptureOverlayWindow Overlay)>();
+            var hiddenConversationSessions=new List<Window>();
             var restoredConversationSessions=false;
             void RestoreConversationSessions()
             {
                 if(restoredConversationSessions)return;
                 restoredConversationSessions=true;
-                foreach(var (window,overlay) in hiddenConversationSessions)
+                foreach(var window in hiddenConversationSessions)
                 {
-                    try{overlay.ShowDetachedSession();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationOverlayRestore",ex);}catch{}}
                     try{if(!window.IsVisible)window.Show();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowRestore",ex);}catch{}}
                 }
             }
@@ -118,13 +117,9 @@ public sealed class AppHost : IDisposable
             void HideLauncher()
             {
                 if (_main?.IsVisible == true){_main.Hide();NativeMethods.FlushComposition();}
-                foreach(var window in _app.Windows.OfType<ConversationWorkspaceWindow>().Where(window=>window.IsVisible).ToArray())
-                {
-                    hiddenConversationSessions.Add((window,window.Overlay));window.Overlay.HideDetachedSession();window.Hide();
-                }
                 foreach(var widget in _app.Windows.OfType<ConversationFloatingWidget>().Where(window=>window.IsVisible).ToArray())
                 {
-                    hiddenConversationSessions.Add((widget,widget.Workspace.Overlay));widget.Workspace.Overlay.HideDetachedSession();widget.Hide();
+                    hiddenConversationSessions.Add(widget);widget.Hide();
                 }
             }
             if(_app.Dispatcher.CheckAccess())HideLauncher();
@@ -421,7 +416,7 @@ public sealed class AppHost : IDisposable
         }
     }
 
-    internal void ReleaseCaptureForDetachedOverlay(CaptureOverlayWindow overlay)
+    internal void ReleaseCaptureForMinimizedOverlay(CaptureOverlayWindow overlay)
     {
         _restoreHiddenConversationSessions?.Invoke();
         _restoreHiddenConversationSessions=null;
@@ -527,7 +522,6 @@ public sealed class AppHost : IDisposable
         var shouldCleanupTemp=_single.IsPrimary;
         IsExiting=true;_lifetime.Cancel();Interlocked.Exchange(ref _captureActive,0);_activeCaptureOverlay=null;
         foreach(var overlay in _app.Windows.OfType<CaptureOverlayWindow>().ToArray())try{overlay.Close();}catch(Exception ex){try{new PrivacyLogger().Error("CaptureOverlayCloseOnExit",ex);}catch{}}
-        foreach(var window in _app.Windows.OfType<ConversationWorkspaceWindow>().ToArray())try{window.CloseForOwnerExit();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWindowCloseOnExit",ex);}catch{}}
         foreach(var widget in _app.Windows.OfType<ConversationFloatingWidget>().ToArray())try{widget.CloseForOwnerExit();}catch(Exception ex){try{new PrivacyLogger().Error("ConversationWidgetCloseOnExit",ex);}catch{}}
         // Drain speech first, then stop the runtime and only afterwards clean
         // temporary media. This prevents deleting an audio file still opened
