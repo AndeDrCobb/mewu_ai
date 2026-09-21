@@ -72,6 +72,18 @@ internal static class AnswerMenuReplay
                 Check("provider-escaped-formula-renders-as-vector",formula.Width>20&&formula.Height>15);
                 answer.SelectAll();Check("formula-copy-keeps-original-latex",answer.SelectedPlainText.Contains(providerFormula,StringComparison.Ordinal));
                 SaveElement(answer,"formula-provider-escapes.png");
+                var selection=typeof(CaptureOverlayWindow).GetMethod("CreateSelection",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(overlay,[false])!;
+                selection.GetType().GetField("Bounds")!.SetValue(selection,new Rect(60,220,900,480));
+                var notes=(List<mewu_ai_Assistant.Models.AiAnnotation>)selection.GetType().GetProperty("AnnotationNotes")!.GetValue(selection)!;
+                notes.Add(new(.1,.1,.2,.15,"识别结果：\n"+providerFormula+"\n请核对积分上限。",Kind:mewu_ai_Assistant.Models.AiAnnotationKind.Callout));
+                typeof(CaptureOverlayWindow).GetMethod("RenderAnnotationsForItem",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,[selection,null]);
+                var annotations=(Canvas)selection.GetType().GetProperty("AiAnnotations")!.GetValue(selection)!;
+                var formulaCard=annotations.Children.OfType<Border>().Single(card=>card.Child is System.Windows.Controls.Image);
+                formulaCard.Measure(new System.Windows.Size(900,480));formulaCard.Arrange(new Rect(new System.Windows.Point(),formulaCard.DesiredSize));
+                Check("annotation-card-typesets-formula-and-keeps-drag-cursor",formulaCard.Cursor==System.Windows.Input.Cursors.SizeAll&&((System.Windows.Controls.Image)formulaCard.Child).Source is DrawingImage);
+                SaveElement(formulaCard,"annotation-formula-card.png");
+                var exported=mewu_ai_Assistant.Recording.AnnotationOverlayRenderer.RenderAiOverlay(900,480,notes);
+                var exportEncoder=new PngBitmapEncoder();exportEncoder.Frames.Add(BitmapFrame.Create(exported));using(var exportFile=File.Create(".codex-build/annotation-formula-export.png"))exportEncoder.Save(exportFile);
             }
             catch(Exception ex){failure=ex.ToString();Environment.ExitCode=1;}
             finally

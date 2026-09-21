@@ -78,6 +78,22 @@ public sealed class MarkdownFlowDocumentRendererTests
         });
     }
     [Fact]
+    public void AnnotationFormulaLayoutSupportsMixedTextAndExportWithoutChangingSource()
+    {
+        RunSta(()=>
+        {
+            const string text=@"识别结果：$$\frac{1}{\sqrt{\pi}}\int\_{-\infty}^{x}e^{-\frac{(x+\xi)^2}{4(t-\tau)}}\\,d\xi$$请核对积分上限。";
+            var image=AnnotationFormulaLayout.TryCreate(text,180,18,System.Windows.Media.Brushes.Red);
+            Assert.NotNull(image);Assert.True(image.IsFrozen);Assert.Equal(180,image.Width);Assert.InRange(image.Height,30,180);
+            Assert.Null(AnnotationFormulaLayout.TryCreate("普通说明文字",180,18,System.Windows.Media.Brushes.Black));
+            Assert.Null(AnnotationFormulaLayout.TryCreate(@"$\input{private}$",180,18,System.Windows.Media.Brushes.Black));
+            var note=new mewu_ai_Assistant.Models.AiAnnotation(.1,.1,.4,.3,text,Kind:mewu_ai_Assistant.Models.AiAnnotationKind.Text);
+            var exported=mewu_ai_Assistant.Recording.AnnotationOverlayRenderer.RenderAiOverlay(600,400,[note]);
+            Assert.Equal(text,note.Text);Assert.True(exported.IsFrozen);
+            var pixels=new byte[600*400*4];exported.CopyPixels(pixels,2400,0);Assert.Contains(pixels,value=>value!=0);
+        });
+    }
+    [Fact]
     public void UnsupportedFormulaIsReadableAndDoesNotExecuteOrDisappear()
     {
         RunSta(()=>

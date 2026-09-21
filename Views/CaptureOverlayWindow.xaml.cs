@@ -2595,6 +2595,9 @@ public partial class CaptureOverlayWindow : Window
         foreach(var note in calloutOrder)
         {
             var card=new Border{Width=cardWidth,Padding=new Thickness(font*.65,font*.5,font*.65,font*.5),CornerRadius=new CornerRadius(8),Background=new SolidColorBrush(Color.FromArgb(248,255,255,255)),BorderBrush=new SolidColorBrush(Color.FromArgb(145,61,174,242)),BorderThickness=new Thickness(1),Cursor=Cursors.SizeAll,ToolTip="拖动批注气泡",Child=new TextBlock{Text=note.Text,Foreground=new SolidColorBrush(Color.FromRgb(35,48,70)),FontSize=font,TextWrapping=TextWrapping.Wrap,LineHeight=font*1.3},Effect=new DropShadowEffect{Color=Color.FromRgb(51,71,98),BlurRadius=16,ShadowDepth=4,Opacity=.28}};
+            if(AnnotationFormulaLayout.TryCreate(note.Text,Math.Max(1,cardWidth-font*1.3-2),font,new SolidColorBrush(Color.FromRgb(35,48,70))) is {} formula)
+                card.Child=new Image{Source=formula,Stretch=Stretch.Uniform,StretchDirection=StretchDirection.DownOnly,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,IsHitTestVisible=false};
+            card.ClipToBounds=true;
             card.Measure(new Size(cardWidth,Math.Max(40,h)));var cardHeight=Math.Min(Math.Max(font*3.2,card.DesiredSize.Height),Math.Max(1,h-10));card.Height=cardHeight;requests.Add(new AnnotationCalloutRequest(calloutTargets[note],new Size(cardWidth,cardHeight)));calloutCards[note]=(card,cardHeight,default);
         }
         var planned=AnnotationLayoutService.PlanCallouts(requests,new Size(w,h));for(var index=0;index<calloutOrder.Length;index++){var value=calloutCards[calloutOrder[index]];calloutCards[calloutOrder[index]]=(value.Card,value.Height,planned[index]);}

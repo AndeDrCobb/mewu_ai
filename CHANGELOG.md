@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 标注气泡和原位文字标注支持公式排版及文字混排，长公式按框宽缩放，带标注导出保留相同公式效果。 / Typeset formulas alongside text in annotation cards and in-place labels, fit long formulas to their width, and preserve typesetting in annotated exports.
+
 - 修复部分模型返回的公式因 `\_`、重复转义的 `\\,` 或常见希腊字母命令而显示成原始 LaTeX；现在会直接排版显示，同时复制仍保留原公式文本。 / Render formulas containing `\_`, double-escaped `\\,`, or common Greek-letter commands instead of exposing raw LaTeX, while preserving the original formula when copied.
 
 - 最小化会话悬浮窗支持拖动：按住并移动可重新摆放，轻点仍恢复对话，关闭按钮保留独立点击行为。 / Minimized conversation widgets can be dragged to reposition; a click still restores the conversation and the close button keeps its own action.

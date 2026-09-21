@@ -125,7 +125,13 @@ internal static class AnnotationOverlayRenderer
 
     private static void DrawText(DrawingContext drawing,string value,Rect bounds,double size,Brush brush,bool teaching=false,bool fit=false)
     {
-        if(teaching)
+        if(AnnotationFormulaLayout.TryCreate(value,bounds.Width,size,brush,teaching) is {} formula)
+        {
+            var scale=Math.Min(1,bounds.Height/formula.Height);
+            drawing.PushClip(new RectangleGeometry(bounds));
+            drawing.DrawImage(formula,new Rect(bounds.X,bounds.Y,formula.Width*scale,formula.Height*scale));drawing.Pop();
+        }
+        else if(teaching)
         {
             var image=TeachingFeedbackLayout.DrawText(value,Math.Max(1,bounds.Width),size,brush,halo:true);
             drawing.PushClip(new RectangleGeometry(bounds));drawing.DrawImage(image,new Rect(bounds.X,bounds.Y,image.Width,image.Height));drawing.Pop();
@@ -154,6 +160,7 @@ internal static class AnnotationOverlayRenderer
 
     private static double MeasureCalloutHeight(string value,double cardWidth,double font)
     {
+        if(AnnotationFormulaLayout.TryCreate(value,cardWidth-font*1.3,font,Brushes.Black) is {} formula)return formula.Height+font;
         var text=new FormattedText(value,CultureInfo.CurrentUICulture,FlowDirection.LeftToRight,new Typeface("Microsoft YaHei UI"),font,Brushes.Black,1){MaxTextWidth=Math.Max(1,cardWidth-font*1.3)};return text.Height+font;
     }
 
