@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 对话条拖离底部后自动原位展开；浮动时可拖到包含任务栏的完整屏幕范围，拖回原位仍可吸附，取消拖动恢复原来的位置与展开状态。 / Automatically expand the conversation in place when detached from the bottom; floating conversations can reach the full screen including the taskbar area, retain docking, and restore their previous position and expansion state on cancellation.
+
 - 扩大上拉箭头的透明点击区域，使其覆盖顶部拖动区而不改变现有视觉样式；拖动把手其余区域仍可正常拖动。 / Expand the history toggle's transparent hit area into the top drag zone without changing its visual appearance; the remaining drag handle stays draggable.
 
 - 修复气泡对话仍分成历史和当前回复两块的问题：上拉菜单共用一个消息滚动区，实时回答完成后不重复显示，发送下一轮保留历史展开状态；移除没有实际回答时的“未收到 AI 回复”占位气泡。 / Use one message scroller for expanded conversations, keep the live answer only once after completion, preserve expanded history on subsequent sends, and remove fabricated empty-answer placeholder bubbles.

@@ -7,6 +7,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using mewu_ai_Assistant.Models;
 using mewu_ai_Assistant.Services;
 
 namespace mewu_ai_Assistant.Views;
@@ -16,8 +17,8 @@ public partial class CaptureOverlayWindow
     private bool _promptDetached,_promptDragging,_promptDockAnimating;
     private Point _promptDragOrigin;
     private Vector _promptDragOffset;
-    private Rect _promptDragMonitor;
-    private bool _promptDragWasDetached;
+    private Rect _promptDragMonitor,_promptDragScreen;
+    private bool _promptDragWasDetached,_promptDragHistoryWasExpanded;
     private int _promptDockAnimationVersion;
     private ConversationFloatingWidget? _conversationWidget;
     private bool _conversationSessionFrozen;
@@ -29,8 +30,15 @@ public partial class CaptureOverlayWindow
         ++_promptDockAnimationVersion;_promptDockAnimating=false;
         PromptBarHost.BeginAnimation(Canvas.LeftProperty,null);PromptBarHost.BeginAnimation(Canvas.TopProperty,null);
         Canvas.SetLeft(PromptBarHost,origin.X);Canvas.SetTop(PromptBarHost,origin.Y);
-        _promptDragMonitor=PromptMonitorBounds();_promptDragOrigin=origin;_promptDragOffset=new Vector();
-        _promptDragWasDetached=_promptDetached;_promptDragging=true;
+        if(!_promptDetached)
+        {
+            _promptDragMonitor=PromptMonitorBounds();
+            var screen=SelectionMonitor(_promptDragMonitor).Bounds;
+            _promptDragScreen=ScreenCoordinateService.ToLocalDipRect(new ScreenRect(screen.X,screen.Y,screen.Width,screen.Height),
+                _frame.OriginX,_frame.OriginY,Root.ActualWidth,Root.ActualHeight,_frame.Image.PixelWidth,_frame.Image.PixelHeight);
+        }
+        _promptDragOrigin=origin;_promptDragOffset=new Vector();
+        _promptDragWasDetached=_promptDetached;_promptDragHistoryWasExpanded=_historyExpanded;_promptDragging=true;
         UpdatePromptDockHint();
         SetPromptBarHidden(false,true);HideToolbarImmediately();e.Handled=true;
     }
@@ -42,10 +50,15 @@ public partial class CaptureOverlayWindow
         // distance. Reconstruct pointer travel rather than accumulating it twice.
         _promptDragOffset=new Vector(Canvas.GetLeft(PromptBarHost)-_promptDragOrigin.X+e.HorizontalChange,
             Canvas.GetTop(PromptBarHost)-_promptDragOrigin.Y+e.VerticalChange);
-        if(!_promptDetached&&_promptDragOffset.Length>=64)_promptDetached=true;
+        if(!_promptDetached&&_promptDragOffset.Length>=64)
+        {
+            _promptDetached=true;
+            SetHistoryExpanded(true);
+            PromptBar.UpdateLayout();
+        }
         // A docked bar resists small accidental drags before detaching.
         var offset=_promptDetached?_promptDragOffset:_promptDragOffset*.25;
-        var point=ClampFloatingPrompt(_promptDragOrigin+offset,_promptDragMonitor);
+        var point=ClampFloatingPrompt(_promptDragOrigin+offset,_promptDetached?_promptDragScreen:_promptDragMonitor);
         Canvas.SetLeft(PromptBarHost,point.X);Canvas.SetTop(PromptBarHost,point.Y);UpdatePromptDockHint();e.Handled=true;
     }
 
@@ -56,7 +69,7 @@ public partial class CaptureOverlayWindow
         Canvas.SetLeft(PromptDockHint,dock.Left);Canvas.SetTop(PromptDockHint,dock.Top);
         PromptDockHint.Width=dock.Width;PromptDockHint.Height=dock.Height;
         var current=new Point(Canvas.GetLeft(PromptBarHost),Canvas.GetTop(PromptBarHost));
-        PromptDockHint.Stroke=(current-dock.TopLeft).Length<=40?System.Windows.Media.Brushes.CornflowerBlue:System.Windows.Media.Brushes.LightSlateGray;
+        PromptDockHint.Stroke=CanSnapPromptToDock(current,dock)?System.Windows.Media.Brushes.CornflowerBlue:System.Windows.Media.Brushes.LightSlateGray;
         PromptDockHint.Visibility=Visibility.Visible;
     }
 
@@ -67,22 +80,28 @@ public partial class CaptureOverlayWindow
             Math.Clamp(point.Y,monitor.Top,Math.Max(monitor.Top,monitor.Bottom-height)));
     }
 
+    private bool CanSnapPromptToDock(Point current,Rect dock)=>
+        !dock.IsEmpty&&_promptDragMonitor.Contains(new Rect(current,dock.Size))&&(current-dock.TopLeft).Length<=40;
+
     private void PromptDragCompleted(object sender,DragCompletedEventArgs e)
     {
         if(!_promptDragging)return;
         _promptDragging=false;
         PromptDockHint.Visibility=Visibility.Collapsed;
-        if(e.Canceled)_promptDetached=_promptDragWasDetached;
+        if(e.Canceled)
+        {
+            _promptDetached=_promptDragWasDetached;
+            Canvas.SetLeft(PromptBarHost,_promptDragOrigin.X);Canvas.SetTop(PromptBarHost,_promptDragOrigin.Y);
+            SetHistoryExpanded(_promptDragHistoryWasExpanded);
+            PositionPromptBar();e.Handled=true;return;
+        }
         var dock=CaptureOverlayPolicy.GetPromptBarBounds(_promptDragMonitor,PromptBar.DesiredSize.Height);
         var current=new Point(Canvas.GetLeft(PromptBarHost),Canvas.GetTop(PromptBarHost));
-        if(!_promptDetached||(current-dock.TopLeft).Length<=40)
+        if(!_promptDetached||CanSnapPromptToDock(current,dock))
         {
             _promptDetached=false;AnimatePromptDock(current,dock.TopLeft);
         }
-        else if(e.Canceled)
-        {
-            Canvas.SetLeft(PromptBarHost,_promptDragOrigin.X);Canvas.SetTop(PromptBarHost,_promptDragOrigin.Y);
-        }
+        else PositionPromptBar();
         e.Handled=true;
     }
 

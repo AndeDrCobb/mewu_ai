@@ -602,7 +602,14 @@ public partial class CaptureOverlayWindow : Window
     private IReadOnlyList<ConversationHistoryEntry> _persistedHistory=[];
     private void ToggleHistory(object sender,RoutedEventArgs e)
     {
-        _historyExpanded=!_historyExpanded;
+        SetHistoryExpanded(!_historyExpanded);
+        e.Handled=true;
+    }
+
+    private void SetHistoryExpanded(bool expanded)
+    {
+        if(_historyExpanded==expanded)return;
+        _historyExpanded=expanded;
         RefreshHistoryPreview();
         ApplyBubbleAnswerStyle(_historyExpanded);
         if(_historyExpanded&&!_historyOpenedOnce)
@@ -613,7 +620,6 @@ public partial class CaptureOverlayWindow : Window
         }
         PositionPromptBar();
         AnimateHistoryReveal();
-        e.Handled=true;
     }
 
     private void AnimateHistoryReveal()
@@ -1752,7 +1758,8 @@ public partial class CaptureOverlayWindow : Window
         ?SelectionMonitor(item.Bounds):System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
     private Rect PromptMonitorBounds()
     {
-        if((_promptDetached||_promptDragging||_promptDockAnimating)&&!_promptDragMonitor.IsEmpty&&_promptDragMonitor.Width>0)return _promptDragMonitor;
+        if(_promptDetached&&!_promptDragScreen.IsEmpty&&_promptDragScreen.Width>0)return _promptDragScreen;
+        if((_promptDragging||_promptDockAnimating)&&!_promptDragMonitor.IsEmpty&&_promptDragMonitor.Width>0)return _promptDragMonitor;
         var bounds=PromptMonitor().WorkingArea;
         return ScreenCoordinateService.ToLocalDipRect(new ScreenRect(bounds.X,bounds.Y,bounds.Width,bounds.Height),_frame.OriginX,_frame.OriginY,Root.ActualWidth,Root.ActualHeight,_frame.Image.PixelWidth,_frame.Image.PixelHeight);
     }
