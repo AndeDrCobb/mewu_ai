@@ -89,7 +89,7 @@
 <td width="50%" valign="top">
 <h3>代码讲解</h3>
 <p>框选看不懂的代码，让 AI 对着具体位置解释。</p>
-<a href="./docs/images/understand-code-latest.png"><img src="./docs/images/understand-code-latest.png" width="100%" alt="代码截图旁的解释与对应代码位置相连" /></a>
+<a href="./docs/images/understand-code-20260921.png"><img src="./docs/images/understand-code-20260921.png" width="100%" alt="代码截图旁的解释与对应代码位置相连" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>试卷批注</h3>

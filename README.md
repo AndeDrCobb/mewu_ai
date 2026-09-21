@@ -91,7 +91,7 @@ Screenshots, manual annotations, pinned images, text recognition, and recording 
 <td width="50%" valign="top">
 <h3>Understand code</h3>
 <p>Select a piece of code and ask for an explanation tied to the lines you are reading.</p>
-<a href="./docs/images/understand-code-latest.png"><img src="./docs/images/understand-code-latest.png" width="100%" alt="Explanations beside a code screenshot point to the relevant lines" /></a>
+<a href="./docs/images/understand-code-20260921.png"><img src="./docs/images/understand-code-20260921.png" width="100%" alt="Explanations beside a code screenshot point to the relevant lines" /></a>
 </td>
 <td width="50%" valign="top">
 <h3>Annotate papers</h3>
