@@ -1,19 +1,30 @@
+// SPDX-FileCopyrightText: 2026 Abner Stephen and contributors
 // SPDX-License-Identifier: MPL-2.0
 using System.Windows;
+using System.Globalization;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using mewu_ai_Assistant.Services;
 
 namespace mewu_ai_Assistant.Views;
 
+internal enum ConversationWidgetState { Idle, Thinking, Completed, Canceled, Failed }
+
 /// <summary>A small restore surface for a minimized screenshot conversation.</summary>
 internal sealed class ConversationFloatingWidget : Window
 {
     private readonly CaptureOverlayWindow _owner;
-
-
+    private readonly TextBlock _preview=new(){Name="ConversationProgressPreview",FontSize=10.5,Margin=new Thickness(0,1,0,0),TextTrimming=TextTrimming.CharacterEllipsis};
+    private readonly Canvas _spinner=new(){Name="ConversationThinkingSpinner",Width=14,Height=14,IsHitTestVisible=false};
+    private readonly RotateTransform _spinnerRotation=new();
+    private readonly Ellipse _statusDot=new(){Name="ConversationStatusDot",Width=7,Height=7,IsHitTestVisible=false};
+    private readonly Border _statusBadge=new(){Name="ConversationStatusBadge",Width=17,Height=17,CornerRadius=new CornerRadius(9),Background=new SolidColorBrush(Color.FromRgb(249,251,255)),HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(3),Visibility=Visibility.Collapsed};
+    private ConversationWidgetState _state;
+    private string _previewContent=string.Empty;
+    private bool _closed;
 
     internal ConversationFloatingWidget(CaptureOverlayWindow owner)
     {
@@ -24,7 +35,11 @@ internal sealed class ConversationFloatingWidget : Window
         AllowsTransparency=true;Background=Brushes.Transparent;Topmost=true;ShowInTaskbar=false;
         ShowActivated=true;
         Content=BuildContent();
-        Loaded+=(_,_)=>PlaceNearWorkArea();
+        _preview.SizeChanged+=(_,_)=>UpdatePreviewText();
+        UpdateProgress(ConversationWidgetState.Idle,string.Empty);
+        Loaded+=(_,_)=>{PlaceNearWorkArea();UpdateSpinnerAnimation();};
+        IsVisibleChanged+=(_,_)=>UpdateSpinnerAnimation();
+        Closed+=(_,_)=>{_closed=true;_spinnerRotation.BeginAnimation(RotateTransform.AngleProperty,null);};
         MouseLeftButtonDown+=OnMouseDown;
     }
 
@@ -43,9 +58,77 @@ internal sealed class ConversationFloatingWidget : Window
         DockPanel.SetDock(icon,Dock.Left);row.Children.Add(icon);
         var text=new StackPanel{VerticalAlignment=VerticalAlignment.Center};
         text.Children.Add(new TextBlock{Text=LocalizationService.T("截图会话","Screenshot conversation"),Foreground=new SolidColorBrush(Color.FromRgb(45,59,84)),FontSize=12.5,FontWeight=FontWeights.SemiBold});
-        text.Children.Add(new TextBlock{Text=LocalizationService.T("点击恢复对话","Click to restore"),Foreground=new SolidColorBrush(Color.FromRgb(116,130,153)),FontSize=10.5,Margin=new Thickness(0,1,0,0)});
+        _preview.Foreground=new SolidColorBrush(Color.FromRgb(116,130,153));text.Children.Add(_preview);
         row.Children.Add(text);
-        shell.Child=row;return shell;
+        shell.Child=row;
+        _spinner.RenderTransform=_spinnerRotation;_spinner.RenderTransformOrigin=new Point(.5,.5);
+        for(var index=0;index<8;index++)
+        {
+            var dot=new Ellipse{Width=2.3,Height=2.3,Fill=new SolidColorBrush(Color.FromRgb(82,99,217)),Opacity=.25+index*.1};
+            var angle=index*Math.PI/4;
+            Canvas.SetLeft(dot,5.85+4.6*Math.Cos(angle));Canvas.SetTop(dot,5.85+4.6*Math.Sin(angle));_spinner.Children.Add(dot);
+        }
+        var indicator=new Grid();indicator.Children.Add(_spinner);indicator.Children.Add(_statusDot);_statusBadge.Child=indicator;
+        var surface=new Grid();surface.Children.Add(shell);surface.Children.Add(_statusBadge);return surface;
+    }
+
+    internal void UpdateProgress(ConversationWidgetState state,string preview)
+    {
+        if(_closed)return;
+        var changed=_state!=state;_state=state;
+        var label=state switch
+        {
+            ConversationWidgetState.Thinking=>LocalizationService.T("正在思考…","Thinking…"),
+            ConversationWidgetState.Completed=>LocalizationService.T("回答已完成","Answer ready"),
+            ConversationWidgetState.Canceled=>LocalizationService.T("已取消","Canceled"),
+            ConversationWidgetState.Failed=>LocalizationService.T("请求失败","Request failed"),
+            _=>LocalizationService.T("点击恢复对话","Click to restore")
+        };
+        _previewContent=string.IsNullOrWhiteSpace(preview)?label:preview;
+        UpdatePreviewText();
+        _preview.ToolTip=label+(string.IsNullOrWhiteSpace(preview)?string.Empty:"\n"+preview);
+        System.Windows.Automation.AutomationProperties.SetName(_preview,label+" "+preview);
+        _statusBadge.Visibility=state==ConversationWidgetState.Idle?Visibility.Collapsed:Visibility.Visible;
+        _statusBadge.ToolTip=label;
+        System.Windows.Automation.AutomationProperties.SetName(_statusBadge,label);
+        _spinner.Visibility=state==ConversationWidgetState.Thinking?Visibility.Visible:Visibility.Collapsed;
+        _statusDot.Visibility=state is ConversationWidgetState.Idle or ConversationWidgetState.Thinking?Visibility.Collapsed:Visibility.Visible;
+        _statusDot.Fill=new SolidColorBrush(state switch
+        {
+            ConversationWidgetState.Completed=>Color.FromRgb(34,170,106),
+            ConversationWidgetState.Failed=>Color.FromRgb(214,94,94),
+            _=>Color.FromRgb(142,153,169)
+        });
+        if(changed)UpdateSpinnerAnimation();
+    }
+
+    private void UpdatePreviewText()
+    {
+        var width=_preview.ActualWidth;
+        if(width<=0){_preview.Text=_previewContent;return;}
+        var typeface=new Typeface(_preview.FontFamily,_preview.FontStyle,_preview.FontWeight,_preview.FontStretch);
+        var dpi=VisualTreeHelper.GetDpi(_preview).PixelsPerDip;
+        bool Fits(string value)=>new FormattedText(value,CultureInfo.CurrentUICulture,FlowDirection.LeftToRight,
+            typeface,_preview.FontSize,_preview.Foreground,dpi).WidthIncludingTrailingWhitespace<=width;
+        if(Fits(_previewContent)){_preview.Text=_previewContent;return;}
+        // Trim the beginning, so the newest words stay visible instead of
+        // being hidden by TextBlock's ordinary trailing ellipsis.
+        var elements=StringInfo.ParseCombiningCharacters(_previewContent);
+        for(var index=1;index<elements.Length;index++)
+        {
+            var suffix="…"+_previewContent[elements[index]..];
+            if(Fits(suffix)){_preview.Text=suffix;return;}
+        }
+        _preview.Text="…";
+    }
+
+    private void UpdateSpinnerAnimation()
+    {
+        var animate=!_closed&&IsVisible&&_state==ConversationWidgetState.Thinking&&SystemParameters.ClientAreaAnimation;
+        if(animate==_spinnerRotation.HasAnimatedProperties)return;
+        _spinnerRotation.BeginAnimation(RotateTransform.AngleProperty,animate
+            ?new DoubleAnimation(0,360,TimeSpan.FromMilliseconds(900)){RepeatBehavior=RepeatBehavior.Forever}
+            :null);
     }
 
     private void OnMouseDown(object? sender,MouseButtonEventArgs e)

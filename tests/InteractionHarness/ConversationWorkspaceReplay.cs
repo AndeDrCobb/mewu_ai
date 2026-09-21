@@ -13,6 +13,7 @@ using mewu_ai_Assistant.Models;
 using mewu_ai_Assistant.Services;
 using mewu_ai_Assistant.Views;
 using Application=System.Windows.Application;
+using Color=System.Windows.Media.Color;
 using MouseEventArgs=System.Windows.Input.MouseEventArgs;
 
 internal static class ConversationWorkspaceReplay
@@ -24,6 +25,7 @@ internal static class ConversationWorkspaceReplay
         app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
         try
         {
+            Program.MarkReplayWindow(overlay,"最小化会话状态验收 · 合成内容 · 自动关闭");
             // Open the actual window before detaching. The previous replay
             // bypassed Loaded and incorrectly accepted a blank content surface.
             Set(overlay,"_applicationSnapshotActive",true);
@@ -64,9 +66,49 @@ internal static class ConversationWorkspaceReplay
             Check(checks,"next-turn-keeps-previous-answer",Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<System.Windows.Controls.TextBox>().Any(box=>box.Text.Contains("解题步骤")));
             Invoke(overlay,"RefreshHistoryPreview");Pump(app);
             Check(checks,"cancel-without-answer-has-no-fake-bubble",!Descendants((HistoryPreviewPanel)overlay.FindName("HistoryItems")).OfType<System.Windows.Controls.TextBox>().Any(box=>box.Text.Contains("未收到 AI 回复")));
+            using var pending=new CancellationTokenSource();
+            Set(overlay,"_request",pending);Invoke(overlay,"BeginConversationProgress",pending);
+            Invoke(overlay,"ShowReasoning","正在检查已知条件。",pending);Pump(app);
             ((System.Windows.Controls.Button)overlay.FindName("MinimizeConversationButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Pump(app);
             var widget=app.Windows.OfType<ConversationFloatingWidget>().Single();
             Check(checks,"minimize-hides-canvas",!overlay.IsVisible&&widget.IsVisible);
+            var preview=Descendants(widget).OfType<TextBlock>().Single(text=>text.Name=="ConversationProgressPreview");
+            var spinner=Descendants(widget).OfType<Canvas>().Single(element=>element.Name=="ConversationThinkingSpinner");
+            var dot=Descendants(widget).OfType<System.Windows.Shapes.Ellipse>().Single(element=>element.Name=="ConversationStatusDot");
+            Check(checks,"pending-widget-shows-dotted-spinner-and-reasoning",spinner.IsVisible&&spinner.Children.Count==8&&!dot.IsVisible&&preview.Text.Contains("已知条件")&&spinner.RenderTransform.HasAnimatedProperties==SystemParameters.ClientAreaAnimation);
+            if(SystemParameters.ClientAreaAnimation)
+            {
+                var rotation=(RotateTransform)spinner.RenderTransform;var previousAngle=rotation.Angle;
+                var frame=new DispatcherFrame();var timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(240)};
+                timer.Tick+=(_,_)=>{timer.Stop();frame.Continue=false;};timer.Start();Dispatcher.PushFrame(frame);
+                Check(checks,"thinking-dots-actually-rotate",Math.Abs(rotation.Angle-previousAngle)>1);
+            }
+            var marker=spinner.TranslatePoint(new System.Windows.Point(spinner.ActualWidth/2,spinner.ActualHeight/2),widget);
+            Check(checks,"spinner-fits-upper-left-corner",marker.X>=0&&marker.Y>=0&&marker.X<20&&marker.Y<20);
+            Invoke(overlay,"ShowReasoning",new string('旧',600)+"现在核对末尾单位🧠。",pending);Pump(app);
+            Check(checks,"minimized-reasoning-preview-follows-latest-bounded-tail",preview.Text.EndsWith("单位🧠。",StringComparison.Ordinal)&&!preview.Text.Contains('旧')&&preview.Text.Length<110&&!overlay.IsVisible);
+            Save(widget,"conversation-widget-thinking.png");
+            widget.Hide();Pump(app);Check(checks,"hidden-widget-stops-spinner",!spinner.RenderTransform.HasAnimatedProperties);
+            widget.Show();Pump(app);Check(checks,"reshown-pending-widget-resumes-spinner",spinner.RenderTransform.HasAnimatedProperties==SystemParameters.ClientAreaAnimation);
+            Invoke(overlay,"FinishReasoning","最终核验：单位一致，推导成立。");
+            Invoke(overlay,"RefreshAnswer","最终回答正文。");Pump(app);
+            Check(checks,"reasoning-preview-takes-priority-over-answer",preview.Text.EndsWith("推导成立。",StringComparison.Ordinal)&&preview.ToolTip.ToString()!.Contains("最终核验：单位一致，推导成立。")&&spinner.IsVisible&&!dot.IsVisible);
+            Invoke(overlay,"FinishConversationProgress",pending,true);Set(overlay,"_request",null!);Pump(app);
+            Check(checks,"completed-widget-turns-green-without-restoring",!spinner.IsVisible&&!spinner.RenderTransform.HasAnimatedProperties&&dot.IsVisible&&((SolidColorBrush)dot.Fill).Color==Color.FromRgb(34,170,106)&&!overlay.IsVisible);
+            Save(widget,"conversation-widget-completed.png");
+            Invoke(overlay,"ShowReasoning","旧请求迟到内容",pending);Pump(app);
+            Check(checks,"completed-widget-rejects-late-reasoning",preview.Text.EndsWith("推导成立。",StringComparison.Ordinal)&&!preview.ToolTip.ToString()!.Contains("迟到"));
+            foreach(var cancel in new[]{false,true})
+            {
+                using var stopped=new CancellationTokenSource();Set(overlay,"_request",stopped);Invoke(overlay,"BeginConversationProgress",stopped);
+                Invoke(overlay,"FinishConversationProgress",pending,true);
+                Check(checks,"old-completion-cannot-finish-new-widget-request",spinner.IsVisible&&!dot.IsVisible);
+                Invoke(overlay,"RefreshAnswer","不返回思考的模型也显示最新正文。");Pump(app);
+                Check(checks,"answer-preview-used-without-reasoning",preview.Text.EndsWith("最新正文。",StringComparison.Ordinal)&&preview.ToolTip.ToString()!.Contains("不返回思考的模型也显示最新正文。"));
+                if(cancel)stopped.Cancel();
+                Invoke(overlay,"FinishConversationProgress",stopped,cancel);Set(overlay,"_request",null!);Pump(app);
+                Check(checks,cancel?"canceled-widget-is-not-green":"failed-widget-is-not-green",!spinner.RenderTransform.HasAnimatedProperties&&dot.IsVisible&&((SolidColorBrush)dot.Fill).Color!=Color.FromRgb(34,170,106));
+            }
             var next=new CaptureOverlayWindow(host);
             Set(next,"_applicationSnapshotActive",true);next.Show();Pump(app);
             Check(checks,"new-capture-acquires-slot",host.TryReacquireCaptureForOverlay(next));
@@ -76,8 +118,12 @@ internal static class ConversationWorkspaceReplay
             Invoke(next,"RefreshHistoryPreview");
             ((System.Windows.Controls.Button)next.FindName("MinimizeConversationButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Pump(app);
             Check(checks,"multiple-independent-widgets",app.Windows.OfType<ConversationFloatingWidget>().Count()==2&&!next.IsVisible);
+            var otherWidget=app.Windows.OfType<ConversationFloatingWidget>().Single(item=>!ReferenceEquals(item,widget));
+            var otherPreview=Descendants(otherWidget).OfType<TextBlock>().Single(text=>text.Name=="ConversationProgressPreview");
+            Check(checks,"other-widget-does-not-inherit-request-status",otherPreview.Text==LocalizationService.T("点击恢复对话","Click to restore"));
             overlay.RestoreFromConversationWidget();Pump(app);
             Check(checks,"restore-only-selected-session",!next.IsVisible&&app.Windows.OfType<ConversationFloatingWidget>().Count()==1);
+            Check(checks,"restored-widget-releases-animation",!spinner.RenderTransform.HasAnimatedProperties);
             Set(next,"_applicationSnapshotActive",false);next.Close();Pump(app);
             Check(checks,"restore-keeps-draft-history",overlay.IsVisible&&prompt.Text=="把第二步再讲详细一点"&&history.Count>=2);
             Check(checks,"restore-keeps-original-frozen-frame",ReferenceEquals(frozenImage,((System.Windows.Controls.Image)overlay.FindName("DesktopImage")).Source));
@@ -99,9 +145,13 @@ internal static class ConversationWorkspaceReplay
             Check(checks,"widget-close-hidden-until-hover",close.Visibility==Visibility.Hidden);
             widget.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseEnterEvent});Pump(app);
             Check(checks,"widget-hover-shows-close",close.IsVisible);
+            using var closingRequest=new CancellationTokenSource();Set(overlay,"_request",closingRequest);Invoke(overlay,"BeginConversationProgress",closingRequest);Pump(app);
+            var closingSpinner=Descendants(widget).OfType<Canvas>().Single(element=>element.Name=="ConversationThinkingSpinner");
+            Check(checks,"closing-scenario-has-active-spinner",closingSpinner.IsVisible&&closingSpinner.RenderTransform.HasAnimatedProperties==SystemParameters.ClientAreaAnimation);
             Save(widget,"conversation-widget-hover.png");
             close.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Pump(app);
             Check(checks,"widget-close-ends-session",!app.Windows.Cast<Window>().Contains(overlay)&&!app.Windows.OfType<ConversationFloatingWidget>().Any());
+            Check(checks,"closing-widget-stops-animation-and-cancels-request",!closingSpinner.RenderTransform.HasAnimatedProperties&&closingRequest.IsCancellationRequested);
         }
         catch(Exception ex){failure=ex is TargetInvocationException tie?tie.InnerException?.ToString()??tie.ToString():ex.ToString();}
         finally
@@ -113,7 +163,7 @@ internal static class ConversationWorkspaceReplay
         }
     }
     private static void Set(object target,string name,object value)=>target.GetType().GetField(name,Private)!.SetValue(target,value);
-    private static void Invoke(object target,string name)=>target.GetType().GetMethod(name,Private)!.Invoke(target,null);
+    private static void Invoke(object target,string name,params object[] arguments)=>target.GetType().GetMethod(name,Private)!.Invoke(target,arguments);
     private static void Pump(Application app){for(var i=0;i<3;i++)app.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{}));}
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root){for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);yield return child;foreach(var nested in Descendants(child))yield return nested;}}
     private static void SendEscape(UIElement target){var source=PresentationSource.FromVisual(target)!;target.RaiseEvent(new System.Windows.Input.KeyEventArgs(Keyboard.PrimaryDevice,source,Environment.TickCount,Key.Escape){RoutedEvent=Keyboard.PreviewKeyDownEvent});}

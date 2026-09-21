@@ -17,6 +17,7 @@ public partial class CaptureOverlayWindow
     {
         if (!_followAnswerTail && !_answerLayoutQueued) _answerReadingOffset = AnswerText.VerticalOffset;
         AnswerText.Markdown = markdown;
+        if(_request is { } request)UpdateConversationProgress(request,markdown);
         QueueAnswerLayout();
     }
 

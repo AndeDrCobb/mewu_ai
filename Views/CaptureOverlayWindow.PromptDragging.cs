@@ -149,6 +149,7 @@ public partial class CaptureOverlayWindow
         _conversationSessionFrozen=true;
         var widget=new ConversationFloatingWidget(this);
         _conversationWidget=widget;
+        RefreshConversationWidget();
         Hide();_inactiveEscapeTimer.Stop();
         _host.ReleaseCaptureForMinimizedOverlay(this);
         widget.Show();
