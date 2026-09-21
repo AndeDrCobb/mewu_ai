@@ -6,6 +6,13 @@
 
 暂无未发布变更。 / No unreleased changes.
 
+## 0.5.2 — 多 API 协议、代理与历史会话 / Multi-API protocols, proxy and conversation history
+
+发行说明 / Release notes: [0.5.2](https://github.com/abnste/mewu_ai/releases/tag/v0.5.2)
+
+完整的双语发行说明见 [docs/release-notes-v0.5.2.md](./docs/release-notes-v0.5.2.md)。 / See the full bilingual notes in [docs/release-notes-v0.5.2.md](./docs/release-notes-v0.5.2.md).
+
+
 ## 0.5.1 — 公式、标注反馈与 README 演示 / Formula rendering, annotation feedback and README demos
 
 发行说明 / Release notes: [0.5.1](https://github.com/abnste/mewu_ai/releases/tag/v0.5.1)
