@@ -84,7 +84,9 @@ internal static class ConversationWorkspaceReplay
                 Check(checks,"thinking-dots-actually-rotate",Math.Abs(rotation.Angle-previousAngle)>1);
             }
             var marker=spinner.TranslatePoint(new System.Windows.Point(spinner.ActualWidth/2,spinner.ActualHeight/2),widget);
-            Check(checks,"spinner-fits-upper-left-corner",marker.X>=0&&marker.Y>=0&&marker.X<20&&marker.Y<20);
+            var statusClose=Descendants(widget).OfType<System.Windows.Controls.Button>().Single(button=>button.Name=="CloseConversationButton");
+            var closeCenter=statusClose.TranslatePoint(new System.Windows.Point(statusClose.ActualWidth/2,statusClose.ActualHeight/2),widget);
+            Check(checks,"spinner-shares-upper-right-close-position",marker.X>widget.ActualWidth-35&&marker.Y<30&&(marker-closeCenter).Length<.1);
             Invoke(overlay,"ShowReasoning",new string('旧',600)+"现在核对末尾单位🧠。",pending);Pump(app);
             Check(checks,"minimized-reasoning-preview-follows-latest-bounded-tail",preview.Text.EndsWith("单位🧠。",StringComparison.Ordinal)&&!preview.Text.Contains('旧')&&preview.Text.Length<110&&!overlay.IsVisible);
             Save(widget,"conversation-widget-thinking.png");

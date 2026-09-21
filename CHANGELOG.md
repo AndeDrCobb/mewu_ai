@@ -4,7 +4,7 @@
 
 ## 未发布 / Unreleased
 
-- 最小化会话左上角显示旋转点环，回答成功完成后显示绿点；原“点击恢复对话”位置实时预览最新思考片段，没有思考内容时显示最新回答。取消与失败使用独立状态，多个会话分别更新。 / Show a rotating dotted indicator on minimized conversations and a green dot on successful completion. Preview the latest reasoning, or answer text when reasoning is unavailable, in place of “Click to restore”. Keep cancellation, failure and each conversation's state distinct.
+- 最小化会话右侧显示旋转点环（悬停时由同位置的关闭按钮覆盖），回答成功完成后显示绿点；原“点击恢复对话”位置实时预览最新思考片段，没有思考内容时显示最新回答。取消与失败使用独立状态，多个会话分别更新。 / Show a rotating dotted indicator on the right of minimized conversations, covered by the close button on hover, and a green dot on successful completion. Preview the latest reasoning, or answer text when reasoning is unavailable, in place of “Click to restore”. Keep cancellation, failure and each conversation's state distinct.
 
 - 扩大对话条拖动范围，顶部、底部及内容之间的空白均可拖动；输入框、按钮、滚动条与回答文字保留原有操作。 / Allow dragging from blank space at the top, bottom and between conversation content while preserving input, buttons, scrollbars and text selection.
 

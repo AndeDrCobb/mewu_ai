@@ -21,7 +21,7 @@ internal sealed class ConversationFloatingWidget : Window
     private readonly Canvas _spinner=new(){Name="ConversationThinkingSpinner",Width=14,Height=14,IsHitTestVisible=false};
     private readonly RotateTransform _spinnerRotation=new();
     private readonly Ellipse _statusDot=new(){Name="ConversationStatusDot",Width=7,Height=7,IsHitTestVisible=false};
-    private readonly Border _statusBadge=new(){Name="ConversationStatusBadge",Width=17,Height=17,CornerRadius=new CornerRadius(9),Background=new SolidColorBrush(Color.FromRgb(249,251,255)),HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(3),Visibility=Visibility.Collapsed};
+    private readonly Border _statusBadge=new(){Name="ConversationStatusBadge",Width=17,Height=17,CornerRadius=new CornerRadius(9),Background=new SolidColorBrush(Color.FromRgb(249,251,255)),HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center,Visibility=Visibility.Collapsed};
     private ConversationWidgetState _state;
     private string _previewContent=string.Empty;
     private bool _closed;
@@ -47,12 +47,15 @@ internal sealed class ConversationFloatingWidget : Window
     {
         var shell=new Border{Background=new SolidColorBrush(Color.FromRgb(249,251,255)),BorderBrush=new SolidColorBrush(Color.FromRgb(211,220,235)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(18),Padding=new Thickness(9,6,9,6)};
         var row=new DockPanel{LastChildFill=true};
-        var close=new Button{Name="CloseConversationButton",Style=(Style)_owner.FindResource("ConversationHeaderButton"),Width=22,Height=22,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(5,0,0,0),ToolTip=LocalizationService.T("关闭会话","Close conversation"),Visibility=Visibility.Hidden};
+        var close=new Button{Name="CloseConversationButton",Style=(Style)_owner.FindResource("ConversationHeaderButton"),Width=22,Height=22,Margin=new Thickness(0),ToolTip=LocalizationService.T("关闭会话","Close conversation"),Visibility=Visibility.Hidden};
         close.Content=new System.Windows.Shapes.Path{Width=12,Height=12,Stroke=new SolidColorBrush(Color.FromRgb(113,126,151)),StrokeThickness=1.5,StrokeStartLineCap=PenLineCap.Round,StrokeEndLineCap=PenLineCap.Round,Data=Geometry.Parse("M3,3 L9,9 M9,3 L3,9")};
         System.Windows.Automation.AutomationProperties.SetName(close,LocalizationService.T("关闭会话","Close conversation"));
         MouseEnter+=(_,_)=>close.Visibility=Visibility.Visible;
         MouseLeave+=(_,_)=>close.Visibility=Visibility.Hidden;
-        close.Click+=(_,e)=>{e.Handled=true;_owner.Close();};DockPanel.SetDock(close,Dock.Right);row.Children.Add(close);
+        close.Click+=(_,e)=>{e.Handled=true;_owner.Close();};
+        var statusSlot=new Grid{Width=22,Height=22,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(5,0,0,0)};
+        statusSlot.Children.Add(_statusBadge);statusSlot.Children.Add(close);Panel.SetZIndex(close,1);
+        DockPanel.SetDock(statusSlot,Dock.Right);row.Children.Add(statusSlot);
         var icon=new Border{Width=28,Height=28,CornerRadius=new CornerRadius(10),Background=new SolidColorBrush(Color.FromRgb(232,237,255)),Margin=new Thickness(0,0,8,0)};
         icon.Child=new System.Windows.Shapes.Path{Width=15,Height=15,Stretch=Stretch.Uniform,Stroke=new SolidColorBrush(Color.FromRgb(82,99,217)),StrokeThickness=1.5,Data=Geometry.Parse("M2,2 L14,2 L14,11 L8,11 L4,14 L4,11 L2,11 Z M5,5 L11,5 M5,8 L9,8"),HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center};
         DockPanel.SetDock(icon,Dock.Left);row.Children.Add(icon);
@@ -69,7 +72,7 @@ internal sealed class ConversationFloatingWidget : Window
             Canvas.SetLeft(dot,5.85+4.6*Math.Cos(angle));Canvas.SetTop(dot,5.85+4.6*Math.Sin(angle));_spinner.Children.Add(dot);
         }
         var indicator=new Grid();indicator.Children.Add(_spinner);indicator.Children.Add(_statusDot);_statusBadge.Child=indicator;
-        var surface=new Grid();surface.Children.Add(shell);surface.Children.Add(_statusBadge);return surface;
+        return shell;
     }
 
     internal void UpdateProgress(ConversationWidgetState state,string preview)
