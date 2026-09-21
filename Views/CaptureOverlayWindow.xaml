@@ -231,6 +231,9 @@
    <Thumb x:Name="PromptDragHandle" Height="7" Margin="20,1,20,0" VerticalAlignment="Top" Cursor="SizeAll" Focusable="False" ToolTip="拖离底部以固定显示，拖回原位恢复自动隐藏" AutomationProperties.Name="拖动对话条" DragStarted="PromptDragStarted" DragDelta="PromptDragDelta" DragCompleted="PromptDragCompleted">
     <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
    </Thumb>
+   <Button x:Name="HistoryToggleHitTarget" Width="52" Height="8" HorizontalAlignment="Center" VerticalAlignment="Top" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}" AutomationProperties.Name="查看提问和历史对话" ToolTip="{Binding ToolTip,ElementName=HistoryToggle}" Click="ToggleHistory" Panel.ZIndex="2">
+    <Button.Template><ControlTemplate TargetType="Button"><Border Background="Transparent"/></ControlTemplate></Button.Template>
+   </Button>
   </Grid>
   <Border x:Name="SizeText" Visibility="Collapsed" Background="#E6111722" BorderBrush="#80FFFFFF" BorderThickness="1" CornerRadius="7" Padding="6,3" SnapsToDevicePixels="True" IsHitTestVisible="False">
    <Border.Effect><DropShadowEffect Color="#111722" BlurRadius="10" ShadowDepth="2" Opacity="0.28"/></Border.Effect>

@@ -4,6 +4,8 @@
 
 ## 未发布 / Unreleased
 
+- 扩大上拉箭头的透明点击区域，使其覆盖顶部拖动区而不改变现有视觉样式；拖动把手其余区域仍可正常拖动。 / Expand the history toggle's transparent hit area into the top drag zone without changing its visual appearance; the remaining drag handle stays draggable.
+
 - 修复气泡对话仍分成历史和当前回复两块的问题：上拉菜单共用一个消息滚动区，实时回答完成后不重复显示，发送下一轮保留历史展开状态；移除没有实际回答时的“未收到 AI 回复”占位气泡。 / Use one message scroller for expanded conversations, keep the live answer only once after completion, preserve expanded history on subsequent sends, and remove fabricated empty-answer placeholder bubbles.
 
 - 将上拉菜单中的对话统一为左右气泡：用户消息靠右、AI 消息靠左，当前回复使用同一套气泡表面；原位展开增加轻量位移动画，不再把历史和当前回复显示成两种卡片。 / Unify expanded conversations as left/right bubbles: user messages align right, AI messages align left, and the current reply uses the same bubble surface; in-place expansion now uses a light slide animation instead of two unrelated card styles.
