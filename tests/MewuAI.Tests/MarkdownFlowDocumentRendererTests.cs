@@ -28,6 +28,18 @@ public sealed class MarkdownFlowDocumentRendererTests
             Assert.NotNull(AnnotationFormulaLayout.TryCreate("$"+formula+"$",400,18,System.Windows.Media.Brushes.Black));
         });
     }
+    [Fact]
+    public void NestedCosineAngleFormulaRenders()
+    {
+        RunSta(()=>
+        {
+            const string formula=@"$$\cos\angle(C-AB-D)=\frac{\frac34}{\sqrt{\frac{75}{4}}\sqrt{\frac{27}{4}}}=\frac1{15}.$$";
+            var view=new mewu_ai_Assistant.Views.MarkdownAnswerView{Markdown=formula};
+            var image=Assert.Single(view.Document.Blocks.OfType<Paragraph>().SelectMany(p=>p.Inlines.OfType<InlineUIContainer>())).Child;
+            Assert.IsType<mewu_ai_Assistant.Views.MathFormulaView>(image);
+            Assert.NotNull(AnnotationFormulaLayout.TryCreate(formula,420,18,System.Windows.Media.Brushes.Black));
+        });
+    }
     [Theory]
     [InlineData(false)][InlineData(true)]
     public void PaperFeedbackAvoidsAnswersAndCrowdedInkAndExportPreservesOriginal(bool crowded)
