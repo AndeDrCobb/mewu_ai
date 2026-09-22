@@ -1808,6 +1808,15 @@ public partial class CaptureOverlayWindow : Window
     private void PositionFloatingBar(FrameworkElement bar,SelectionItem item)
     {
         var monitor=MonitorBounds(item.Bounds);var availableWidth=Math.Max(1,monitor.Width-PromptEdgeMargin*2);bar.MaxWidth=availableWidth;bar.Measure(new Size(availableWidth,double.PositiveInfinity));var w=CaptureOverlayPolicy.ConstrainFloatingBarWidth(monitor,bar.DesiredSize.Width);var h=bar.DesiredSize.Height;
+        if(ReferenceEquals(bar,RecordingBar))
+        {
+            // Recording controls follow the Windows recorder convention: one
+            // stable, centered strip at the top of the active monitor.
+            Canvas.SetLeft(bar,monitor.Left+Math.Max(0,(monitor.Width-w)/2));
+            Canvas.SetTop(bar,monitor.Top+PromptEdgeMargin);
+            bar.Visibility=Visibility.Visible;
+            return;
+        }
         var promptTop=Canvas.GetTop(PromptBarHost);var promptLeft=Canvas.GetLeft(PromptBarHost);var promptWidth=Math.Max(PromptBar.ActualWidth,PromptBar.DesiredSize.Width);var promptHeight=Math.Max(PromptBar.ActualHeight,PromptBar.DesiredSize.Height);var promptBounds=PromptBarHost.Visibility==Visibility.Visible&&double.IsFinite(promptTop)&&double.IsFinite(promptLeft)&&promptWidth>0&&promptHeight>0?new Rect(promptLeft,promptTop,promptWidth,promptHeight):Rect.Empty;
         var placement=CaptureOverlayPolicy.GetFloatingBarPlacement(monitor,item.Bounds,w,h,promptBounds,PromptEdgeMargin,PromptFloatingGap);Canvas.SetLeft(bar,placement.Left);Canvas.SetTop(bar,placement.Top);
         if(IsTeachingMode&&(ReferenceEquals(bar,RecordingBar)||ReferenceEquals(bar,LongCaptureBar)))
