@@ -1813,8 +1813,20 @@ public partial class CaptureOverlayWindow : Window
         if(IsTeachingMode&&(ReferenceEquals(bar,RecordingBar)||ReferenceEquals(bar,LongCaptureBar)))
         {
             var space=CaptureOverlayPolicy.FindCaptureControlSpace(monitor,item.Bounds,w,h);
-            if(space.IsEmpty){bar.Visibility=Visibility.Collapsed;return;}
-            Canvas.SetLeft(bar,space.Left);Canvas.SetTop(bar,space.Top);bar.Visibility=Visibility.Visible;
+            if(!space.IsEmpty)
+            {
+                Canvas.SetLeft(bar,space.Left);Canvas.SetTop(bar,space.Top);
+            }
+            else
+            {
+                // A full-screen recording has no outside gap. Keep the
+                // recording controls visible and actionable at the monitor's
+                // top edge instead of silently removing pause/stop controls.
+                var fallback=new Rect(monitor.Left+PromptEdgeMargin,monitor.Top+PromptEdgeMargin,
+                    Math.Min(w,Math.Max(1,monitor.Width-PromptEdgeMargin*2)),Math.Min(h,Math.Max(1,monitor.Height-PromptEdgeMargin*2)));
+                Canvas.SetLeft(bar,fallback.Left);Canvas.SetTop(bar,fallback.Top);
+            }
+            bar.Visibility=Visibility.Visible;
         }
         if(ReferenceEquals(bar,Toolbar)&&SizeText.Visibility==Visibility.Visible){SizeText.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));var sizeHeight=SizeText.DesiredSize.Height;var preferred=placement.Top<item.Bounds.Top?placement.Top-sizeHeight-4:item.Bounds.Top-sizeHeight-4;var sizeY=preferred>=monitor.Top+4?preferred:Math.Min(item.Bounds.Bottom-sizeHeight-4,item.Bounds.Top+4);Canvas.SetLeft(SizeText,item.Bounds.Left);Canvas.SetTop(SizeText,sizeY);}
     }

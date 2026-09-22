@@ -6,6 +6,11 @@
 
 - 框选预览复用冻结截图，减少拖动期间重复创建裁剪位图的开销；最终截图保持原始像素。 / Selection previews reuse the frozen desktop image to avoid repeated bitmap crops while dragging; final captures retain their original pixels.
 
+## 0.5.3 — 流畅框选预览与录屏稳定性 / Smooth selection preview and recording stability
+
+- 框选拖动期间复用冻结截图，减少重复裁剪造成的卡顿。 / Reuse the frozen desktop image while dragging to reduce selection-preview stutter.
+- 改用更稳定的软件 H.264 编码路径，改善录屏播放的帧时间稳定性。 / Use the more stable software H.264 path to improve recording playback cadence.
+
 ## 0.5.2 — 多 API 协议、代理与历史会话 / Multi-API protocols, proxy and conversation history
 
 发行说明 / Release notes: [0.5.2](https://github.com/abnste/mewu_ai/releases/tag/v0.5.2)
