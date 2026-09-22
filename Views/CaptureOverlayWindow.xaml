@@ -142,6 +142,9 @@
          <Button x:Name="MinimizeConversationButton" DockPanel.Dock="Right" Style="{StaticResource ConversationHeaderButton}" ToolTip="最小化为悬浮窗" AutomationProperties.Name="最小化对话" Click="MinimizeConversation">
           <Path Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M3,8 L13,8"/>
          </Button>
+         <Button x:Name="HistoryArchiveButton" DockPanel.Dock="Right" Style="{StaticResource ConversationHeaderButton}" ToolTip="打开历史对话" AutomationProperties.Name="打开历史对话" Click="OpenConversationArchive">
+          <Path Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M8,2 A6,6 0 1 1 2,8 M8,4 L8,8 L11,10"/>
+         </Button>
          <Button x:Name="NewConversationButton" DockPanel.Dock="Right" Style="{StaticResource ConversationHeaderButton}" ToolTip="新对话：开始空白会话" AutomationProperties.Name="开始新对话" Click="StartNewConversation">
           <Path Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M7,3 L3,3 L3,13 L13,13 L13,9 M8,8 L8.5,5.5 L12.5,1.5 L14.5,3.5 L10.5,7.5 Z"/>
          </Button>
