@@ -5,7 +5,16 @@
 ## 未发布 / Unreleased
 
 - 框选预览复用冻结截图，减少拖动期间重复创建裁剪位图的开销；最终截图保持原始像素。 / Selection previews reuse the frozen desktop image to avoid repeated bitmap crops while dragging; final captures retain their original pixels.
-- 修复全屏录制时控制条不在原生交互区域，恢复暂停、继续和停止按钮的可见性与点击。 / Fix full-screen recording controls being outside the native interaction region, restoring visible and clickable pause, resume and stop buttons.
+
+## 0.5.8 — 全屏录制启动与输入稳定性 / Full-screen recording startup and input stability
+
+发行说明 / Release notes: [0.5.8](https://github.com/abnste/mewu_ai/releases/tag/v0.5.8)
+
+- 修复全屏录制倒计时结束后回退到普通截图工具条的问题；无安全空位的教学全屏采集隐藏控制条并保留 F8 完成/停止。 / Fix full-screen recording falling back to the screenshot toolbar after the countdown; teaching captures with no safe control space hide the bar and retain F8 to finish or stop.
+- 录制输入转发不再吞掉和重注入每个鼠标移动事件，避免区外点击拖垮全局输入；普通录制即使低级钩子不可用也不会被误取消。 / Stop consuming and re-injecting every mouse move during recording so clicks outside the region cannot stall global input; ordinary recording no longer gets canceled when the low-level hook is unavailable.
+- 录制窗口区域恢复增加无效 HWND 防护，避免录制结束时错误地关闭覆盖层。 / Guard region restoration against an invalid HWND so the overlay is not closed spuriously after recording.
+
+完整的双语发行说明见 [docs/release-notes-v0.5.8.md](./docs/release-notes-v0.5.8.md)。 / See the full bilingual notes in [docs/release-notes-v0.5.8.md](./docs/release-notes-v0.5.8.md).
 
 ## 0.5.7 — 全屏录制输入与控件视觉修复 / Full-screen recording input and control visuals
 

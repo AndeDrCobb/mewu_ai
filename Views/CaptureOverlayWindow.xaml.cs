@@ -1155,7 +1155,16 @@ public partial class CaptureOverlayWindow : Window
         try
         {
             var hwnd=new WindowInteropHelper(this).Handle;
-            if(hwnd!=IntPtr.Zero&&NativeMethods.SetWindowRgn(hwnd,IntPtr.Zero,true)!=0)
+            if(hwnd==IntPtr.Zero||!NativeMethods.IsWindow(hwnd))
+            {
+                _recordingWindowRegionApplied=false;
+                _recordingWindowRegionKey=null;
+                _recordingRegionResetRetryCount=0;
+                _recordingRegionResetQueued=false;
+                _recordingRegionCloseQueued=false;
+                return;
+            }
+            if(NativeMethods.SetWindowRgn(hwnd,IntPtr.Zero,true)!=0)
             {
                 _recordingWindowRegionApplied=false;
                 _recordingWindowRegionKey=null;
@@ -1821,6 +1830,25 @@ public partial class CaptureOverlayWindow : Window
         {
             // Recording controls follow the Windows recorder convention: one
             // stable, centered strip at the top of the active monitor.
+            if(IsTeachingMode)
+            {
+                // A full-screen teaching capture has no pixels outside the
+                // acquisition rectangle in which a visible control bar could
+                // live.  Showing it would make the native capture-clear check
+                // fail and would put the bar into the recording.  F8 remains
+                // registered by PrepareTeachingLiveCapture and is the stop
+                // control for this no-space case.
+                var teachingSpace=CaptureOverlayPolicy.FindCaptureControlSpace(monitor,item.Bounds,w,h);
+                if(teachingSpace.IsEmpty)
+                {
+                    bar.Visibility=Visibility.Collapsed;
+                    return;
+                }
+                Canvas.SetLeft(bar,teachingSpace.Left);
+                Canvas.SetTop(bar,teachingSpace.Top);
+                bar.Visibility=Visibility.Visible;
+                return;
+            }
             Canvas.SetLeft(bar,monitor.Left+Math.Max(0,(monitor.Width-w)/2));
             Canvas.SetTop(bar,monitor.Top+PromptEdgeMargin);
             bar.Visibility=Visibility.Visible;
@@ -1837,12 +1865,11 @@ public partial class CaptureOverlayWindow : Window
             }
             else
             {
-                // A full-screen recording has no outside gap. Keep the
-                // recording controls visible and actionable at the monitor's
-                // top edge instead of silently removing pause/stop controls.
-                var fallback=new Rect(monitor.Left+PromptEdgeMargin,monitor.Top+PromptEdgeMargin,
-                    Math.Min(w,Math.Max(1,monitor.Width-PromptEdgeMargin*2)),Math.Min(h,Math.Max(1,monitor.Height-PromptEdgeMargin*2)));
-                Canvas.SetLeft(bar,fallback.Left);Canvas.SetTop(bar,fallback.Top);
+                // A full-screen teaching capture has no outside gap. Hide
+                // the bar so no acquired pixel contains a control; F8 remains
+                // the registered finish/stop control for this case.
+                bar.Visibility=Visibility.Collapsed;
+                return;
             }
             bar.Visibility=Visibility.Visible;
         }
@@ -4016,10 +4043,23 @@ public partial class CaptureOverlayWindow : Window
         Root.UpdateLayout();
         if(!UpdateRecordingVisualHole(requireNativeRegion:true))throw new InvalidOperationException("无法建立录屏区域的鼠标穿透，请调整选区后重试");
         var router=new RecordingMousePassThrough(new WindowInteropHelper(this).Handle);
-        if(!router.Start()){router.Dispose();throw new InvalidOperationException("无法启动录屏输入转发，请重新截图");}
-        _recordingMousePassThrough=router;
-        _recordingInputTimer.Start();
-        UpdateRecordingInputRouting();
+        if(router.Start())
+        {
+            _recordingMousePassThrough=router;
+            _recordingInputTimer.Start();
+            UpdateRecordingInputRouting();
+        }
+        else
+        {
+            // Recording itself must not be discarded because another process
+            // has blocked a low-level hook.  The native selection hole and
+            // HTTRANSPARENT path still work; only teaching mode with a visible
+            // control bar is refused because it would otherwise leave the
+            // shared overlay able to swallow clicks.
+            router.Dispose();
+            if(IsTeachingMode&&RecordingBar.Visibility==Visibility.Visible)
+                throw new InvalidOperationException("录屏输入转发不可用，请关闭占用鼠标的工具后重试");
+        }
         if(IsTeachingMode)
         {
             if(!IsTeachingAcquisitionClear(selected))throw new InvalidOperationException("录屏区域仍被操作控件覆盖，请重新截图");
