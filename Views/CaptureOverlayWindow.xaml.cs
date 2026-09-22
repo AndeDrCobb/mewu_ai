@@ -983,14 +983,13 @@ public partial class CaptureOverlayWindow : Window
     }
 
     /// <summary>
-    /// During a recording the selected rectangle is a live pass-through hole.
-    /// The desktop frame and dimmer remain visible everywhere else, while the
-    /// native hit-test hook sends pointer input in the hole to the window below
-    /// (for example, a full-screen browser video).
+    /// During recording the frozen desktop is hidden completely. The selected
+    /// rectangle stays clear while a translucent dimmer remains outside it, so
+    /// every part of the real desktop continues to update under the overlay.
     /// </summary>
     private bool UpdateRecordingVisualHole(bool requireNativeRegion=false)
     {
-        var item=_recordingMode?_recordingItem:IsTeachingMode&&_longCaptureMode?_longCaptureItem:null;
+        var item=_recordingMode||_recordingCountdownActive?_recordingItem:IsTeachingMode&&_longCaptureMode?_longCaptureItem:null;
         if(item is null)
         {
             ClearRecordingVisualHole();
@@ -1021,18 +1020,34 @@ public partial class CaptureOverlayWindow : Window
 
         var full=new RectangleGeometry(new Rect(0,0,Math.Max(0,Root.ActualWidth),Math.Max(0,Root.ActualHeight)));
         var hole=new RectangleGeometry(Normalize(item.Bounds));
-        // Use an exclude geometry instead of an opacity mask so the pixels
-        // under the selection are genuinely transparent and can receive input.
-        DesktopImage.Clip=new CombinedGeometry(GeometryCombineMode.Exclude,full,hole);
+        // A recording must show the live desktop on both sides of the selected
+        // rectangle. Keeping the frozen DesktopImage outside the hole made
+        // click-through work technically while leaving the user to click a
+        // stale picture. Long capture still uses the frozen frame separately.
+        if(_recordingMode||_recordingCountdownActive)
+        {
+            DesktopImage.Visibility=Visibility.Collapsed;
+            DesktopImage.Clip=null;
+        }
+        else
+        {
+            DesktopImage.Visibility=Visibility.Visible;
+            DesktopImage.Clip=new CombinedGeometry(GeometryCombineMode.Exclude,full,hole);
+        }
         Dimmer.Clip=new CombinedGeometry(GeometryCombineMode.Exclude,full,hole);
         item.Image.Visibility=Visibility.Collapsed;
         UpdateTeachingLiveOutline(item);
-        return ApplyRecordingWindowRegion(item);
+        // Countdown input is intentionally whole-window transparent; do not
+        // install the recording hole until the countdown has fully finished.
+        return _recordingCountdownActive&&!_recordingMode
+            ? _recordingWindowRegionApplied
+            : ApplyRecordingWindowRegion(item);
     }
 
     private void ClearRecordingVisualHole()
     {
         _recordingHoleRetryCount=0;
+        DesktopImage.Visibility=Visibility.Visible;
         DesktopImage.Clip=null;
         Dimmer.Clip=null;
         ResetRecordingWindowRegion();
@@ -3964,10 +3979,15 @@ public partial class CaptureOverlayWindow : Window
     private void EnterRecordingCountdown(SelectionItem selected)
     {
         if(!NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,true))throw new InvalidOperationException("无法启用倒计时期间的鼠标穿透，请重新截图");
-        Cursor=Cursors.Arrow;if(Root.IsMouseCaptured)Root.ReleaseMouseCapture();Toolbar.Visibility=DrawingToolbar.Visibility=PromptBarHost.Visibility=SizeText.Visibility=PointerInspector.Visibility=RecordingBar.Visibility=Visibility.Collapsed;HideHandles();
+        Cursor=Cursors.Arrow;if(Root.IsMouseCaptured)Root.ReleaseMouseCapture();Toolbar.Visibility=DrawingToolbar.Visibility=PromptBarHost.Visibility=SizeText.Visibility=PointerInspector.Visibility=RecordingBar.Visibility=CrossRegionConnections.Visibility=Visibility.Collapsed;HideHandles();
         foreach(var item in _selections){item.Host.Visibility=ReferenceEquals(item,selected)?Visibility.Visible:Visibility.Collapsed;item.Badge.Visibility=Visibility.Collapsed;item.Markup.Visibility=item.TextOverlays.Visibility=item.AiAnnotations.Visibility=item.TextSelection.Visibility=Visibility.Collapsed;item.Markup.IsHitTestVisible=false;item.Image.Visibility=ReferenceEquals(item,selected)?Visibility.Collapsed:Visibility.Visible;}
         selected.Outline.BorderBrush=new SolidColorBrush(Color.FromRgb(50,151,242));selected.Outline.BorderThickness=new Thickness(2);selected.Outline.Effect=new DropShadowEffect{Color=Color.FromRgb(48,151,242),BlurRadius=18,ShadowDepth=0,Opacity=.9};
-        var full=new RectangleGeometry(new Rect(0,0,Math.Max(0,Root.ActualWidth),Math.Max(0,Root.ActualHeight)));var hole=new RectangleGeometry(Normalize(selected.Bounds));DesktopImage.Clip=new CombinedGeometry(GeometryCombineMode.Exclude,full,hole);Dimmer.Clip=new CombinedGeometry(GeometryCombineMode.Exclude,full,hole);
+        // The frozen frame is not part of the countdown either.  The real
+        // desktop remains visible under the dimmer, so a window moved before
+        // recording starts is already in the correct live position when the
+        // first captured frame arrives.
+        DesktopImage.Visibility=Visibility.Collapsed;DesktopImage.Clip=null;
+        var full=new RectangleGeometry(new Rect(0,0,Math.Max(0,Root.ActualWidth),Math.Max(0,Root.ActualHeight)));var hole=new RectangleGeometry(Normalize(selected.Bounds));Dimmer.Clip=new CombinedGeometry(GeometryCombineMode.Exclude,full,hole);
         Canvas.SetLeft(RecordingCountdown,selected.Bounds.Left+(selected.Bounds.Width-RecordingCountdown.Width)/2);Canvas.SetTop(RecordingCountdown,selected.Bounds.Top+(selected.Bounds.Height-RecordingCountdown.Height)/2);RecordingCountdown.Visibility=Visibility.Visible;
     }
 
@@ -3992,7 +4012,7 @@ public partial class CaptureOverlayWindow : Window
     {
         ReleaseTeachingLiveCapture();
         _recordingInputTimer.Stop();_recordingBarInputActive=false;SetRecordingInputPassThrough(false);
-        var interactionRestored=NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);_recordingCountdownActive=false;RecordingCountdown.Visibility=Visibility.Collapsed;RecordingCountdown.BeginAnimation(OpacityProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleXProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleYProperty,null);DesktopImage.Clip=null;Dimmer.Clip=null;_recordingItem=null;_recordingItemWasReferenced=false;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;
+        var interactionRestored=NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);_recordingCountdownActive=false;RecordingCountdown.Visibility=Visibility.Collapsed;RecordingCountdown.BeginAnimation(OpacityProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleXProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleYProperty,null);DesktopImage.Visibility=Visibility.Visible;DesktopImage.Clip=null;Dimmer.Clip=null;CrossRegionConnections.Visibility=Visibility.Visible;_recordingItem=null;_recordingItemWasReferenced=false;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;
         foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;item.Badge.Visibility=Visibility.Visible;var imageOnly=item.VideoPath is null?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=item.VideoPath is null?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}
         var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);PromptStatus.Text=interactionRestored?status:"窗口交互恢复失败，正在安全关闭覆盖层，请重新截图";CrashDiagnosticsService.MarkOperation("屏幕助手：等待操作");if(!interactionRestored)_=Dispatcher.BeginInvoke(DispatcherPriority.Send,new Action(Close));
     }
@@ -4001,7 +4021,7 @@ public partial class CaptureOverlayWindow : Window
     {
         _recordingMode=true;_recordingPaused=_recordingStopping=false;Cursor=Cursors.Arrow;
         if(Root.IsMouseCaptured)Root.ReleaseMouseCapture();
-        Toolbar.Visibility=DrawingToolbar.Visibility=PromptBarHost.Visibility=SizeText.Visibility=Visibility.Collapsed;HideHandles();
+        Toolbar.Visibility=DrawingToolbar.Visibility=PromptBarHost.Visibility=SizeText.Visibility=CrossRegionConnections.Visibility=Visibility.Collapsed;HideHandles();
         foreach(var item in _selections){item.Host.Visibility=ReferenceEquals(item,selected)?Visibility.Visible:Visibility.Collapsed;item.Badge.Visibility=Visibility.Collapsed;item.Markup.Visibility=item.TextOverlays.Visibility=item.AiAnnotations.Visibility=item.TextSelection.Visibility=Visibility.Collapsed;item.Markup.IsHitTestVisible=false;item.Image.Visibility=ReferenceEquals(item,selected)?Visibility.Collapsed:Visibility.Visible;}
         selected.Video.Visibility=Visibility.Collapsed;
         selected.Outline.BorderBrush=new SolidColorBrush(Color.FromRgb(50,151,242));selected.Outline.BorderThickness=new Thickness(2);selected.Outline.Effect=new DropShadowEffect{Color=Color.FromRgb(48,151,242),BlurRadius=18,ShadowDepth=0,Opacity=.9};
@@ -4177,7 +4197,7 @@ public partial class CaptureOverlayWindow : Window
     {
         ReleaseTeachingLiveCapture();
         _recordingInputTimer.Stop();_recordingBarInputActive=false;SetRecordingInputPassThrough(false);
-        _recordingMode=_recordingPaused=_recordingStopping=false;ClearRecordingVisualHole();NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);RecordingBar.Visibility=Visibility.Collapsed;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;var isImageOnly=item.VideoPath is null;var imageOnly=isImageOnly?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=isImageOnly?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);
+        _recordingMode=_recordingPaused=_recordingStopping=false;ClearRecordingVisualHole();NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);RecordingBar.Visibility=Visibility.Collapsed;CrossRegionConnections.Visibility=Visibility.Visible;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;var isImageOnly=item.VideoPath is null;var imageOnly=isImageOnly?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=isImageOnly?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);
     }
     private void ToggleVideoPlayback(object s,RoutedEventArgs e)
     {
