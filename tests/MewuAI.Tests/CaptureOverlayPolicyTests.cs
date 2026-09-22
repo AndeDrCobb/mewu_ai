@@ -181,17 +181,6 @@ public sealed class CaptureOverlayPolicyTests
         Assert.Equal(expected,CaptureOverlayPolicy.ShouldPassThroughLongCapturePointer(capture,controls,new Point(x,y)));
     }
 
-    [Theory]
-    [InlineData(50,50,false)]
-    [InlineData(30,30,false)]
-    [InlineData(150,50,true)]
-    public void RecordingPassThroughLeavesOnlyControlsInteractive(double x,double y,bool expected)
-    {
-        var controls=new Rect(20,20,60,60);
-
-        Assert.Equal(expected,CaptureOverlayPolicy.ShouldPassThroughRecordingPointer(controls,new Point(x,y)));
-    }
-
     [Fact]
     public void TallLongCaptureResultFitsMonitorWithoutChangingAspectRatio()
     {

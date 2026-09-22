@@ -35,8 +35,8 @@
   <p:Thumb x:Name="W" Tag="W" Cursor="SizeWE" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/><p:Thumb x:Name="E" Tag="E" Cursor="SizeWE" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/>
   <p:Thumb x:Name="Sw" Tag="SW" Cursor="SizeNESW" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/><p:Thumb x:Name="S" Tag="S" Cursor="SizeNS" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/><p:Thumb x:Name="Se" Tag="SE" Cursor="SizeNWSE" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/>
   <Rectangle x:Name="TeachingLiveOutline" Visibility="Collapsed" IsHitTestVisible="False" Stroke="#7897DE" StrokeThickness="1.5" RadiusX="2" RadiusY="2"/>
-  <Grid x:Name="Toolbar" Visibility="Collapsed" MouseEnter="ToolbarMouseEnter">
-   <Border x:Name="ToolbarShadow" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
+  <Grid x:Name="Toolbar" Visibility="Collapsed" ClipToBounds="False" MouseEnter="ToolbarMouseEnter">
+   <Border x:Name="ToolbarShadow" Background="#FFFFFFFF" BorderBrush="Transparent" BorderThickness="0" CornerRadius="18" IsHitTestVisible="False">
     <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
    </Border>
    <Border x:Name="ToolbarSurface" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="6" Panel.ZIndex="1">
@@ -60,8 +60,8 @@
    </WrapPanel>
    </Border>
   </Grid>
-  <Grid x:Name="DrawingToolbar" Visibility="Collapsed">
-   <Border x:Name="DrawingToolbarShadow" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
+  <Grid x:Name="DrawingToolbar" Visibility="Collapsed" ClipToBounds="False">
+   <Border x:Name="DrawingToolbarShadow" Background="#FFFFFFFF" BorderBrush="Transparent" BorderThickness="0" CornerRadius="18" IsHitTestVisible="False">
     <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
    </Border>
    <Border x:Name="DrawingToolbarSurface" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="6" Panel.ZIndex="1">
@@ -109,8 +109,8 @@
   <Border x:Name="ApplicationSnapshotFeedback" Visibility="Collapsed" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="12" Padding="12,8" IsHitTestVisible="False" Panel.ZIndex="90">
    <TextBlock x:Name="ApplicationSnapshotFeedbackText" Foreground="#52637A" FontSize="12" TextWrapping="Wrap" MaxWidth="380"/>
   </Border>
-  <Grid x:Name="LongCaptureBar" Visibility="Collapsed">
-   <Border x:Name="LongCaptureBarShadow" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
+  <Grid x:Name="LongCaptureBar" Visibility="Collapsed" ClipToBounds="False">
+   <Border x:Name="LongCaptureBarShadow" Background="#FFFFFFFF" BorderBrush="Transparent" BorderThickness="0" CornerRadius="18" IsHitTestVisible="False">
     <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
    </Border>
    <Border x:Name="LongCaptureBarSurface" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="10,6" Panel.ZIndex="1">
@@ -123,9 +123,9 @@
    </StackPanel>
    </Border>
   </Grid>
-  <Grid x:Name="RecordingBar" Visibility="Collapsed">
-   <Border x:Name="RecordingBarShadow" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
-    <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+  <Grid x:Name="RecordingBar" Visibility="Collapsed" ClipToBounds="False">
+   <Border x:Name="RecordingBarShadow" Background="#FFFFFFFF" BorderBrush="Transparent" BorderThickness="0" CornerRadius="18" IsHitTestVisible="False">
+    <Border.Effect><DropShadowEffect Color="#26384F" BlurRadius="18" ShadowDepth="3" Opacity="0.16"/></Border.Effect>
    </Border>
    <Border x:Name="RecordingBarSurface" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="10,7" Panel.ZIndex="1">
    <StackPanel Orientation="Horizontal">

@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using mewu_ai_Assistant.Views;
@@ -97,9 +98,12 @@ internal static class AnswerMenuReplay
                 typeof(CaptureOverlayWindow).GetMethod("RenderAnnotationsForItem",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,[selection,null]);
                 var annotations=(Canvas)selection.GetType().GetProperty("AiAnnotations")!.GetValue(selection)!;
                 var formulaCard=annotations.Children.OfType<Border>().Single(card=>card.Child is System.Windows.Controls.Image);
+                var formulaShadow=annotations.Children.OfType<Border>().Single(card=>card.Child is Border);
                 formulaCard.Measure(new System.Windows.Size(900,480));formulaCard.Arrange(new Rect(new System.Windows.Point(),formulaCard.DesiredSize));
                 Check("annotation-card-typesets-formula-and-keeps-drag-cursor",formulaCard.Cursor==System.Windows.Input.Cursors.SizeAll&&((System.Windows.Controls.Image)formulaCard.Child).Source is DrawingImage);
+                Check("annotation-card-shadow-has-independent-padding",formulaShadow.IsHitTestVisible==false&&formulaShadow.Width==formulaCard.Width+16&&formulaShadow.Height==formulaCard.Height+16&&formulaShadow.Child is Border {Effect:DropShadowEffect});
                 SaveElement(formulaCard,"annotation-formula-card.png");
+                SaveElement(annotations,"annotation-shadow-layer.png");
                 var exported=mewu_ai_Assistant.Recording.AnnotationOverlayRenderer.RenderAiOverlay(900,480,notes);
                 var exportEncoder=new PngBitmapEncoder();exportEncoder.Frames.Add(BitmapFrame.Create(exported));using(var exportFile=File.Create(".codex-build/annotation-formula-export.png"))exportEncoder.Save(exportFile);
             }

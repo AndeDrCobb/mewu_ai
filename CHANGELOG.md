@@ -4,7 +4,16 @@
 
 ## 未发布 / Unreleased
 
+## 0.5.9 — 录制交互重构与阴影修复 / Recording interaction redesign and shadow fixes
+
+发行说明 / Release notes: [0.5.9](https://github.com/abnste/mewu_ai/releases/tag/v0.5.9)
+
+- 录制期间不再安装全局鼠标钩子或重注入事件；遮罩和录制边框保持可见，覆盖层通过系统鼠标穿透把控制条之外的点击、滚轮和拖动直接交给底层应用，拖动经过控制条时也不中断。全屏无安全控制条时保留 F8 停止。 / Remove global mouse hooks and event re-injection during recording; keep the dimmer and recording border visible while system mouse transparency sends clicks, wheel input, and dragging outside the control strip directly to the underlying app, including drags crossing the strip. Full-screen captures with no safe control space retain F8 to stop.
+- 停止录制继续使用有限超时恢复，避免停止或 Esc 后永久停在“处理中”。 / Keep a bounded stop timeout and restore path so stopping or pressing Esc cannot remain on “Processing” indefinitely.
+- 控制条阴影使用无重复描边的独立图层；AI 标注文本卡为阴影预留独立透明边距，避免阴影裁切、白边和文字发虚。 / Render control-strip shadows on independent layers without duplicate borders, and give AI annotation cards dedicated transparent shadow padding to avoid clipping, white halos, and blurred text.
 - 框选预览复用冻结截图，减少拖动期间重复创建裁剪位图的开销；最终截图保持原始像素。 / Selection previews reuse the frozen desktop image to avoid repeated bitmap crops while dragging; final captures retain their original pixels.
+
+完整的双语发行说明见 [docs/release-notes-v0.5.9.md](./docs/release-notes-v0.5.9.md)。 / See the full bilingual notes in [docs/release-notes-v0.5.9.md](./docs/release-notes-v0.5.9.md).
 
 ## 0.5.8 — 全屏录制启动与输入稳定性 / Full-screen recording startup and input stability
 

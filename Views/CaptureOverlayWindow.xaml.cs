@@ -27,6 +27,7 @@ using Button=System.Windows.Controls.Button;
 using KeyEventArgs=System.Windows.Input.KeyEventArgs;
 using MouseEventArgs=System.Windows.Input.MouseEventArgs;
 using Point=System.Windows.Point;
+using Forms=System.Windows.Forms;
 
 namespace mewu_ai_Assistant.Views;
 
@@ -35,6 +36,7 @@ public partial class CaptureOverlayWindow : Window
     private static string L(string zh,string en)=>LocalizationService.T(zh,en);
     private const int ReasoningDisplayLimit=12_000;
     private const double PromptEdgeMargin=6;
+    private const double RecordingBarTopMargin=18;
     private const double PromptFloatingGap=8;
     private const double PromptHiddenOffset=20;
     private const double CompactChipScrollMaxHeight=36;
@@ -89,7 +91,6 @@ public partial class CaptureOverlayWindow : Window
     private CancellationTokenRegistration _interactionCancellation;
     private PasswordBox? _activeSensitiveInput;
     private RecordingSession? _recordingSession;
-    private RecordingMousePassThrough? _recordingMousePassThrough;
     private SelectionItem? _recordingItem;
     private SelectionItem? _longCaptureItem;
     private OverlaySnapshot? _longCaptureBefore;
@@ -100,7 +101,7 @@ public partial class CaptureOverlayWindow : Window
     private IntPtr _longCaptureScrollTarget;
     private LowLevelMouseWheelMonitor? _longCaptureWheelMonitor;
     private ScreenRect _longCaptureWheelScreenBounds;
-    private bool _longCaptureWheelForwarding,_longCaptureInputPassThrough,_recordingInputPassThrough;
+    private bool _longCaptureWheelForwarding,_longCaptureInputPassThrough,_recordingInputPassThrough,_recordingBarInputActive;
     private int _longCaptureSampleVersion,_longCapturePreferredDirection;
     private int _longCaptureSessionVersion;
     private long _longCaptureWheelDirectionTick;
@@ -122,7 +123,7 @@ public partial class CaptureOverlayWindow : Window
     private Point _lastToolbarPointer;
     private readonly DispatcherTimer _recordingTimer=new(){Interval=TimeSpan.FromMilliseconds(150)};
     private readonly DispatcherTimer _longCaptureInputTimer=new(){Interval=TimeSpan.FromMilliseconds(32)};
-    private readonly DispatcherTimer _recordingInputTimer=new(){Interval=TimeSpan.FromMilliseconds(32)};
+    private readonly DispatcherTimer _recordingInputTimer=new(){Interval=TimeSpan.FromMilliseconds(24)};
     private DrawTool _drawTool=DrawTool.Freehand;
     private Color _drawColor=Colors.Red;
     private bool _drawHighlighter,_drawTextHighlight,_restoringDrawingAction,_drawingFontsLoaded;
@@ -175,7 +176,7 @@ public partial class CaptureOverlayWindow : Window
         public Image Video { get; }=new(){Stretch=Stretch.Fill,Visibility=Visibility.Collapsed,IsHitTestVisible=false};
         public VideoPreviewSurface? VideoPreview;
         public InkCanvas Markup { get; }=new(){Background=Brushes.Transparent,IsHitTestVisible=false,ClipToBounds=true,Focusable=true};
-        public Canvas AiAnnotations { get; }=new(){IsHitTestVisible=true};
+        public Canvas AiAnnotations { get; }=new(){IsHitTestVisible=true,ClipToBounds=false};
         public Canvas TextOverlays { get; }=new(){IsHitTestVisible=false};
         public Canvas TextSelection { get; }=new(){IsHitTestVisible=false,Background=Brushes.Transparent};
         public Border Outline { get; }=new(){Background=Brushes.Transparent,CornerRadius=new CornerRadius(7),IsHitTestVisible=false};
@@ -932,8 +933,7 @@ public partial class CaptureOverlayWindow : Window
         _inactiveEscapeTimer.Stop();
         _longCaptureInputTimer.Stop();
         _recordingInputTimer.Stop();
-        _recordingMousePassThrough?.Dispose();
-        _recordingMousePassThrough=null;
+        _recordingBarInputActive=false;
         SetRecordingInputPassThrough(false);
         if(IsInitialized)NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);
         if(Root.IsMouseCaptured)Root.ReleaseMouseCapture();
@@ -1043,16 +1043,14 @@ public partial class CaptureOverlayWindow : Window
         if(!IsInitialized||_virtualScreenArea.Width<=0||_virtualScreenArea.Height<=0)return false;
         var hwnd=new WindowInteropHelper(this).Handle;
         if(hwnd==IntPtr.Zero)return false;
-        var pixels=ToPixelRect(item.Bounds);
-        // Keep a very small ring for the live border and its shadow.  The
-        // interior is removed from the native window region, which makes the
-        // hole genuinely click-through even when the browser is another UI
-        // thread/process (HTTRANSPARENT alone is same-thread only).
-        var borderReserve=IsTeachingMode?0:5;
-        // SetWindowRgn uses coordinates relative to the actual HWND bounds,
-        // not the captured frame.  Normally these are identical, but using
-        // the live rectangle avoids DPI/layout rounding offsets (especially
-        // on mixed-DPI or negative-coordinate virtual desktops).
+        // Ordinary recording remains visually full-screen so the dimmer and
+        // live selection border stay visible. Input pass-through is handled by
+        // WS_EX_TRANSPARENT polling, without hooks or injected mouse events.
+        if(!IsTeachingMode)
+        {
+            if(_recordingWindowRegionApplied)ResetRecordingWindowRegion();
+            return !_recordingWindowRegionApplied;
+        }
         var windowLeft=_virtualScreenArea.Left;var windowTop=_virtualScreenArea.Top;
         var windowWidth=_virtualScreenArea.Width;var windowHeight=_virtualScreenArea.Height;
         if(NativeMethods.GetWindowRect(hwnd,out var windowRect))
@@ -1063,65 +1061,26 @@ public partial class CaptureOverlayWindow : Window
                 windowLeft=windowRect.Left;windowTop=windowRect.Top;windowWidth=measuredWidth;windowHeight=measuredHeight;
             }
         }
-        var windowBounds=new ScreenRect(windowLeft,windowTop,windowWidth,windowHeight);
-        var holeRect=ScreenCoordinateService.ToWindowRelativePixelRect(pixels,_frame.OriginX,_frame.OriginY,windowBounds,borderReserve);
-        if(holeRect.IsEmpty)
-        {
-            LogRecordingRegionFailure("录屏选区太小或已超出当前窗口，无法建立实时穿透区域");
-            return false;
-        }
-        var left=holeRect.X;var top=holeRect.Y;var right=holeRect.Right;var bottom=holeRect.Bottom;
+        var holeRect=ScreenCoordinateService.ToWindowRelativePixelRect(ToPixelRect(item.Bounds),_frame.OriginX,_frame.OriginY,new ScreenRect(windowLeft,windowTop,windowWidth,windowHeight));
+        if(holeRect.IsEmpty)return false;
         var barRect=CreateRecordingBarRegion(windowLeft,windowTop,windowWidth,windowHeight);
-        if(RecordingBar.Visibility==Visibility.Visible&&barRect.IsEmpty)
-        {
-            LogRecordingRegionFailure("录屏控制条尚未完成布局，无法安全开始录制");
-            return false;
-        }
-        var key=(windowLeft,windowTop,windowWidth,windowHeight,left,top,right,bottom,barRect.Left,barRect.Top,barRect.Right,barRect.Bottom);
+        var key=(windowLeft,windowTop,windowWidth,windowHeight,holeRect.X,holeRect.Y,holeRect.Right,holeRect.Bottom,barRect.Left,barRect.Top,barRect.Right,barRect.Bottom);
         if(_recordingWindowRegionApplied&&_recordingWindowRegionKey==key)return true;
         var full=NativeMethods.CreateRectRgn(0,0,windowWidth,windowHeight);
-        var hole=NativeMethods.CreateRectRgn(left,top,right,bottom);
+        var hole=NativeMethods.CreateRectRgn(holeRect.X,holeRect.Y,holeRect.Right,holeRect.Bottom);
         var result=NativeMethods.CreateRectRgn(0,0,0,0);
         if(full==IntPtr.Zero||hole==IntPtr.Zero||result==IntPtr.Zero||NativeMethods.CombineRgn(result,full,hole,NativeMethods.RgnDiff)==0)
         {
             var error=System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
-            if(result!=IntPtr.Zero)NativeMethods.DeleteObject(result);
-            if(hole!=IntPtr.Zero)NativeMethods.DeleteObject(hole);
-            if(full!=IntPtr.Zero)NativeMethods.DeleteObject(full);
-            LogRecordingRegionFailure("无法创建录屏实时穿透区域",error);
-            return false;
+            if(result!=IntPtr.Zero)NativeMethods.DeleteObject(result);if(hole!=IntPtr.Zero)NativeMethods.DeleteObject(hole);if(full!=IntPtr.Zero)NativeMethods.DeleteObject(full);
+            LogRecordingRegionFailure("无法创建教学录屏透明区域",error);return false;
         }
         NativeMethods.DeleteObject(hole);NativeMethods.DeleteObject(full);
-        // A nearly full-screen selection can leave no room above or below for
-        // the stop/pause bar.  Keep the bar in the native region so its
-        // buttons remain actionable even when it overlaps the live hole.
-        if(!barRect.IsEmpty)
-        {
-            var barRegion=NativeMethods.CreateRectRgn(barRect.Left,barRect.Top,barRect.Right,barRect.Bottom);
-            var union=NativeMethods.CreateRectRgn(0,0,windowWidth,windowHeight);
-            if(barRegion==IntPtr.Zero||union==IntPtr.Zero||NativeMethods.CombineRgn(union,result,barRegion,NativeMethods.RgnOr)==0)
-            {
-                var error=System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
-                if(union!=IntPtr.Zero)NativeMethods.DeleteObject(union);
-                if(barRegion!=IntPtr.Zero)NativeMethods.DeleteObject(barRegion);
-                NativeMethods.DeleteObject(result);
-                LogRecordingRegionFailure("无法保留录屏控制条的交互区域",error);
-                return false;
-            }
-            NativeMethods.DeleteObject(result);result=union;
-            NativeMethods.DeleteObject(barRegion);
-        }
         if(NativeMethods.SetWindowRgn(hwnd,result,true)==0)
         {
-            var error=System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
-            NativeMethods.DeleteObject(result);
-            LogRecordingRegionFailure("无法设置录屏实时区域的窗口命中区域",error);
-            return false;
+            var error=System.Runtime.InteropServices.Marshal.GetLastPInvokeError();NativeMethods.DeleteObject(result);LogRecordingRegionFailure("无法设置教学录屏透明区域",error);return false;
         }
-        // Ownership of result transfers to the window after SetWindowRgn.
-        _recordingWindowRegionApplied=true;
-        _recordingWindowRegionKey=key;
-        return true;
+        _recordingWindowRegionApplied=true;_recordingWindowRegionKey=key;return true;
     }
 
     private static void LogRecordingRegionFailure(string message,int error=0)
@@ -1850,7 +1809,7 @@ public partial class CaptureOverlayWindow : Window
                 return;
             }
             Canvas.SetLeft(bar,monitor.Left+Math.Max(0,(monitor.Width-w)/2));
-            Canvas.SetTop(bar,monitor.Top+PromptEdgeMargin);
+            Canvas.SetTop(bar,monitor.Top+RecordingBarTopMargin);
             bar.Visibility=Visibility.Visible;
             return;
         }
@@ -2667,6 +2626,7 @@ public partial class CaptureOverlayWindow : Window
 
     private static void RenderAnnotationsForItem(SelectionItem item,double? videoTime=null)
     {
+        const double shadowPadding=8;
         item.AiAnnotations.Children.Clear();var w=item.Bounds.Width;var h=item.Bounds.Height;var cardWidth=Math.Min(Math.Clamp(w*.3,145,360),Math.Max(1,w-10));var font=Math.Clamp(w/70,11,22);
         // Callout boxes are laid out against the same normalized geometry below.
         // Do not render a second primitive rectangle/ellipse layer: it is the
@@ -2691,11 +2651,11 @@ public partial class CaptureOverlayWindow : Window
         foreach(var note in calloutOrder)
         {
             var card=new Border{Width=cardWidth,Padding=new Thickness(font*.65,font*.5,font*.65,font*.5),CornerRadius=new CornerRadius(8),Background=new SolidColorBrush(Color.FromArgb(248,255,255,255)),BorderBrush=new SolidColorBrush(Color.FromArgb(145,61,174,242)),BorderThickness=new Thickness(1),Cursor=Cursors.SizeAll,ToolTip="拖动批注气泡",Child=new TextBlock{Text=note.Text,Foreground=new SolidColorBrush(Color.FromRgb(35,48,70)),FontSize=font,TextWrapping=TextWrapping.Wrap,LineHeight=font*1.3}};
-            var shadow=new Border{Width=cardWidth,CornerRadius=new CornerRadius(8),Background=Brushes.White,IsHitTestVisible=false,Effect=new DropShadowEffect{Color=Color.FromRgb(51,71,98),BlurRadius=16,ShadowDepth=4,Opacity=.28}};
+            var shadow=new Border{Width=cardWidth+shadowPadding*2,Padding=new Thickness(shadowPadding),Background=Brushes.Transparent,BorderThickness=new Thickness(0),ClipToBounds=false,IsHitTestVisible=false,Child=new Border{CornerRadius=new CornerRadius(8),Background=Brushes.White,IsHitTestVisible=false,Effect=new DropShadowEffect{Color=Color.FromRgb(51,71,98),BlurRadius=16,ShadowDepth=2,Opacity=.2}}};
             if(AnnotationFormulaLayout.TryCreate(note.Text,Math.Max(1,cardWidth-font*1.3-2),font,new SolidColorBrush(Color.FromRgb(35,48,70))) is {} formula)
                 card.Child=new Image{Source=formula,Stretch=Stretch.Uniform,StretchDirection=StretchDirection.DownOnly,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,IsHitTestVisible=false};
             card.ClipToBounds=true;
-            card.Measure(new Size(cardWidth,Math.Max(40,h)));var cardHeight=Math.Min(Math.Max(font*3.2,card.DesiredSize.Height),Math.Max(1,h-10));card.Height=cardHeight;shadow.Height=cardHeight;requests.Add(new AnnotationCalloutRequest(calloutTargets[note],new Size(cardWidth,cardHeight)));calloutCards[note]=(card,cardHeight,default);calloutShadows[note]=shadow;
+            card.Measure(new Size(cardWidth,Math.Max(40,h)));var cardHeight=Math.Min(Math.Max(font*3.2,card.DesiredSize.Height),Math.Max(1,h-10));card.Height=cardHeight;shadow.Height=cardHeight+shadowPadding*2;requests.Add(new AnnotationCalloutRequest(calloutTargets[note],new Size(cardWidth,cardHeight)));calloutCards[note]=(card,cardHeight,default);calloutShadows[note]=shadow;
         }
         var planned=AnnotationLayoutService.PlanCallouts(requests,new Size(w,h));for(var index=0;index<calloutOrder.Length;index++){var value=calloutCards[calloutOrder[index]];calloutCards[calloutOrder[index]]=(value.Card,value.Height,planned[index]);}
         if((item.VideoPath is null?item.Image.Source:item.Video.Source) is BitmapSource mosaicSource)
@@ -2723,7 +2683,7 @@ public partial class CaptureOverlayWindow : Window
             var shadow=calloutShadows[n];
             void PositionCard(double left,double top)
             {
-                left=Math.Clamp(left,5,Math.Max(5,w-cardWidth-5));top=Math.Clamp(top,5,Math.Max(5,h-cardHeight-5));Canvas.SetLeft(card,left);Canvas.SetTop(card,top);Canvas.SetLeft(shadow,left);Canvas.SetTop(shadow,top);var cardBounds=new Rect(left,top,cardWidth,cardHeight);var connector=AnnotationLayoutService.FindConnector(target,cardBounds);var targetPoint=new Point(connector.X<=target.Left?target.Left:connector.X>=target.Right?target.Right:Math.Clamp(connector.X,target.Left,target.Right),connector.Y<=target.Top?target.Top:connector.Y>=target.Bottom?target.Bottom:Math.Clamp(connector.Y,target.Top,target.Bottom));line.X1=targetPoint.X;line.Y1=targetPoint.Y;line.X2=connector.X;line.Y2=connector.Y;Canvas.SetLeft(dot,connector.X-2.5);Canvas.SetTop(dot,connector.Y-2.5);
+                left=Math.Clamp(left,5,Math.Max(5,w-cardWidth-5));top=Math.Clamp(top,5,Math.Max(5,h-cardHeight-5));Canvas.SetLeft(card,left);Canvas.SetTop(card,top);Canvas.SetLeft(shadow,left-shadowPadding);Canvas.SetTop(shadow,top-shadowPadding);var cardBounds=new Rect(left,top,cardWidth,cardHeight);var connector=AnnotationLayoutService.FindConnector(target,cardBounds);var targetPoint=new Point(connector.X<=target.Left?target.Left:connector.X>=target.Right?target.Right:Math.Clamp(connector.X,target.Left,target.Right),connector.Y<=target.Top?target.Top:connector.Y>=target.Bottom?target.Bottom:Math.Clamp(connector.Y,target.Top,target.Bottom));line.X1=targetPoint.X;line.Y1=targetPoint.Y;line.X2=connector.X;line.Y2=connector.Y;Canvas.SetLeft(dot,connector.X-2.5);Canvas.SetTop(dot,connector.Y-2.5);
             }
             Point dragStart=default,cardStart=default;var dragging=false;
             card.PreviewMouseLeftButtonDown+=(_,args)=>{dragging=true;dragStart=args.GetPosition(item.AiAnnotations);cardStart=new Point(Canvas.GetLeft(card),Canvas.GetTop(card));card.CaptureMouse();args.Handled=true;};
@@ -3026,14 +2986,26 @@ public partial class CaptureOverlayWindow : Window
 
     private void UpdateRecordingInputRouting()
     {
-        if(!_recordingMode||_recordingMousePassThrough is not { } router)
+        if(!_recordingMode)
+        {
+            _recordingBarInputActive=false;SetRecordingInputPassThrough(false);return;
+        }
+        var cursor=Forms.Cursor.Position;var overBar=IsScreenPointInRecordingBar(cursor.X,cursor.Y);
+        var buttons=Forms.Control.MouseButtons;
+        if(_recordingBarInputActive)
         {
             SetRecordingInputPassThrough(false);
+            if(buttons==Forms.MouseButtons.None)_recordingBarInputActive=false;
             return;
         }
-        var controls=GetElementBounds(RecordingBar);
-        var screen=controls.IsEmpty?default:ScreenCoordinateService.ToScreenRect(ToPixelRect(controls),_frame.OriginX,_frame.OriginY);
-        router.Update(new PointerPassThroughPolicy(true,screen.IsEmpty?[]:[screen],Environment.TickCount64));
+        // If the press began while the bar was interactive, keep ownership
+        // until its matching release. A drag that began in another app stays
+        // transparent even when it crosses the bar.
+        if(overBar&&buttons!=Forms.MouseButtons.None&&!_recordingInputPassThrough)
+        {
+            _recordingBarInputActive=true;SetRecordingInputPassThrough(false);return;
+        }
+        SetRecordingInputPassThrough(!overBar||buttons!=Forms.MouseButtons.None);
     }
 
     private bool SetRecordingInputPassThrough(bool enabled)
@@ -4019,7 +3991,7 @@ public partial class CaptureOverlayWindow : Window
     private void RestoreAfterRecordingCountdown(SelectionItem selected,string status)
     {
         ReleaseTeachingLiveCapture();
-        _recordingInputTimer.Stop();_recordingMousePassThrough?.Dispose();_recordingMousePassThrough=null;SetRecordingInputPassThrough(false);
+        _recordingInputTimer.Stop();_recordingBarInputActive=false;SetRecordingInputPassThrough(false);
         var interactionRestored=NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);_recordingCountdownActive=false;RecordingCountdown.Visibility=Visibility.Collapsed;RecordingCountdown.BeginAnimation(OpacityProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleXProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleYProperty,null);DesktopImage.Clip=null;Dimmer.Clip=null;_recordingItem=null;_recordingItemWasReferenced=false;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;
         foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;item.Badge.Visibility=Visibility.Visible;var imageOnly=item.VideoPath is null?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=item.VideoPath is null?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}
         var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);PromptStatus.Text=interactionRestored?status:"窗口交互恢复失败，正在安全关闭覆盖层，请重新截图";CrashDiagnosticsService.MarkOperation("屏幕助手：等待操作");if(!interactionRestored)_=Dispatcher.BeginInvoke(DispatcherPriority.Send,new Action(Close));
@@ -4042,24 +4014,10 @@ public partial class CaptureOverlayWindow : Window
         RecordingBar.UpdateLayout();
         Root.UpdateLayout();
         if(!UpdateRecordingVisualHole(requireNativeRegion:true))throw new InvalidOperationException("无法建立录屏区域的鼠标穿透，请调整选区后重试");
-        var router=new RecordingMousePassThrough(new WindowInteropHelper(this).Handle);
-        if(router.Start())
-        {
-            _recordingMousePassThrough=router;
-            _recordingInputTimer.Start();
-            UpdateRecordingInputRouting();
-        }
-        else
-        {
-            // Recording itself must not be discarded because another process
-            // has blocked a low-level hook.  The native selection hole and
-            // HTTRANSPARENT path still work; only teaching mode with a visible
-            // control bar is refused because it would otherwise leave the
-            // shared overlay able to swallow clicks.
-            router.Dispose();
-            if(IsTeachingMode&&RecordingBar.Visibility==Visibility.Visible)
-                throw new InvalidOperationException("录屏输入转发不可用，请关闭占用鼠标的工具后重试");
-        }
+        // Poll only the cursor/button state to switch WS_EX_TRANSPARENT. No
+        // global hook or event re-injection is used. The full-screen dimmer
+        // remains visible while desktop input goes directly to the app below.
+        _recordingBarInputActive=false;_recordingInputTimer.Start();UpdateRecordingInputRouting();
         if(IsTeachingMode)
         {
             if(!IsTeachingAcquisitionClear(selected))throw new InvalidOperationException("录屏区域仍被操作控件覆盖，请重新截图");
@@ -4083,7 +4041,13 @@ public partial class CaptureOverlayWindow : Window
     }
     private void StopRecording(object s,RoutedEventArgs e)
     {
-        if(_recordingSession is not { } session||_recordingItem is not { } item||_recordingStopping)return;CrashDiagnosticsService.MarkOperation("屏幕助手：停止并封装区域录屏");_recordingStopping=true;_recordingTimer.Stop();RecordingTime.Text="处理中…";try{session.Stop();StartRecordingStopWatchdog(session,item);}catch(Exception ex){FailRecording(session,item,ex.Message);}
+        if(_recordingSession is not { } session||_recordingItem is not { } item||_recordingStopping)return;
+        // Stop owning the input path before asking Media Foundation to flush.
+        // The old global mouse hook could remain alive while the MP4 was being
+        // finalized, which made Esc appear to freeze the whole desktop.
+        _recordingStopping=true;_recordingTimer.Stop();_recordingInputTimer.Stop();_recordingBarInputActive=false;SetRecordingInputPassThrough(true);RecordingTime.Text="处理中…";
+        CrashDiagnosticsService.MarkOperation("屏幕助手：停止并封装区域录屏");
+        try{session.Stop();StartRecordingStopWatchdog(session,item);}catch(Exception ex){FailRecording(session,item,ex.Message);}
     }
     private void StartRecordingStopWatchdog(RecordingSession session,SelectionItem item)
     {
@@ -4212,8 +4176,8 @@ public partial class CaptureOverlayWindow : Window
     private void ExitRecordingMode(SelectionItem selected)
     {
         ReleaseTeachingLiveCapture();
-        _recordingInputTimer.Stop();_recordingMousePassThrough?.Dispose();_recordingMousePassThrough=null;SetRecordingInputPassThrough(false);
-        _recordingMode=_recordingPaused=_recordingStopping=false;ClearRecordingVisualHole();RecordingBar.Visibility=Visibility.Collapsed;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;var isImageOnly=item.VideoPath is null;var imageOnly=isImageOnly?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=isImageOnly?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);
+        _recordingInputTimer.Stop();_recordingBarInputActive=false;SetRecordingInputPassThrough(false);
+        _recordingMode=_recordingPaused=_recordingStopping=false;ClearRecordingVisualHole();NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);RecordingBar.Visibility=Visibility.Collapsed;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;var isImageOnly=item.VideoPath is null;var imageOnly=isImageOnly?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=isImageOnly?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);
     }
     private void ToggleVideoPlayback(object s,RoutedEventArgs e)
     {
