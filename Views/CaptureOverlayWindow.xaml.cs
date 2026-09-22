@@ -3911,7 +3911,18 @@ public partial class CaptureOverlayWindow : Window
             EnterRecordingCountdown(item);
             await RunRecordingCountdownAsync(countdown.Token);
             countdown.Token.ThrowIfCancellationRequested();
-            RecordingCountdown.Visibility=Visibility.Collapsed;if(!NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false))throw new InvalidOperationException("无法恢复录屏控制条的鼠标交互，请重新截图");_recordingCountdownActive=false;
+            // Finish the visual countdown before changing the native hit-test
+            // region.  Starting the recorder in the same dispatcher turn as
+            // the last animation used to race WPF's arrange pass: the native
+            // hole could be built from a stale/zero-sized control bar and the
+            // start path then fell back to the screenshot state.
+            RecordingCountdown.Visibility=Visibility.Collapsed;
+            RecordingCountdown.BeginAnimation(OpacityProperty,null);
+            RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleXProperty,null);
+            RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleYProperty,null);
+            if(!NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false))throw new InvalidOperationException("无法恢复录屏控制条的鼠标交互，请重新截图");
+            _recordingCountdownActive=false;
+            await Dispatcher.Yield(DispatcherPriority.Render);
             var pixels=ToPixelRect(item.Bounds);var region=ScreenCoordinateService.ToScreenRect(pixels,_frame.OriginX,_frame.OriginY);var session=new RecordingSession(_host.Settings,region);_recordingSession=session;session.Completed+=path=>{if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>CompleteRecording(session,item,path)));};session.Failed+=error=>{if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>FailRecording(session,item,error)));};EnterRecordingMode(item);session.Start();_recordingTimer.Start();PromptStatus.Text="正在录制当前区域";CrashDiagnosticsService.MarkOperation("屏幕助手：正在区域录屏");
         }
         catch(OperationCanceledException)when(countdown.IsCancellationRequested)
@@ -3973,6 +3984,13 @@ public partial class CaptureOverlayWindow : Window
         selected.Video.Visibility=Visibility.Collapsed;
         selected.Outline.BorderBrush=new SolidColorBrush(Color.FromRgb(50,151,242));selected.Outline.BorderThickness=new Thickness(2);selected.Outline.Effect=new DropShadowEffect{Color=Color.FromRgb(48,151,242),BlurRadius=18,ShadowDepth=0,Opacity=.9};
         RecordingTime.Text="00:00";SetRecordingPauseVisual(false);RecordingPauseButton.ToolTip="暂停";RecordingBar.Visibility=Visibility.Visible;PositionFloatingBar(RecordingBar,selected);
+        // PositionFloatingBar measures the bar, but Canvas arrangement is
+        // completed on the next layout pass.  Force that pass before asking
+        // Win32 to union the bar into the live window region; otherwise a
+        // real desktop (especially mixed-DPI/full-screen) can report an empty
+        // bar rectangle and abort recording immediately after the countdown.
+        RecordingBar.UpdateLayout();
+        Root.UpdateLayout();
         if(!UpdateRecordingVisualHole(requireNativeRegion:true))throw new InvalidOperationException("无法建立录屏区域的鼠标穿透，请调整选区后重试");
         if(IsTeachingMode)
         {
