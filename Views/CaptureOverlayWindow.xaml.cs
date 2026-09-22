@@ -1054,8 +1054,8 @@ public partial class CaptureOverlayWindow : Window
             return false;
         }
         var left=holeRect.X;var top=holeRect.Y;var right=holeRect.Right;var bottom=holeRect.Bottom;
-        var barRect=IsTeachingMode?System.Drawing.Rectangle.Empty:CreateRecordingBarRegion(windowLeft,windowTop,windowWidth,windowHeight);
-        if(!IsTeachingMode&&RecordingBar.Visibility==Visibility.Visible&&barRect.IsEmpty)
+        var barRect=CreateRecordingBarRegion(windowLeft,windowTop,windowWidth,windowHeight);
+        if(RecordingBar.Visibility==Visibility.Visible&&barRect.IsEmpty)
         {
             LogRecordingRegionFailure("录屏控制条尚未完成布局，无法安全开始录制");
             return false;

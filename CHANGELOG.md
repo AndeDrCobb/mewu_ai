@@ -5,6 +5,7 @@
 ## 未发布 / Unreleased
 
 - 框选预览复用冻结截图，减少拖动期间重复创建裁剪位图的开销；最终截图保持原始像素。 / Selection previews reuse the frozen desktop image to avoid repeated bitmap crops while dragging; final captures retain their original pixels.
+- 修复全屏录制时控制条不在原生交互区域，恢复暂停、继续和停止按钮的可见性与点击。 / Fix full-screen recording controls being outside the native interaction region, restoring visible and clickable pause, resume and stop buttons.
 
 ## 0.5.3 — 流畅框选预览与录屏稳定性 / Smooth selection preview and recording stability
 
