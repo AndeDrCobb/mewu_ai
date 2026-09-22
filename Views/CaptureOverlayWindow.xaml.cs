@@ -89,6 +89,7 @@ public partial class CaptureOverlayWindow : Window
     private CancellationTokenRegistration _interactionCancellation;
     private PasswordBox? _activeSensitiveInput;
     private RecordingSession? _recordingSession;
+    private RecordingMousePassThrough? _recordingMousePassThrough;
     private SelectionItem? _recordingItem;
     private SelectionItem? _longCaptureItem;
     private OverlaySnapshot? _longCaptureBefore;
@@ -99,7 +100,7 @@ public partial class CaptureOverlayWindow : Window
     private IntPtr _longCaptureScrollTarget;
     private LowLevelMouseWheelMonitor? _longCaptureWheelMonitor;
     private ScreenRect _longCaptureWheelScreenBounds;
-    private bool _longCaptureWheelForwarding,_longCaptureInputPassThrough;
+    private bool _longCaptureWheelForwarding,_longCaptureInputPassThrough,_recordingInputPassThrough;
     private int _longCaptureSampleVersion,_longCapturePreferredDirection;
     private int _longCaptureSessionVersion;
     private long _longCaptureWheelDirectionTick;
@@ -121,6 +122,7 @@ public partial class CaptureOverlayWindow : Window
     private Point _lastToolbarPointer;
     private readonly DispatcherTimer _recordingTimer=new(){Interval=TimeSpan.FromMilliseconds(150)};
     private readonly DispatcherTimer _longCaptureInputTimer=new(){Interval=TimeSpan.FromMilliseconds(32)};
+    private readonly DispatcherTimer _recordingInputTimer=new(){Interval=TimeSpan.FromMilliseconds(32)};
     private DrawTool _drawTool=DrawTool.Freehand;
     private Color _drawColor=Colors.Red;
     private bool _drawHighlighter,_drawTextHighlight,_restoringDrawingAction,_drawingFontsLoaded;
@@ -404,6 +406,7 @@ public partial class CaptureOverlayWindow : Window
         _toolbarHideTimer.Tick+=(_,_)=>CompleteToolbarHide();
         _recordingTimer.Tick+=(_,_)=>RecordingTick();
         _longCaptureInputTimer.Tick+=(_,_)=>UpdateLongCaptureInputRouting();
+        _recordingInputTimer.Tick+=(_,_)=>UpdateRecordingInputRouting();
         Activated+=OnActivated;
         PreviewKeyUp+=DrawingModifierKeyUp;
         Closed+=OnClosed;Closing+=ApplicationSnapshotClosing;
@@ -412,9 +415,9 @@ public partial class CaptureOverlayWindow : Window
 
     private void ApplyOverlayVisualTuning()
     {
-        Toolbar.Padding=new Thickness(5);
-        DrawingToolbar.Padding=new Thickness(5);
-        RecordingBar.Padding=new Thickness(8,6,8,6);
+        ToolbarSurface.Padding=new Thickness(5);
+        DrawingToolbarSurface.Padding=new Thickness(5);
+        RecordingBarSurface.Padding=new Thickness(8,6,8,6);
         PromptBar.Padding=new Thickness(6,2,6,6);
         PromptBar.CornerRadius=new CornerRadius(18);
         HistoryPanel.MaxHeight=double.PositiveInfinity;
@@ -928,6 +931,10 @@ public partial class CaptureOverlayWindow : Window
         StopThinkingGlow();
         _inactiveEscapeTimer.Stop();
         _longCaptureInputTimer.Stop();
+        _recordingInputTimer.Stop();
+        _recordingMousePassThrough?.Dispose();
+        _recordingMousePassThrough=null;
+        SetRecordingInputPassThrough(false);
         if(IsInitialized)NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);
         if(Root.IsMouseCaptured)Root.ReleaseMouseCapture();
         if(Mouse.Captured is not null)Mouse.Capture(null);
@@ -1205,27 +1212,19 @@ public partial class CaptureOverlayWindow : Window
             handled=true;
             return new IntPtr(NativeMethods.HtTransparent);
         }
-        if(!_recordingMode||_recordingItem is not { } item)return IntPtr.Zero;
+        if(!_recordingMode||_recordingItem is null)return IntPtr.Zero;
         // WM_NCHITTEST carries the actual point being tested.  Reading the
         // current cursor instead can answer for a different point when the
         // pointer is moving quickly, and breaks negative multi-monitor coords.
         var raw=lParam.ToInt64();
         var screenX=(short)(raw&0xffff);
         var screenY=(short)((raw>>16)&0xffff);
-        if(!IsScreenPointInRecordingBar(screenX,screenY)&&IsScreenPointInRecordingHole(item,screenX,screenY))
+        if(!IsScreenPointInRecordingBar(screenX,screenY))
         {
             handled=true;
             return new IntPtr(NativeMethods.HtTransparent);
         }
         return IntPtr.Zero;
-    }
-
-    private bool IsScreenPointInRecordingHole(SelectionItem item,int screenX,int screenY)
-    {
-        var pixels=ToPixelRect(item.Bounds);
-        var left=_frame.OriginX+pixels.X;
-        var top=_frame.OriginY+pixels.Y;
-        return screenX>=left&&screenY>=top&&screenX<left+pixels.Width&&screenY<top+pixels.Height;
     }
 
     private bool IsScreenPointInRecordingBar(int screenX,int screenY)
@@ -2661,14 +2660,15 @@ public partial class CaptureOverlayWindow : Window
             var x=Math.Clamp(frame.X,0,1)*w;var y=Math.Clamp(frame.Y,0,1)*h;var rw=Math.Max(14,Math.Clamp(frame.Width,0,1)*w);var rh=Math.Max(14,Math.Clamp(frame.Height,0,1)*h);
             calloutTargets[n]=new Rect(x,y,rw,rh);targetCount++;
         }
-        var calloutOrder=calloutTargets.Keys.ToArray();var calloutCards=new Dictionary<AiAnnotation,(Border Card,double Height,AnnotationCalloutPlacement Placement)>(ReferenceEqualityComparer.Instance);var requests=new List<AnnotationCalloutRequest>(calloutOrder.Length);
+        var calloutOrder=calloutTargets.Keys.ToArray();var calloutCards=new Dictionary<AiAnnotation,(Border Card,double Height,AnnotationCalloutPlacement Placement)>(ReferenceEqualityComparer.Instance);var calloutShadows=new Dictionary<AiAnnotation,Border>(ReferenceEqualityComparer.Instance);var requests=new List<AnnotationCalloutRequest>(calloutOrder.Length);
         foreach(var note in calloutOrder)
         {
-            var card=new Border{Width=cardWidth,Padding=new Thickness(font*.65,font*.5,font*.65,font*.5),CornerRadius=new CornerRadius(8),Background=new SolidColorBrush(Color.FromArgb(248,255,255,255)),BorderBrush=new SolidColorBrush(Color.FromArgb(145,61,174,242)),BorderThickness=new Thickness(1),Cursor=Cursors.SizeAll,ToolTip="拖动批注气泡",Child=new TextBlock{Text=note.Text,Foreground=new SolidColorBrush(Color.FromRgb(35,48,70)),FontSize=font,TextWrapping=TextWrapping.Wrap,LineHeight=font*1.3},Effect=new DropShadowEffect{Color=Color.FromRgb(51,71,98),BlurRadius=16,ShadowDepth=4,Opacity=.28}};
+            var card=new Border{Width=cardWidth,Padding=new Thickness(font*.65,font*.5,font*.65,font*.5),CornerRadius=new CornerRadius(8),Background=new SolidColorBrush(Color.FromArgb(248,255,255,255)),BorderBrush=new SolidColorBrush(Color.FromArgb(145,61,174,242)),BorderThickness=new Thickness(1),Cursor=Cursors.SizeAll,ToolTip="拖动批注气泡",Child=new TextBlock{Text=note.Text,Foreground=new SolidColorBrush(Color.FromRgb(35,48,70)),FontSize=font,TextWrapping=TextWrapping.Wrap,LineHeight=font*1.3}};
+            var shadow=new Border{Width=cardWidth,CornerRadius=new CornerRadius(8),Background=Brushes.White,IsHitTestVisible=false,Effect=new DropShadowEffect{Color=Color.FromRgb(51,71,98),BlurRadius=16,ShadowDepth=4,Opacity=.28}};
             if(AnnotationFormulaLayout.TryCreate(note.Text,Math.Max(1,cardWidth-font*1.3-2),font,new SolidColorBrush(Color.FromRgb(35,48,70))) is {} formula)
                 card.Child=new Image{Source=formula,Stretch=Stretch.Uniform,StretchDirection=StretchDirection.DownOnly,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,IsHitTestVisible=false};
             card.ClipToBounds=true;
-            card.Measure(new Size(cardWidth,Math.Max(40,h)));var cardHeight=Math.Min(Math.Max(font*3.2,card.DesiredSize.Height),Math.Max(1,h-10));card.Height=cardHeight;requests.Add(new AnnotationCalloutRequest(calloutTargets[note],new Size(cardWidth,cardHeight)));calloutCards[note]=(card,cardHeight,default);
+            card.Measure(new Size(cardWidth,Math.Max(40,h)));var cardHeight=Math.Min(Math.Max(font*3.2,card.DesiredSize.Height),Math.Max(1,h-10));card.Height=cardHeight;shadow.Height=cardHeight;requests.Add(new AnnotationCalloutRequest(calloutTargets[note],new Size(cardWidth,cardHeight)));calloutCards[note]=(card,cardHeight,default);calloutShadows[note]=shadow;
         }
         var planned=AnnotationLayoutService.PlanCallouts(requests,new Size(w,h));for(var index=0;index<calloutOrder.Length;index++){var value=calloutCards[calloutOrder[index]];calloutCards[calloutOrder[index]]=(value.Card,value.Height,planned[index]);}
         if((item.VideoPath is null?item.Image.Source:item.Video.Source) is BitmapSource mosaicSource)
@@ -2693,16 +2693,17 @@ public partial class CaptureOverlayWindow : Window
             if(!calloutTargets.TryGetValue(n,out var target))continue;
             var x=target.Left;var y=target.Top;var rw=target.Width;var rh=target.Height;var style=n.EffectiveStyle;var targetColor=AnnotationPalette.Resolve(style.Color);var targetOutline=new Rectangle{Width=rw,Height=rh,Stroke=new SolidColorBrush(targetColor),Opacity=style.Opacity,StrokeThickness=Math.Max(1,style.StrokeWidth*Math.Min(w,h)),RadiusX=5,RadiusY=5,IsHitTestVisible=false};Canvas.SetLeft(targetOutline,x);Canvas.SetTop(targetOutline,y);item.AiAnnotations.Children.Add(targetOutline);
             var line=new Line{Stroke=Cyan,StrokeThickness=Math.Max(1,w/1200),IsHitTestVisible=false};var dot=new Ellipse{Width=5,Height=5,Fill=Cyan,IsHitTestVisible=false};var view=calloutCards[n];var card=view.Card;var cardHeight=view.Height;var cardX=view.Placement.CardBounds.Left;var cardY=view.Placement.CardBounds.Top;if(item.AnnotationCardPositions.TryGetValue(n,out var saved)){cardX=Math.Clamp(saved.X*w,5,Math.Max(5,w-cardWidth-5));cardY=Math.Clamp(saved.Y*h,5,Math.Max(5,h-cardHeight-5));}
+            var shadow=calloutShadows[n];
             void PositionCard(double left,double top)
             {
-                left=Math.Clamp(left,5,Math.Max(5,w-cardWidth-5));top=Math.Clamp(top,5,Math.Max(5,h-cardHeight-5));Canvas.SetLeft(card,left);Canvas.SetTop(card,top);var cardBounds=new Rect(left,top,cardWidth,cardHeight);var connector=AnnotationLayoutService.FindConnector(target,cardBounds);var targetPoint=new Point(connector.X<=target.Left?target.Left:connector.X>=target.Right?target.Right:Math.Clamp(connector.X,target.Left,target.Right),connector.Y<=target.Top?target.Top:connector.Y>=target.Bottom?target.Bottom:Math.Clamp(connector.Y,target.Top,target.Bottom));line.X1=targetPoint.X;line.Y1=targetPoint.Y;line.X2=connector.X;line.Y2=connector.Y;Canvas.SetLeft(dot,connector.X-2.5);Canvas.SetTop(dot,connector.Y-2.5);
+                left=Math.Clamp(left,5,Math.Max(5,w-cardWidth-5));top=Math.Clamp(top,5,Math.Max(5,h-cardHeight-5));Canvas.SetLeft(card,left);Canvas.SetTop(card,top);Canvas.SetLeft(shadow,left);Canvas.SetTop(shadow,top);var cardBounds=new Rect(left,top,cardWidth,cardHeight);var connector=AnnotationLayoutService.FindConnector(target,cardBounds);var targetPoint=new Point(connector.X<=target.Left?target.Left:connector.X>=target.Right?target.Right:Math.Clamp(connector.X,target.Left,target.Right),connector.Y<=target.Top?target.Top:connector.Y>=target.Bottom?target.Bottom:Math.Clamp(connector.Y,target.Top,target.Bottom));line.X1=targetPoint.X;line.Y1=targetPoint.Y;line.X2=connector.X;line.Y2=connector.Y;Canvas.SetLeft(dot,connector.X-2.5);Canvas.SetTop(dot,connector.Y-2.5);
             }
             Point dragStart=default,cardStart=default;var dragging=false;
             card.PreviewMouseLeftButtonDown+=(_,args)=>{dragging=true;dragStart=args.GetPosition(item.AiAnnotations);cardStart=new Point(Canvas.GetLeft(card),Canvas.GetTop(card));card.CaptureMouse();args.Handled=true;};
             card.PreviewMouseMove+=(_,args)=>{if(!dragging||!card.IsMouseCaptured||args.LeftButton!=MouseButtonState.Pressed)return;var point=args.GetPosition(item.AiAnnotations);PositionCard(cardStart.X+point.X-dragStart.X,cardStart.Y+point.Y-dragStart.Y);args.Handled=true;};
             card.PreviewMouseLeftButtonUp+=(_,args)=>{if(!dragging)return;dragging=false;if(card.IsMouseCaptured)card.ReleaseMouseCapture();item.AnnotationCardPositions[n]=new Point(Canvas.GetLeft(card)/Math.Max(1,w),Canvas.GetTop(card)/Math.Max(1,h));args.Handled=true;};
             card.LostMouseCapture+=(_,_)=>{if(!dragging)return;dragging=false;item.AnnotationCardPositions[n]=new Point(Canvas.GetLeft(card)/Math.Max(1,w),Canvas.GetTop(card)/Math.Max(1,h));};
-            item.AiAnnotations.Children.Add(line);item.AiAnnotations.Children.Add(dot);item.AiAnnotations.Children.Add(card);PositionCard(cardX,cardY);
+            item.AiAnnotations.Children.Add(line);item.AiAnnotations.Children.Add(dot);item.AiAnnotations.Children.Add(shadow);item.AiAnnotations.Children.Add(card);PositionCard(cardX,cardY);
         }
     }
 
@@ -2993,6 +2994,27 @@ public partial class CaptureOverlayWindow : Window
         if(!IsInitialized)return !enabled;
         var changed=NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,enabled);
         if(changed)_longCaptureInputPassThrough=enabled;
+        return changed;
+    }
+
+    private void UpdateRecordingInputRouting()
+    {
+        if(!_recordingMode||_recordingMousePassThrough is not { } router)
+        {
+            SetRecordingInputPassThrough(false);
+            return;
+        }
+        var controls=GetElementBounds(RecordingBar);
+        var screen=controls.IsEmpty?default:ScreenCoordinateService.ToScreenRect(ToPixelRect(controls),_frame.OriginX,_frame.OriginY);
+        router.Update(new PointerPassThroughPolicy(true,screen.IsEmpty?[]:[screen],Environment.TickCount64));
+    }
+
+    private bool SetRecordingInputPassThrough(bool enabled)
+    {
+        if(_recordingInputPassThrough==enabled)return true;
+        if(!IsInitialized)return !enabled;
+        var changed=NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,enabled);
+        if(changed)_recordingInputPassThrough=enabled;
         return changed;
     }
 
@@ -3970,6 +3992,7 @@ public partial class CaptureOverlayWindow : Window
     private void RestoreAfterRecordingCountdown(SelectionItem selected,string status)
     {
         ReleaseTeachingLiveCapture();
+        _recordingInputTimer.Stop();_recordingMousePassThrough?.Dispose();_recordingMousePassThrough=null;SetRecordingInputPassThrough(false);
         var interactionRestored=NativeMethods.TrySetWindowMouseTransparent(new WindowInteropHelper(this).Handle,false);_recordingCountdownActive=false;RecordingCountdown.Visibility=Visibility.Collapsed;RecordingCountdown.BeginAnimation(OpacityProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleXProperty,null);RecordingCountdownScale.BeginAnimation(ScaleTransform.ScaleYProperty,null);DesktopImage.Clip=null;Dimmer.Clip=null;_recordingItem=null;_recordingItemWasReferenced=false;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;
         foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;item.Badge.Visibility=Visibility.Visible;var imageOnly=item.VideoPath is null?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=item.VideoPath is null?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}
         var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);PromptStatus.Text=interactionRestored?status:"窗口交互恢复失败，正在安全关闭覆盖层，请重新截图";CrashDiagnosticsService.MarkOperation("屏幕助手：等待操作");if(!interactionRestored)_=Dispatcher.BeginInvoke(DispatcherPriority.Send,new Action(Close));
@@ -3992,6 +4015,11 @@ public partial class CaptureOverlayWindow : Window
         RecordingBar.UpdateLayout();
         Root.UpdateLayout();
         if(!UpdateRecordingVisualHole(requireNativeRegion:true))throw new InvalidOperationException("无法建立录屏区域的鼠标穿透，请调整选区后重试");
+        var router=new RecordingMousePassThrough(new WindowInteropHelper(this).Handle);
+        if(!router.Start()){router.Dispose();throw new InvalidOperationException("无法启动录屏输入转发，请重新截图");}
+        _recordingMousePassThrough=router;
+        _recordingInputTimer.Start();
+        UpdateRecordingInputRouting();
         if(IsTeachingMode)
         {
             if(!IsTeachingAcquisitionClear(selected))throw new InvalidOperationException("录屏区域仍被操作控件覆盖，请重新截图");
@@ -4144,6 +4172,7 @@ public partial class CaptureOverlayWindow : Window
     private void ExitRecordingMode(SelectionItem selected)
     {
         ReleaseTeachingLiveCapture();
+        _recordingInputTimer.Stop();_recordingMousePassThrough?.Dispose();_recordingMousePassThrough=null;SetRecordingInputPassThrough(false);
         _recordingMode=_recordingPaused=_recordingStopping=false;ClearRecordingVisualHole();RecordingBar.Visibility=Visibility.Collapsed;PromptBarHost.Visibility=_conversationAiAvailable?Visibility.Visible:Visibility.Collapsed;Cursor=Cursors.Cross;foreach(var item in _selections){item.Host.Visibility=Visibility.Visible;var isImageOnly=item.VideoPath is null;var imageOnly=isImageOnly?Visibility.Visible:Visibility.Collapsed;item.Image.Visibility=imageOnly;item.Video.Visibility=isImageOnly?Visibility.Collapsed:Visibility.Visible;item.Markup.Visibility=Visibility.Visible;item.TextOverlays.Visibility=item.TextSelection.Visibility=imageOnly;item.AiAnnotations.Visibility=Visibility.Visible;}var index=_selections.IndexOf(selected);if(index>=0)Select(index);RefreshSelectionNumbers();UpdateReferenceChips();ShowToolbar();PositionPromptBar();SetPromptBarHidden(false);
     }
     private void ToggleVideoPlayback(object s,RoutedEventArgs e)

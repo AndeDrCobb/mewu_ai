@@ -7,6 +7,16 @@
 - 框选预览复用冻结截图，减少拖动期间重复创建裁剪位图的开销；最终截图保持原始像素。 / Selection previews reuse the frozen desktop image to avoid repeated bitmap crops while dragging; final captures retain their original pixels.
 - 修复全屏录制时控制条不在原生交互区域，恢复暂停、继续和停止按钮的可见性与点击。 / Fix full-screen recording controls being outside the native interaction region, restoring visible and clickable pause, resume and stop buttons.
 
+## 0.5.7 — 全屏录制输入与控件视觉修复 / Full-screen recording input and control visuals
+
+发行说明 / Release notes: [0.5.7](https://github.com/abnste/mewu_ai/releases/tag/v0.5.7)
+
+- 录制期间把控制条之外的鼠标移动、点击和滚轮输入转发到下层应用；控制条仍保持可暂停、继续和停止。 / While recording, forward mouse movement, clicks, and wheel input outside the control bar to the application underneath while keeping pause, resume, and stop controls interactive.
+- 将录制、标注和截图工具条的阴影拆成独立图层，避免阴影裁切和文字模糊。 / Render recording, annotation, and capture-toolbar shadows in separate layers so shadows are not clipped and text stays sharp.
+- 录屏倒计时、原位录制和结束后的窗口恢复继续通过 Release 录屏回放验证。 / Keep the countdown, in-place recording, and post-recording interaction restoration covered by the Release recording replay.
+
+完整的双语发行说明见 [docs/release-notes-v0.5.7.md](./docs/release-notes-v0.5.7.md)。 / See the full bilingual notes in [docs/release-notes-v0.5.7.md](./docs/release-notes-v0.5.7.md).
+
 ## 0.5.3 — 流畅框选预览与录屏稳定性 / Smooth selection preview and recording stability
 
 - 框选拖动期间复用冻结截图，减少重复裁剪造成的卡顿。 / Reuse the frozen desktop image while dragging to reduce selection-preview stutter.

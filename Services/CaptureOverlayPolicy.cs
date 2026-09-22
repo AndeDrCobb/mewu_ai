@@ -265,6 +265,9 @@ internal static class CaptureOverlayPolicy
     internal static bool ShouldPassThroughLongCapturePointer(Rect captureBounds,Rect controlBounds,Point pointer) =>
         !captureBounds.IsEmpty&&captureBounds.Contains(pointer)&&(controlBounds.IsEmpty||!controlBounds.Contains(pointer));
 
+    internal static bool ShouldPassThroughRecordingPointer(Rect controlBounds,Point pointer) =>
+        controlBounds.IsEmpty||!controlBounds.Contains(pointer);
+
     internal static Rect FitLongCaptureResultBounds(Rect originalBounds,Rect monitorBounds,int pixelWidth,int pixelHeight,double margin=4)
     {
         if(originalBounds.IsEmpty||monitorBounds.IsEmpty||pixelWidth<=0||pixelHeight<=0)return Rect.Empty;

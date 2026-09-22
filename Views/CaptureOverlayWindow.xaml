@@ -35,8 +35,11 @@
   <p:Thumb x:Name="W" Tag="W" Cursor="SizeWE" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/><p:Thumb x:Name="E" Tag="E" Cursor="SizeWE" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/>
   <p:Thumb x:Name="Sw" Tag="SW" Cursor="SizeNESW" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/><p:Thumb x:Name="S" Tag="S" Cursor="SizeNS" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/><p:Thumb x:Name="Se" Tag="SE" Cursor="SizeNWSE" DragDelta="ResizeDelta" DragCompleted="ResizeCompleted" Visibility="Collapsed"/>
   <Rectangle x:Name="TeachingLiveOutline" Visibility="Collapsed" IsHitTestVisible="False" Stroke="#7897DE" StrokeThickness="1.5" RadiusX="2" RadiusY="2"/>
-  <Border x:Name="Toolbar" Visibility="Collapsed" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="6" MouseEnter="ToolbarMouseEnter">
-   <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+  <Grid x:Name="Toolbar" Visibility="Collapsed" MouseEnter="ToolbarMouseEnter">
+   <Border x:Name="ToolbarShadow" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
+    <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+   </Border>
+   <Border x:Name="ToolbarSurface" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="6" Panel.ZIndex="1">
    <WrapPanel x:Name="ToolbarItems" Orientation="Horizontal">
     <Button x:Name="ReferenceButton" ToolTip="引用当前区域到对话" AutomationProperties.Name="引用当前区域" Click="ReferenceRegion" Style="{StaticResource ReferenceIconButton}"><TextBlock Text="@" FontSize="18" FontWeight="Bold"/></Button>
     <Button ToolTip="添加区域；Shift+拖动可新增重叠区域" AutomationProperties.Name="添加截图区域" Click="AddRegion" Style="{StaticResource ToolbarIconButton}"><Path Width="18" Height="18" Stroke="#52637A" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M9,1 L9,17 M1,9 L17,9"/></Button>
@@ -55,9 +58,13 @@
     <Button x:Name="SaveButton" ToolTip="保存 (S)" AutomationProperties.Name="保存当前区域" Click="Save" Style="{StaticResource ToolbarIconButton}"><Path Width="18" Height="18" Stroke="#52637A" StrokeThickness="1.7" StrokeLineJoin="Round" Data="M3,2 L14,2 L17,5 L17,17 L3,17 Z M6,2 L6,7 L13,7 L13,2 M6,17 L6,11 L14,11 L14,17"/></Button>
     <Button x:Name="PinButton" ToolTip="贴图 (P)" AutomationProperties.Name="原位贴图或贴视频" Click="Pin" Style="{StaticResource ToolbarIconButton}"><Path Width="18" Height="18" Stroke="#52637A" StrokeThickness="1.7" StrokeLineJoin="Round" Data="M6,2 L14,2 L12,7 L16,11 L10.5,11 L10,17 L8.5,11 L3,11 L7,7 Z"/></Button>
    </WrapPanel>
-  </Border>
-  <Border x:Name="DrawingToolbar" Visibility="Collapsed" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="6">
-   <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+   </Border>
+  </Grid>
+  <Grid x:Name="DrawingToolbar" Visibility="Collapsed">
+   <Border x:Name="DrawingToolbarShadow" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
+    <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+   </Border>
+   <Border x:Name="DrawingToolbarSurface" Background="#FAFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="6" Panel.ZIndex="1">
    <WrapPanel x:Name="DrawingToolbarItems" Orientation="Horizontal">
     <StackPanel Orientation="Horizontal">
     <Button x:Name="DrawingPenButton" ToolTip="画笔" AutomationProperties.Name="画笔工具" Click="DrawPen" Style="{StaticResource ToolbarIconButton}"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,15 L3,18 L6,18 L16,8 L13,5 Z M11.5,6.5 L14.5,9.5"/></Button>
@@ -97,12 +104,16 @@
     <Button ToolTip="完成标注" AutomationProperties.Name="完成标注" Click="DrawDone" Style="{StaticResource ReferenceIconButton}"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M4,10 L8,14 L16,5"/></Button>
     </StackPanel>
    </WrapPanel>
-  </Border>
+   </Border>
+  </Grid>
   <Border x:Name="ApplicationSnapshotFeedback" Visibility="Collapsed" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="12" Padding="12,8" IsHitTestVisible="False" Panel.ZIndex="90">
    <TextBlock x:Name="ApplicationSnapshotFeedbackText" Foreground="#52637A" FontSize="12" TextWrapping="Wrap" MaxWidth="380"/>
   </Border>
-  <Border x:Name="LongCaptureBar" Visibility="Collapsed" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="10,6">
-   <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+  <Grid x:Name="LongCaptureBar" Visibility="Collapsed">
+   <Border x:Name="LongCaptureBarShadow" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
+    <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+   </Border>
+   <Border x:Name="LongCaptureBarSurface" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="10,6" Panel.ZIndex="1">
    <StackPanel Orientation="Horizontal">
     <Path Width="16" Height="16" Stroke="#5869E9" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M5,2 L11,2 L11,14 L5,14 Z M3,5 L5,3 L7,5 M9,11 L11,13 L13,11" VerticalAlignment="Center"/>
     <TextBlock Text="滚轮截长图" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
@@ -110,9 +121,13 @@
     <Button ToolTip="完成长截图" AutomationProperties.Name="完成长截图" Click="FinishLongCapture" Padding="10,5"><TextBlock Text="完成"/></Button>
     <Button ToolTip="取消长截图" AutomationProperties.Name="取消长截图" Click="CancelLongCapture" Padding="10,5"><TextBlock Text="取消"/></Button>
    </StackPanel>
-  </Border>
-  <Border x:Name="RecordingBar" Visibility="Collapsed" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="10,7">
-   <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+   </Border>
+  </Grid>
+  <Grid x:Name="RecordingBar" Visibility="Collapsed">
+   <Border x:Name="RecordingBarShadow" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False">
+    <Border.Effect><DropShadowEffect Color="#334762" BlurRadius="24" ShadowDepth="6" Opacity="0.24"/></Border.Effect>
+   </Border>
+   <Border x:Name="RecordingBarSurface" Background="#FCFFFFFF" BorderBrush="#D7E1EF" BorderThickness="1" CornerRadius="18" Padding="10,7" Panel.ZIndex="1">
    <StackPanel Orientation="Horizontal">
     <Ellipse Width="9" Height="9" Fill="#EE4E5C" Margin="4,0,8,0"/>
     <TextBlock Text="录制中" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -120,7 +135,8 @@
     <Button x:Name="RecordingPauseButton" ToolTip="暂停" AutomationProperties.Name="暂停或继续录屏" Click="PauseRecording" Style="{StaticResource ToolbarIconButton}"><Grid Width="18" Height="18"><StackPanel x:Name="RecordingPauseBars" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"><Rectangle Width="4" Height="13" RadiusX="1" RadiusY="1" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}"/><Rectangle Width="4" Height="13" RadiusX="1" RadiusY="1" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" Margin="4,0,0,0"/></StackPanel><Path x:Name="RecordingResumeIcon" Visibility="Collapsed" Width="15" Height="15" Stretch="Uniform" Fill="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" Data="M4,2 L15,8.5 L4,15 Z"/></Grid></Button>
     <Button ToolTip="停止并原位预览" AutomationProperties.Name="停止录屏并原位预览" Click="StopRecording" Style="{StaticResource ToolbarIconButton}"><Rectangle Width="12" Height="12" RadiusX="2" Fill="#DA4856"/></Button>
    </StackPanel>
-  </Border>
+   </Border>
+  </Grid>
   <Rectangle x:Name="PromptDockHint" Visibility="Collapsed" IsHitTestVisible="False" RadiusX="20" RadiusY="20" Stroke="#AAB8CF" StrokeThickness="2" StrokeDashArray="5,4" Fill="#167B8AF4"/>
   <Grid x:Name="PromptBarHost" Opacity="0.99" PreviewMouseLeftButtonDown="PromptBackgroundMouseDown">
    <Border Background="#FFFFFFFF" CornerRadius="20" IsHitTestVisible="False">
