@@ -24,6 +24,11 @@ public sealed class AppHost : IDisposable
     // filtered by provider/model before they are exposed to another overlay.
     private readonly object _sessionHistoryGate=new();
     private readonly List<ConversationHistoryEntry> _sessionConversationHistory=[];
+    // Kept separately from the active request context. Starting a new
+    // conversation must clear what is sent to the provider, while the
+    // history picker still needs to show sessions created earlier in this
+    // host lifetime when disk history is disabled.
+    private readonly List<ConversationHistoryEntry> _conversationArchive=[];
     private GlobalHotkeyService? _hotkey; private Forms.NotifyIcon? _tray; private Forms.ContextMenuStrip? _trayMenu; private Icon? _ownedTrayIcon; private Font? _ownedTrayMenuFont; private MainWindow? _main; private SettingsWindow? _settingsWindow; private readonly List<Window> _auxiliaryWindows=[]; private bool _restoreMainAfterAuxiliary; private int _captureActive; private CaptureOverlayWindow? _activeCaptureOverlay;
     private Action? _restoreHiddenConversationSessions;
     private int _disposed;
@@ -159,7 +164,15 @@ public sealed class AppHost : IDisposable
     }
     internal IReadOnlyList<ConversationHistoryEntry> GetAllSessionConversationHistory()
     {
-        lock(_sessionHistoryGate)return _sessionConversationHistory.ToArray();
+        lock(_sessionHistoryGate)
+        {
+            return _conversationArchive
+                .Concat(_sessionConversationHistory)
+                .GroupBy(entry=>$"{entry.SessionId}\n{entry.Timestamp:O}\n{entry.Provider}\n{entry.Model}\n{entry.Prompt}\n{entry.Answer}",StringComparer.Ordinal)
+                .Select(group=>group.First())
+                .OrderBy(entry=>entry.Timestamp)
+                .ToArray();
+        }
     }
     internal bool CanOpenConversationSession(ConversationSessionArchive session)
         =>GetConversationChannels().Any(channel=>ConversationArchivePolicy.Matches(session,channel,Settings));
@@ -397,9 +410,13 @@ public sealed class AppHost : IDisposable
         lock(_sessionHistoryGate)
         {
             _sessionConversationHistory.Add(entry);
+            _conversationArchive.Add(entry);
             const int maxEntries=100;
             if(_sessionConversationHistory.Count>maxEntries)
                 _sessionConversationHistory.RemoveRange(0,_sessionConversationHistory.Count-maxEntries);
+            const int maxArchiveEntries=200;
+            if(_conversationArchive.Count>maxArchiveEntries)
+                _conversationArchive.RemoveRange(0,_conversationArchive.Count-maxArchiveEntries);
         }
     }
 

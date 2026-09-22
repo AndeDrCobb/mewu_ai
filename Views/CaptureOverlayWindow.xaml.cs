@@ -558,23 +558,30 @@ public partial class CaptureOverlayWindow : Window
 
     private async Task LoadPersistedHistoryAsync()
     {
-        if(!_host.Settings.SaveConversationHistory||_closed)return;
+        if(_closed)return;
         var operation=new CancellationTokenSource();
         var version=Interlocked.Increment(ref _historyLoadVersion);
         var previous=Interlocked.Exchange(ref _historyLoadRequest,operation);
         if(previous is not null)TryCancel(previous);
         try
         {
-            var entries=await new ConversationHistoryService().ReadRecentAsync(48,operation.Token).ConfigureAwait(false);
+            var entries=_host.Settings.SaveConversationHistory
+                ?await new ConversationHistoryService().ReadRecentAsync(48,operation.Token).ConfigureAwait(false)
+                :_host.GetAllSessionConversationHistory();
             if(operation.IsCancellationRequested||_closed||version!=Volatile.Read(ref _historyLoadVersion))return;
             await Dispatcher.InvokeAsync(() =>
             {
                 if(_closed||operation.IsCancellationRequested||version!=Volatile.Read(ref _historyLoadVersion))return;
                 var (provider,model)=GetHistoryScope();
-                // Persisted records stay visible in the history panel but are
-                // not merged into the request context; the explicit 新会话
-                // action controls the conversation boundary.
-                _persistedHistory=entries.Where(entry=>entry.Provider==provider&&entry.Model==model&&entry.SessionId==_archiveSessionId).TakeLast(24).ToArray();
+                // Persisted records are display-only. Keep the whole provider
+                // scope visible so a newly-created conversation can still
+                // show the turns that came before it; request context remains
+                // isolated in _history and is never rebuilt from this list.
+                _persistedHistory=entries
+                    .Where(entry=>entry.Provider==provider&&entry.Model==model)
+                    .OrderBy(entry=>entry.Timestamp)
+                    .TakeLast(24)
+                    .ToArray();
                 RefreshHistoryPreview();
             },DispatcherPriority.Background);
         }
@@ -673,6 +680,10 @@ public partial class CaptureOverlayWindow : Window
         _historyExpanded=false;
         PromptStatus.Text=LocalizationService.T("已开始新会话，之前的历史不会带入本次请求。","New conversation started. Previous history will not be sent with this request.");
         RefreshHistoryPreview();
+        // Reload the display-only archive after changing the session boundary.
+        // This repopulates the history panel without restoring any old turns
+        // into _history or sending them with the next request.
+        _=LoadPersistedHistoryAsync();
         PositionPromptBar();
         QuickPrompt.Focus();
         e.Handled=true;
