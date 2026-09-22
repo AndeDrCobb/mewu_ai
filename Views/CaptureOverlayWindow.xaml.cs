@@ -1573,7 +1573,20 @@ public partial class CaptureOverlayWindow : Window
     {
         QueueCrossRegionConnections();
         var r=Normalize(item.Bounds);item.Bounds=r;Canvas.SetLeft(item.Host,r.Left);Canvas.SetTop(item.Host,r.Top);item.Host.Width=r.Width;item.Host.Height=r.Height;item.Markup.Width=item.TextOverlays.Width=item.AiAnnotations.Width=item.TextSelection.Width=r.Width;item.Markup.Height=item.TextOverlays.Height=item.AiAnnotations.Height=item.TextSelection.Height=r.Height;
-        var px=ToPixelRect(r);if(px.Width>0&&px.Height>0&&item.VideoPath is null)item.Image.Source=item.ImageCache.Get(_frame.Image,px,item.CapturedImageOverride);
+        var px=ToPixelRect(r);
+        if(_selecting&&ReferenceEquals(item,Active)&&item.CapturedImageOverride is null&&item.VideoPath is null)
+        {
+            // Reuse the frozen desktop texture during selection instead of
+            // constructing and uploading a new WIC crop for every mouse move.
+            item.Host.Background=item.ImageCache.GetPreview(_frame.Image,px);
+            item.Image.Source=null;
+        }
+        else
+        {
+            item.Host.Background=null;
+            item.ImageCache.ClearPreview();
+            if(px.Width>0&&px.Height>0&&item.VideoPath is null)item.Image.Source=item.ImageCache.Get(_frame.Image,px,item.CapturedImageOverride);
+        }
         var active=ReferenceEquals(item,Active);var referenced=_references.Contains(item);item.Outline.BorderBrush=item.IsImplicit?Brushes.Transparent:active?Cyan:referenced?AnnotationPalette.Referenced:AnnotationPalette.Inactive;item.Outline.BorderThickness=new Thickness(active?1.8:1.2);item.Outline.Effect=active&&!item.IsImplicit?AnnotationPalette.SelectionGlow:null;item.Badge.Background=AnnotationPalette.Accent;item.Badge.Visibility=item.IsImplicit?Visibility.Collapsed:Visibility.Visible;
         if(active&&!item.IsImplicit){SizeTextLabel.Text=item.VideoPath is null?$"{px.Width} × {px.Height}":$"视频 · {item.VideoDuration:mm\\:ss}";SizeText.Visibility=Visibility.Visible;Canvas.SetLeft(SizeText,r.Left);Canvas.SetTop(SizeText,Math.Max(0,r.Top-30));PositionHandles(r);}else if(item.IsImplicit){HideHandles();SizeText.Visibility=Visibility.Collapsed;}
     }

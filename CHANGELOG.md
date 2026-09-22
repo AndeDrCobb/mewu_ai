@@ -4,7 +4,7 @@
 
 ## 未发布 / Unreleased
 
-暂无未发布变更。 / No unreleased changes.
+- 框选预览复用冻结截图，减少拖动期间重复创建裁剪位图的开销；最终截图保持原始像素。 / Selection previews reuse the frozen desktop image to avoid repeated bitmap crops while dragging; final captures retain their original pixels.
 
 ## 0.5.2 — 多 API 协议、代理与历史会话 / Multi-API protocols, proxy and conversation history
 
