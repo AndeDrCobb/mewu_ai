@@ -573,12 +573,11 @@ public partial class CaptureOverlayWindow : Window
             {
                 if(_closed||operation.IsCancellationRequested||version!=Volatile.Read(ref _historyLoadVersion))return;
                 var (provider,model)=GetHistoryScope();
-                // Persisted records are display-only. Keep the whole provider
-                // scope visible so a newly-created conversation can still
-                // show the turns that came before it; request context remains
-                // isolated in _history and is never rebuilt from this list.
+                // The pull-up chat panel belongs to the active conversation.
+                // Older sessions remain available from the separate history
+                // button, but must not make a newly-created chat look nonempty.
                 _persistedHistory=entries
-                    .Where(entry=>entry.Provider==provider&&entry.Model==model)
+                    .Where(entry=>entry.Provider==provider&&entry.Model==model&&entry.SessionId==_archiveSessionId)
                     .OrderBy(entry=>entry.Timestamp)
                     .TakeLast(24)
                     .ToArray();
