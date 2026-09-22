@@ -193,4 +193,6 @@ Created by **Abner Stephen**, **Yandi**, and [**shuziyuxingxing-stack**](https:/
 
 Project-owned source is licensed under [MPL-2.0](./LICENSE). Commercial use is permitted under the license. When distributing covered software, provide the covered source and retain copyright and license notices as required. See [license and source information](./SOURCE.md) and the separate [third-party notices](./THIRD-PARTY-NOTICES.md).
 
+## Acknowledgments
+
 Thanks to teachers **Lin Wenjie** for subject-matter guidance and **Zhang Wenbiao** for feature development suggestions.
