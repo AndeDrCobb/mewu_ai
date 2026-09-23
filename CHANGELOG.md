@@ -2,6 +2,12 @@
 
 每个正式版本对应自己的源码标签、安装包和双语发行说明。后续功能写入新版本；旧版本说明保留当时发布内容。/ Each release has its own source tag, packages, and bilingual notes. Later changes belong to later releases.
 
+## 0.5.10 — 0.5.3 以来的累计更新与录屏声音稳定性 / Cumulative updates since 0.5.3 and recording-audio stability
+
+发行说明 / Release notes: [0.5.10](https://github.com/abnste/mewu_ai/releases/tag/v0.5.10)
+
+完整的双语发行说明见 [docs/release-notes-v0.5.10.md](./docs/release-notes-v0.5.10.md)。 / See the consolidated bilingual notes in [docs/release-notes-v0.5.10.md](./docs/release-notes-v0.5.10.md).
+
 ## 未发布 / Unreleased
 
 - 修复启用电脑声音录制时，无声桌面可能在约 3 秒后使成片停留在旧画面的问题；保持声音采集时钟连续，并增加超过 12 秒的动态录制、暂停恢复和有声／无声切换验收。 / Fix recordings freezing on an old frame after roughly three seconds when computer audio is enabled on a silent desktop; keep the audio capture clock running and cover sustained dynamic recording, pause/resume, and sound/silence transitions.
