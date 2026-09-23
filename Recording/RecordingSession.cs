@@ -26,6 +26,7 @@ public sealed class RecordingSession : IDisposable,IAsyncDisposable
     private readonly RecordingRuntimeGuardOptions _runtimeGuardOptions;
     private readonly RecordingTerminalState _terminalState=new();
     private Recorder? _recorder;
+    private LoopbackSilenceSource? _loopbackSilence;
     private TempMediaLease? _videoLease;
     private RecordingRuntimeGuard? _runtimeGuard;
     private bool _paused;
@@ -71,6 +72,16 @@ public sealed class RecordingSession : IDisposable,IAsyncDisposable
     {
         var screens=Forms.Screen.AllScreens;var displayRects=screens.Select(x=>new MewuScreenRect(x.Bounds.X,x.Bounds.Y,x.Bounds.Width,x.Bounds.Height)).ToArray();var slices=RecordingLayoutService.CreateSlices(_region,displayRects);var sources=new List<RecordingSourceBase>();foreach(var slice in slices){var screen=screens[Array.IndexOf(displayRects,slice.Display)];sources.Add(new DisplayRecordingSource(screen.DeviceName){SourceRect=new ScreenRecorderLib.ScreenRect(slice.Source.X-slice.Display.X,slice.Source.Y-slice.Display.Y,slice.Source.Width,slice.Source.Height),Position=new ScreenPoint(slice.Output.X,slice.Output.Y),OutputSize=new ScreenSize(slice.Output.Width,slice.Output.Height),IsCursorCaptureEnabled=_settings.IncludeRecordingCursor,IsBorderRequired=false});}if(sources.Count==0)throw new InvalidOperationException("选区不在可录制显示器范围内");
         var options=new RecorderOptions{SourceOptions=new SourceOptions{RecordingSources=sources},OutputOptions=new OutputOptions{RecorderMode=RecorderMode.Video,OutputFrameSize=new ScreenSize(_region.Width,_region.Height)},VideoEncoderOptions=RecordingVideoPolicy.Create(_region.Width,_region.Height,_settings.RecordingFps,_settings.RecordingQuality),AudioOptions=RecordingAudioPolicy.Create(_settings),MouseOptions=new MouseOptions{IsMousePointerEnabled=_settings.IncludeRecordingCursor}};
+        if(options.AudioOptions.AudioSources.OfType<LoopbackAudioSource>().FirstOrDefault() is { } loopback)
+        {
+            _loopbackSilence=new LoopbackSilenceSource(loopback.DeviceName,ex=>
+            {
+                Log("RecordingLoopbackClock",ex);
+                if(Volatile.Read(ref _recordingStarted)!=0)StopForRuntimeFailure(LoopbackFailureMessage);
+            });
+            try{_loopbackSilence.WaitUntilReady();}
+            catch(Exception ex){throw new InvalidOperationException(LoopbackFailureMessage,ex);}
+        }
         _recorder=Recorder.CreateRecorder(options);
         _recorder.OnRecordingComplete+=(_,e)=>
         {
@@ -111,10 +122,17 @@ public sealed class RecordingSession : IDisposable,IAsyncDisposable
         // bridge can complete with a zero-byte FileStream on current .NET;
         // no custom stream sharing is needed because cleanup happens only
         // after the recorder has stopped and been disposed.
+        if(_loopbackSilence?.Failure is { } clockFailure)throw new InvalidOperationException(LoopbackFailureMessage,clockFailure);
         _recorder.Record(VideoPath);
         Volatile.Write(ref _recordingStarted,1);
+        // Cover a device failure between the check above and Record returning.
+        // Never Stop a recorder that has not been started yet.
+        if(_loopbackSilence?.Failure is not null)StopForRuntimeFailure(LoopbackFailureMessage);
         StartRuntimeGuard();
     }
+    private static string LoopbackFailureMessage=>LocalizationService.T(
+        "无法保持电脑声音采集，录屏已停止；请检查扬声器或耳机，或关闭“录制电脑声音”后重试。",
+        "Computer audio capture is unavailable; recording has stopped. Check your speakers or headphones, or turn off computer audio and try again.");
     private void StartRuntimeGuard()
     {
         var runtimeGuard=new RecordingRuntimeGuard(
@@ -234,6 +252,12 @@ public sealed class RecordingSession : IDisposable,IAsyncDisposable
         catch(Exception ex){Log("RecordingDispose",ex);}
         finally
         {
+            if(_loopbackSilence is { } silence)
+            {
+                _loopbackSilence=null;
+                try{await silence.DisposeAsync().ConfigureAwait(false);}
+                catch(Exception ex){Log("RecordingLoopbackClockDispose",ex);}
+            }
             try{await DeleteIncompleteOutputAsync().ConfigureAwait(false);}
             finally{Interlocked.Exchange(ref _videoLease,null)?.Dispose();}
         }

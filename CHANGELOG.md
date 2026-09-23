@@ -4,6 +4,7 @@
 
 ## 未发布 / Unreleased
 
+- 修复启用电脑声音录制时，无声桌面可能在约 3 秒后使成片停留在旧画面的问题；保持声音采集时钟连续，并增加超过 12 秒的动态录制、暂停恢复和有声／无声切换验收。 / Fix recordings freezing on an old frame after roughly three seconds when computer audio is enabled on a silent desktop; keep the audio capture clock running and cover sustained dynamic recording, pause/resume, and sound/silence transitions.
 - 录制期间隐藏冻结桌面层，只保留区外实时暗化遮罩和选区边框；底层窗口移动、点击和拖动会继续实时进入录屏，录制结束后恢复录制前的原始冻结截图。/ Hide the frozen desktop layer while recording and keep only a live outside-region dimmer and selection border; moved, clicked, and dragged windows remain live in the recording, and the original pre-recording frozen screenshot is restored afterward.
 - 录屏视频编码改为按选区尺寸、帧率和画质计算 H.264 高配置文件可变码率，并保留固定帧率与硬件编码能力；动态回放加入连续帧重复检查。/ Select H.264 High-profile VBR bitrate from capture size, frame rate, and quality while retaining fixed cadence and hardware encoding support; add consecutive-frame duplicate checks to the dynamic replay.
 
