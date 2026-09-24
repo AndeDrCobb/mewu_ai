@@ -26,9 +26,10 @@ internal static class WindowIssuesReplay
     [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(NativePoint point);
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X,Y; }
 
-    internal static void Run(Application app,AppHost host)
+    internal static void Run(Application app,AppHost host,bool sharedOnly=false)
     {
         app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
+        var startedUtc=DateTimeOffset.UtcNow;
         var checks=new Dictionary<string,bool>();
         var windows=new List<Window>();
         var area=System.Windows.Forms.SystemInformation.VirtualScreen;
@@ -64,7 +65,9 @@ internal static class WindowIssuesReplay
                 var settingsHandle=Handle(settings);settings.Close();await Idle();
                 Check("closed-settings-no-protected-hwnd",!GetWindowDisplayAffinity(settingsHandle,out _));
 
-                foreach(var teaching in new[]{true,false})
+                // The protected-mode half deliberately blocks desktop recorders.
+                // Skip it when checking a real NVIDIA Instant Replay session.
+                foreach(var teaching in sharedOnly?new[]{true}:new[]{true,false})
                 {
                     host.Settings.TeachingMode=teaching;
                     var prefix=teaching?"teaching":"protected";
@@ -160,12 +163,20 @@ internal static class WindowIssuesReplay
                 foreach(var window in windows.AsEnumerable().Reverse())try{window.Close();}catch{}
                 host.Dispose();
                 Directory.CreateDirectory(".codex-build/issue-3-4");
-                File.WriteAllText(".codex-build/issue-3-4/window-replay.json",JsonSerializer.Serialize(new{checks,failure},new JsonSerializerOptions{WriteIndented=true}));
+                var report=sharedOnly?"window-replay-shared.json":"window-replay.json";
+                File.WriteAllText(Path.Combine(".codex-build/issue-3-4",report),JsonSerializer.Serialize(new{sharedOnly,startedUtc,completedUtc=DateTimeOffset.UtcNow,checks,failure},new JsonSerializerOptions{WriteIndented=true}));
                 app.Shutdown(failure is null&&checks.Values.All(value=>value)?0:1);
             }
         }));
         app.Run(background);
         void Check(string name,bool value)=>checks.Add(name,value);
+        async Task Idle()
+        {
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            // Give an external recorder time to acquire each visible state.
+            if(sharedOnly)await Task.Delay(200);
+        }
     }
 
     private static IntPtr Handle(Window window)=>new WindowInteropHelper(window).Handle;
@@ -233,7 +244,6 @@ internal static class WindowIssuesReplay
         }
         return false;
     }
-    private static async Task Idle(){await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);}
     private static BitmapSource SolidImage()
     {
         var pixels=new byte[400*260*4];
